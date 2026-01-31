@@ -1,0 +1,47 @@
+# Flutter/Dart
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Android
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/local.properties
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/app/release/
+
+# iOS/Pod
+ios/Pods/
+ios/.symlinks/
+ios/profile/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Generated files
+*.g.dart
+*.drift.dart
+
+# Logs
+*.log
+debug/

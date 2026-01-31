@@ -1,0 +1,1 @@
+ G:\\8.CC\\ThickNotepad\\.dart_tool\\flutter_build\\5eda164fd0ca696e531d47d4987aa324\\dart_build_result.json:  G:\\8.CC\\ThickNotepad\\.dart_tool\\package_config.json G:\\8.CC\\ThickNotepad\\pubspec.yaml G:\\8.CC\\flutter\\bin\\cache\\dart-sdk\\version g:\\8.cc\\thicknotepad\\.dart_tool\\package_config.json
