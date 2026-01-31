@@ -88,6 +88,32 @@
 
 ---
 
+## P0 核心功能验证完成（2026-01-31）
+
+### 功能验证
+经过代码审查，以下 P0 核心功能均已实现：
+
+| 功能 | 状态 | 实现位置 |
+|------|------|----------|
+| 运动记录关联计划 | ✅ | `workout_edit_page.dart` + `plan_selector.dart` |
+| 运动保存自动完成任务 | ✅ | `_completeTodayPlanTasks()` 方法 |
+| 首页真实数据展示 | ✅ | `home_page.dart` 使用 `taskStatsProvider` 等 |
+| 通知推送集成 | ✅ | `reminders_page.dart` 调用 `NotificationService` |
+| 首次使用请求通知权限 | ✅ | `main.dart` 初始化 + 首次创建提醒时请求 |
+
+### 编译测试
+```
+flutter analyze: 315 info 级别建议，0 errors
+flutter build apk --debug: 成功
+APK: build\app\outputs\flutter-apk\app-debug.apk
+```
+
+### 文档更新
+- `docs/Plan_Task.md` - 更新 P0 任务完成状态
+- `docs/Changed.md` - 添加本条记录
+
+---
+
 ## 修改记录模板
 
 ```markdown

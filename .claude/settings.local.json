@@ -60,7 +60,12 @@
       "Bash(/g/8.CC/flutter/bin/flutter.bat pub:*)",
       "Bash(done:*)",
       "Bash(python3 -c \"\nimport re\n\n# 读取文件\nwith open\\(''lib/features/notes/presentation/pages/note_edit_page.dart'', ''r'', encoding=''utf-8'', errors=''ignore''\\) as f:\n    content = f.read\\(\\)\n\n# 修复 copyWith 的 drift.Value 问题\ncontent = re.sub\\(\n    r''title: title\\\\.isEmpty \\\\? const drift\\\\.Value\\\\\\(null\\\\\\) : drift\\\\.Value\\\\\\(title\\\\\\),'',\n    ''title: title.isEmpty ? null : title,'',\n    content\n\\)\n\n# 写回文件\nwith open\\(''lib/features/notes/presentation/pages/note_edit_page.dart'', ''w'', encoding=''utf-8'', newline=''\\\\r\\\\n''\\) as f:\n    f.write\\(content\\)\n\nprint\\(''Fixed copyWith issue''\\)\n\")",
-      "Bash(/g/8.CC/flutter/bin/flutter.bat:*)"
+      "Bash(/g/8.CC/flutter/bin/flutter.bat:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(\"G:\\\\8.CC\\\\flutter\\\\bin\\\\flutter.bat\":*)",
+      "Bash(git add:*)"
     ]
   }
 }
