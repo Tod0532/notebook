@@ -114,6 +114,29 @@ APK: build\app\outputs\flutter-apk\app-debug.apk
 
 ---
 
+## P1 增强功能验证完成（2026-01-31）
+
+### 功能验证
+经过代码审查，以下 P1 增强功能均已实现：
+
+| 功能 | 状态 | 实现位置 |
+|------|------|----------|
+| 任务关联提醒 | ✅ | `plan_detail_page.dart` 任务弹窗添加提醒选项 |
+| 运动生成笔记 | ✅ | `workout_edit_page.dart` 保存后询问生成小结 |
+| 最近动态列表 | ✅ | `recent_activities.dart` 并行加载聚合数据 |
+
+### 编译测试
+```
+flutter build apk --debug: 成功
+APK: build\app\outputs\flutter-apk\app-debug.apk
+```
+
+### 文档更新
+- `docs/Plan_Task.md` - 更新 P1 任务完成状态
+- `docs/Changed.md` - 添加本条记录
+
+---
+
 ## 修改记录模板
 
 ```markdown
