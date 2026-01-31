@@ -42,6 +42,12 @@ Desktop.ini
 *.g.dart
 *.drift.dart
 
+# Dart tool
+.dart_tool/
+
 # Logs
 *.log
 debug/
+
+# Claude Code local config (keep private)
+.claude/settings.local.json
