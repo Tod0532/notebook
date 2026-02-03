@@ -140,4 +140,31 @@ class ReminderRepository {
       ),
     );
   }
+
+  /// 删除所有提醒
+  Future<void> deleteAllReminders() async {
+    await _db.delete(_db.reminders).go();
+  }
+
+  /// 从 JSON 数据创建提醒（用于备份恢复）
+  Future<int> createReminderFromData(Map<String, dynamic> data) async {
+    final companion = RemindersCompanion.insert(
+      title: data['title'] as String,
+      remindTime: DateTime.parse(data['remind_time'] as String),
+      description: drift.Value(data['description'] as String? ?? ''),
+      repeatType: drift.Value(data['repeat_type'] as String? ?? 'none'),
+      repeatDays: drift.Value(data['repeat_days'] as String? ?? ''),
+      repeatEndDate: data['repeat_end_date'] != null
+          ? drift.Value(DateTime.parse(data['repeat_end_date'] as String))
+          : const drift.Value.absent(),
+      linkedPlanId: drift.Value(data['linked_plan_id'] as int?),
+      linkedWorkoutId: drift.Value(data['linked_workout_id'] as int?),
+      isEnabled: data['is_enabled'] as bool? ?? true ? const drift.Value(true) : const drift.Value(false),
+      isDone: data['is_done'] as bool? ?? false ? const drift.Value(true) : const drift.Value(false),
+      completedAt: data['completed_at'] != null
+          ? drift.Value(DateTime.parse(data['completed_at'] as String))
+          : const drift.Value.absent(),
+    );
+    return await _db.into(_db.reminders).insert(companion);
+  }
 }

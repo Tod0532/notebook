@@ -19,6 +19,9 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// 通知点击回调
+  void Function(String? payload)? onNotificationTap;
+
   /// 初始化通知服务
   Future<bool> initialize() async {
     if (_initialized) return true;
@@ -288,12 +291,81 @@ class NotificationService {
 
   /// 通知点击回调
   void _onNotificationTap(NotificationResponse response) {
-    // TODO: 处理通知点击，跳转到对应页面
     debugPrint('通知被点击: ${response.payload}');
+    // 调用外部设置的回调
+    onNotificationTap?.call(response.payload);
   }
 
   /// 创建通知ID（使用时间戳）
   static int generateId() {
     return DateTime.now().millisecondsSinceEpoch % 1000000000;
+  }
+
+  // ==================== 计划迭代提醒 ====================
+
+  /// 检查并发送计划迭代提醒
+  ///
+  /// [daysSinceUpdate] 距上次更新的天数（7或14天）
+  /// [userProfileId] 用户画像ID
+  /// [planType] 计划类型 ('workout' 或 'diet')
+  /// [planName] 计划名称
+  Future<int?> checkAndSendPlanUpdateReminder({
+    required int daysSinceUpdate,
+    required int? userProfileId,
+    required String planType,
+    String? planName,
+  }) async {
+    // 计算通知ID（基于用户画像ID和计划类型，确保唯一）
+    final notificationId = 900000 + (userProfileId ?? 0) * 10 + (planType == 'workout' ? 1 : 2);
+
+    final title = planType == 'workout' ? '训练计划更新提醒' : '饮食计划更新提醒';
+    final body = planName != null
+        ? '您的「$planName」已执行 $daysSinceUpdate 天，建议根据最新数据更新计划'
+        : '您的AI计划已执行 $daysSinceUpdate 天，建议根据最新数据更新计划';
+
+    // 设置提醒时间（明天上午9点）
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduledTime = tz.TZDateTime(tz.local, now.year, now.month, now.day + 1, 9, 0);
+
+    if (scheduledTime.isBefore(now)) {
+      // 如果计算出的时间已过，设置为后天
+      scheduledTime = scheduledTime.add(const Duration(days: 1));
+    }
+
+    final notificationDetails = _getNotificationDetails();
+
+    try {
+      await _plugin.zonedSchedule(
+        notificationId,
+        title,
+        body,
+        scheduledTime,
+        notificationDetails,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'plan_update_$planType',
+      );
+      return notificationId;
+    } catch (e) {
+      debugPrint('安排计划更新提醒失败: $e');
+      return null;
+    }
+  }
+
+  /// 取消计划迭代提醒
+  Future<void> cancelPlanUpdateReminder({
+    required int? userProfileId,
+    required String planType,
+  }) async {
+    final notificationId = 900000 + (userProfileId ?? 0) * 10 + (planType == 'workout' ? 1 : 2);
+    await _plugin.cancel(notificationId);
+  }
+
+  /// 取消所有计划迭代提醒
+  Future<void> cancelAllPlanUpdateReminders() async {
+    // 计划提醒的ID范围是 900000-999999
+    for (int i = 900000; i < 990000; i++) {
+      await _plugin.cancel(i);
+    }
   }
 }

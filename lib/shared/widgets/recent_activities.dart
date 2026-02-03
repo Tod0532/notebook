@@ -183,7 +183,7 @@ class _ActivityTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (activity.description != null) ...[
+                    if (activity.description != null && activity.description!.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         activity.description!,

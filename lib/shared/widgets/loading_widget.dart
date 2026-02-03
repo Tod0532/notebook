@@ -17,7 +17,7 @@ class LoadingWidget extends StatelessWidget {
           const CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
           ),
-          if (message != null) ...[
+          if (message != null && message!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
               message!,

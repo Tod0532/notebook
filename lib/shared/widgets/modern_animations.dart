@@ -445,8 +445,9 @@ class _PulseButtonState extends State<PulseButton> with SingleTickerProviderStat
 
 // ==================== 加载动画 ====================
 
-/// 现代加载指示器
-class ModernLoadingIndicator extends StatefulWidget {
+/// 现代加载指示器（已优化为简化版，性能更好）
+/// 保留原有组件作为兼容，内部使用简化实现
+class ModernLoadingIndicator extends StatelessWidget {
   final Color? color;
   final double? size;
 
@@ -457,90 +458,56 @@ class ModernLoadingIndicator extends StatefulWidget {
   });
 
   @override
-  State<ModernLoadingIndicator> createState() => _ModernLoadingIndicatorState();
+  Widget build(BuildContext context) {
+    return SimpleLoadingIndicator(
+      color: color,
+      size: size,
+    );
+  }
 }
 
-class _ModernLoadingIndicatorState extends State<ModernLoadingIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _rotationAnimation;
-  late Animation<double> _scaleAnimation;
+/// 简化版加载指示器 - 使用 Flutter 内置组件
+/// 性能更好，动画更流畅
+class SimpleLoadingIndicator extends StatelessWidget {
+  final Color? color;
+  final double? size;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    )..repeat();
-
-    _rotationAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.linear),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const SimpleLoadingIndicator({
+    super.key,
+    this.color,
+    this.size,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final size = widget.size ?? 40.0;
-    final color = widget.color ?? AppColors.primary;
-
     return SizedBox(
-      width: size,
-      height: size,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Transform.rotate(
-            angle: _rotationAnimation.value * 2 * 3.14159,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // 外圈
-                Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: color.withOpacity(0.2),
-                      width: 3,
-                    ),
-                  ),
-                ),
-                // 旋转的圆弧
-                Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: color.withOpacity(_scaleAnimation.value),
-                      width: 3,
-                    ),
-                  ),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                    strokeWidth: 3,
-                    value: _controller.value,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+      width: size ?? 40,
+      height: size ?? 40,
+      child: CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation(color ?? AppColors.primary),
+        strokeWidth: 3,
+      ),
+    );
+  }
+}
+
+/// 小型加载指示器 - 用于按钮内
+class SmallLoadingIndicator extends StatelessWidget {
+  final Color? color;
+
+  const SmallLoadingIndicator({
+    super.key,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation(color ?? AppColors.primary),
+        strokeWidth: 2,
       ),
     );
   }

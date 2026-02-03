@@ -4,6 +4,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
+import 'package:thick_notepad/core/utils/haptic_helper.dart';
 
 // ==================== 渐变卡片 ====================
 
@@ -167,6 +168,7 @@ class GradientCard extends StatelessWidget {
 // ==================== 毛玻璃卡片 ====================
 
 /// 毛玻璃卡片 - 半透明模糊背景效果
+/// 优化：根据明暗模式自动调整不透明度和边框
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -174,8 +176,8 @@ class GlassCard extends StatelessWidget {
   final double? width;
   final double? height;
   final VoidCallback? onTap;
-  final double blur;
-  final double opacity;
+  final double? blur;
+  final double? opacity;
   final BorderRadius? borderRadius;
   final Border? border;
 
@@ -187,8 +189,8 @@ class GlassCard extends StatelessWidget {
     this.width,
     this.height,
     this.onTap,
-    this.blur = 10,
-    this.opacity = 0.7,
+    this.blur,
+    this.opacity,
     this.borderRadius,
     this.border,
   });
@@ -196,21 +198,35 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveBorderRadius = borderRadius ?? AppRadius.lgRadius;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 根据主题调整参数：浅色模式需要更高不透明度
+    final effectiveOpacity = opacity ?? (isDark ? 0.7 : 0.95);
+    final effectiveBlur = blur ?? (isDark ? 10.0 : 5.0);
+    final effectiveBorder = border ??
+        Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.3)
+              : AppColors.dividerColor.withOpacity(0.5),
+          width: 1,
+        );
 
     Widget cardWidget = Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(opacity),
+        color: isDark
+            ? Colors.white.withOpacity(effectiveOpacity)
+            : Colors.white.withOpacity(effectiveOpacity),
         borderRadius: effectiveBorderRadius,
-        border: border ?? Border.all(color: Colors.white.withOpacity(0.3), width: 1),
-        boxShadow: AppShadows.light,
+        border: effectiveBorder,
+        boxShadow: AppShadows.subtle,
       ),
       child: ClipRRect(
         borderRadius: effectiveBorderRadius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          filter: ImageFilter.blur(sigmaX: effectiveBlur, sigmaY: effectiveBlur),
           child: Container(
             padding: padding ?? const EdgeInsets.all(16),
             child: child,
@@ -237,6 +253,7 @@ class GlassCard extends StatelessWidget {
 // ==================== 现代卡片 ====================
 
 /// 现代卡片 - 带有微妙阴影和现代设计
+/// 优化：确保触控目标最小尺寸为 44x44px（iOS 人机交互指南）
 class ModernCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -313,9 +330,12 @@ class _ModernCardState extends State<ModernCard>
 
     if (widget.onTap != null) {
       cardWidget = GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTapDown: (_) => _scaleController.forward(),
-        onTapUp: (_) {
+        onTapUp: (_) async {
           _scaleController.reverse();
+          // 添加触觉反馈
+          await HapticHelper.lightTap();
           widget.onTap!();
         },
         onTapCancel: () => _scaleController.reverse(),
@@ -326,7 +346,14 @@ class _ModernCardState extends State<ModernCard>
       );
     }
 
-    return cardWidget;
+    // 确保最小触控目标尺寸（iOS HIG: 44x44pt）
+    return Container(
+      constraints: const BoxConstraints(
+        minHeight: 44,
+        minWidth: 44,
+      ),
+      child: cardWidget,
+    );
   }
 }
 
@@ -496,7 +523,7 @@ class StatCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              gradient: gradient ?? AppColors.primaryGradient,
+              color: iconColor ?? AppColors.primary,  // 简化：小图标使用纯色
               borderRadius: AppRadius.lgRadius,
             ),
             child: Icon(

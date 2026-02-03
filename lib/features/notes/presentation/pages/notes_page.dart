@@ -213,7 +213,7 @@ class _NoteCard extends StatelessWidget {
                         padding: const EdgeInsets.all(4),
                         margin: const EdgeInsets.only(right: AppSpacing.sm),
                         decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
+                          color: AppColors.primary,  // 简化：小图标使用纯色
                           borderRadius: AppRadius.smRadius,
                         ),
                         child: Icon(
@@ -224,7 +224,7 @@ class _NoteCard extends StatelessWidget {
                       ),
                     Expanded(
                       child: Text(
-                        (note.title as String?)?.isEmpty ?? true ? '无标题' : note.title as String,
+                        ((note.title as String?)?.isEmpty ?? true) ? '无标题' : (note.title as String? ?? '无标题'),
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -236,10 +236,10 @@ class _NoteCard extends StatelessWidget {
                   ],
                 ),
                 // 内容预览
-                if ((note.content as String?)?.isNotEmpty ?? false) ...[
+                if (((note.content as String?)?.isNotEmpty ?? false)) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    note.content as String,
+                    note.content as String? ?? '',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -258,12 +258,7 @@ class _NoteCard extends StatelessWidget {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              tagColor.withValues(alpha: 0.15),
-                              tagColor.withValues(alpha: 0.08),
-                            ],
-                          ),
+                          color: tagColor.withValues(alpha: 0.12),  // 简化：标签使用纯色
                           borderRadius: AppRadius.smRadius,
                         ),
                         child: Text(
@@ -322,9 +317,9 @@ class _NoteCard extends StatelessWidget {
           value: 'pin',
           child: Row(
             children: [
-              Icon(note.isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
+              Icon((note.isPinned ?? false) ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
               const SizedBox(width: 8),
-              Text(note.isPinned ? '取消置顶' : '置顶'),
+              Text((note.isPinned ?? false) ? '取消置顶' : '置顶'),
             ],
           ),
         ),

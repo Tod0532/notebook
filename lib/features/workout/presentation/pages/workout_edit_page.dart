@@ -13,6 +13,9 @@ import 'package:thick_notepad/features/workout/presentation/widgets/plan_selecto
 import 'package:thick_notepad/features/notes/data/repositories/note_repository.dart';
 import 'package:thick_notepad/features/workout/data/models/workout_repository.dart';
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/ai/deepseek_service.dart';
+import 'package:thick_notepad/core/config/router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -36,6 +39,11 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
   final _setsController = TextEditingController();
   final _repsController = TextEditingController();
   final _weightController = TextEditingController();
+
+  // GPS追踪数据
+  double? _gpsDistance; // 米
+  int? _gpsDuration; // 秒
+  List<Map<String, dynamic>>? _gpsTrackPoints;
 
   @override
   void dispose() {
@@ -74,6 +82,14 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
           _buildSection('基础信息'),
           _buildDateTimePicker(),
           _buildDurationInput(),
+
+          // GPS追踪入口（仅对有氧运动显示）
+          if (_selectedType?.category == 'cardio' || _selectedType?.category == 'sports') ...[
+            const SizedBox(height: 16),
+            _buildGpsTrackingCard(),
+          ],
+
+          const SizedBox(height: 16),
           const SizedBox(height: 16),
           // 关联计划
           PlanSelector(
@@ -225,6 +241,100 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
     );
   }
 
+  /// GPS追踪卡片
+  Widget _buildGpsTrackingCard() {
+    final hasGpsData = _gpsDistance != null && _gpsDistance! > 0;
+
+    return Card(
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            borderRadius: AppRadius.smRadius,
+          ),
+          child: const Icon(
+            Icons.gps_fixed,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        title: Text(hasGpsData ? 'GPS轨迹已记录' : '记录运动轨迹'),
+        subtitle: hasGpsData
+            ? Text('距离: ${_formatDistance(_gpsDistance!)}')
+            : const Text('使用GPS记录运动路线和距离'),
+        trailing: hasGpsData
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatDistance(_gpsDistance!),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: _startGpsTracking,
+                    tooltip: '重新记录',
+                  ),
+                ],
+              )
+            : const Icon(Icons.chevron_right),
+        onTap: _startGpsTracking,
+      ),
+    );
+  }
+
+  /// 格式化距离显示
+  String _formatDistance(double meters) {
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)}米';
+    }
+    return '${(meters / 1000).toStringAsFixed(2)}公里';
+  }
+
+  /// 启动GPS追踪
+  Future<void> _startGpsTracking() async {
+    if (_selectedType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先选择运动类型')),
+      );
+      return;
+    }
+
+    // 构建带查询参数的路由
+    final uri = Uri(
+      path: AppRoutes.workoutGpsTracking,
+      queryParameters: {'type': _selectedType!.displayName},
+    );
+
+    final result = await context.push<Map<String, dynamic>>(uri.toString());
+
+    if (result != null && mounted) {
+      setState(() {
+        _gpsDistance = result['distance'] as double?;
+        _gpsDuration = result['duration'] as int?;
+        _gpsTrackPoints = (result['trackPoints'] as List?)
+            ?.cast<Map<String, dynamic>>();
+
+        // 根据GPS数据自动填充时长
+        if (_gpsDuration != null && _gpsDuration! > 0) {
+          _durationController.text = (_gpsDuration! ~/ 60).toString();
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('GPS记录完成 - ${_formatDistance(_gpsDistance ?? 0)}'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  }
+
   Future<void> _selectDateTime() async {
     final now = DateTime.now();
     final date = await showDatePicker(
@@ -282,6 +392,8 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
       weight: drift.Value(_weightController.text.trim().isEmpty ? null : double.tryParse(_weightController.text.trim())),
       feeling: drift.Value(_feeling?.name),
       linkedPlanId: drift.Value(_selectedPlanId),
+      distance: drift.Value(_gpsDistance), // GPS距离
+      calories: drift.Value(null), // TODO: 根据运动类型和距离计算卡路里
     );
 
     try {
@@ -314,42 +426,223 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
   }
 
   /// 询问是否生成运动笔记
-  void _askToCreateNote(int workoutId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('生成运动笔记'),
-        content: const Text('是否为这次运动生成一篇小结笔记？'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // 直接退出，不生成笔记
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_selectedPlanId != null
-                      ? '运动记录已保存，计划任务已自动完成'
-                      : '运动记录已保存'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            child: const Text('不用了'),
+  void _askToCreateNote(int workoutId) async {
+    // 检查 AI 是否已配置
+    final aiService = DeepSeekService.instance;
+    await aiService.init();
+    final useAI = aiService.isConfigured;
+
+    if (!mounted) return;
+
+    if (useAI) {
+      // AI 已配置，提供两个选项
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('生成运动笔记'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('选择生成方式：'),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
+                title: const Text('AI 生成小结'),
+                subtitle: const Text('使用 AI 自动生成专业的运动小结'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _createAIWorkoutNote(workoutId);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.edit_note, color: AppColors.secondary),
+                title: const Text('手动生成'),
+                subtitle: const Text('按固定模板生成运动小结'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _createWorkoutNote(workoutId);
+                },
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _createWorkoutNote(workoutId);
-            },
-            child: const Text('生成笔记', style: TextStyle(color: AppColors.primary)),
-          ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () {
+                // 只 pop 一次，关闭对话框即可
+                Navigator.of(context).pop();
+                // 延迟显示 SnackBar，避免与导航冲突
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_selectedPlanId != null
+                            ? '运动记录已保存，计划任务已自动完成'
+                            : '运动记录已保存'),
+                        backgroundColor: AppColors.success,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                });
+              },
+              child: const Text('不用了'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // AI 未配置，直接使用手动生成
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('生成运动笔记'),
+          content: const Text('是否为这次运动生成一篇小结笔记？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // 只 pop 一次，关闭对话框即可
+                Navigator.of(context).pop();
+                // 延迟显示 SnackBar，避免与导航冲突
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_selectedPlanId != null
+                            ? '运动记录已保存，计划任务已自动完成'
+                            : '运动记录已保存'),
+                        backgroundColor: AppColors.success,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                });
+              },
+              child: const Text('不用了'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _createWorkoutNote(workoutId);
+              },
+              child: const Text('生成笔记', style: TextStyle(color: AppColors.primary)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
-  /// 创建运动笔记
+  /// 使用 AI 创建运动笔记
+  Future<void> _createAIWorkoutNote(int workoutId) async {
+    try {
+      final noteRepo = ref.read(noteRepositoryProvider);
+      final workoutRepo = ref.read(workoutRepositoryProvider);
+
+      // 获取运动记录
+      final workouts = await workoutRepo.getAllWorkouts();
+      final workout = workouts.where((w) => w.id == workoutId).firstOrNull;
+
+      if (workout == null) {
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('运动记录不存在')),
+          );
+        }
+        return;
+      }
+
+      // 显示加载状态
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('AI 正在生成小结...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      // 使用 AI 生成笔记内容
+      final aiService = DeepSeekService.instance;
+      String content;
+
+      try {
+        content = await aiService.generateWorkoutSummary(
+          workoutType: workout.type,
+          durationMinutes: workout.durationMinutes,
+          notes: workout.notes,
+          feeling: workout.feeling,
+          sets: workout.sets,
+          reps: workout.reps,
+          weight: workout.weight,
+        );
+      } catch (e) {
+        // AI 生成失败，回退到手动生成
+        if (mounted) {
+          Navigator.of(context).pop(); // 关闭加载对话框
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('AI 生成失败: $e，已切换到手动生成'),
+              backgroundColor: AppColors.warning,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        await Future.delayed(const Duration(seconds: 2));
+        content = _buildNoteContent(workout);
+      }
+
+      // 生成笔记标题
+      final now = DateTime.now();
+      final title = '${workout.type} - ${DateFormatter.formatMonthDay(now)}';
+
+      // 保存笔记并获取笔记ID
+      final noteId = await noteRepo.createNote(
+        NotesCompanion.insert(
+          title: drift.Value(title),
+          content: content,
+        ),
+      );
+
+      // 更新运动记录的关联笔记ID
+      if (noteId > 0) {
+        await workoutRepo.updateLinkedNoteId(workoutId, noteId);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(); // 关闭加载对话框
+        Navigator.of(context).pop(); // 关闭页面
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_selectedPlanId != null
+                ? '运动记录已保存，任务已完成，AI 笔记已生成'
+                : '运动记录已保存，AI 笔记已生成'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('生成笔记失败: $e')),
+        );
+      }
+    }
+  }
+
+  /// 创建运动笔记（手动模板）
   Future<void> _createWorkoutNote(int workoutId) async {
     try {
       final noteRepo = ref.read(noteRepositoryProvider);

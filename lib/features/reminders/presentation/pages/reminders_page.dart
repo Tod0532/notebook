@@ -682,6 +682,7 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
           body: '该完成这件事了',
           time: TimeOfDay.fromDateTime(time),
           weekdays: [time.weekday], // 当天重复
+          payload: 'reminder:$id', // 添加 payload 用于点击跳转
         );
         return true;
       } else {
@@ -691,6 +692,7 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
           title: title,
           body: '该完成这件事了',
           scheduledTime: time,
+          payload: 'reminder:$id', // 添加 payload 用于点击跳转
         );
         return true;
       }

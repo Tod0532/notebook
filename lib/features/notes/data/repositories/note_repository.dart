@@ -102,4 +102,23 @@ class NoteRepository {
     if (tags.isEmpty) return '[]';
     return '[${tags.map((e) => '"$e"').join(',')}]';
   }
+
+  /// 删除所有笔记
+  Future<void> deleteAllNotes() async {
+    await _db.delete(_db.notes).go();
+  }
+
+  /// 从 JSON 数据创建笔记（用于备份恢复）
+  Future<int> createNoteFromData(Map<String, dynamic> data) async {
+    final companion = NotesCompanion.insert(
+      title: drift.Value(data['title'] as String?),
+      content: data['content'] as String? ?? '',
+      tags: drift.Value(data['tags'] as String? ?? '[]'),
+      isPinned: data['is_pinned'] as bool? ?? false ? const drift.Value(true) : const drift.Value(false),
+      createdAt: drift.Value(DateTime.parse(data['created_at'] as String)),
+      updatedAt: drift.Value(DateTime.parse(data['updated_at'] as String)),
+      isDeleted: data['is_deleted'] as bool? ?? false ? const drift.Value(true) : const drift.Value(false),
+    );
+    return await _db.into(_db.notes).insert(companion);
+  }
 }

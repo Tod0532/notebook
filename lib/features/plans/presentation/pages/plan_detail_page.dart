@@ -634,6 +634,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
           title: _titleController.text.trim(),
           body: '该完成任务了',
           scheduledTime: finalReminderTime,
+          payload: 'reminder:$reminderId', // 添加 payload 用于点击跳转
         );
       }
 

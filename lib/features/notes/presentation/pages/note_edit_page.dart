@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/constants/app_constants.dart';
+import 'package:thick_notepad/core/utils/haptic_helper.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:drift/drift.dart' as drift;
@@ -23,6 +24,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   final List<String> _tags = [];
+  String? _selectedFolder;
   bool _isLoading = false;
   Note? _existingNote;
 
@@ -41,6 +43,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
       _titleController.text = _existingNote!.title ?? '';
       _contentController.text = _existingNote!.content;
       _tags.addAll(_parseTags(_existingNote!.tags));
+      _selectedFolder = _existingNote!.folder;
     }
     setState(() => _isLoading = false);
   }
@@ -99,6 +102,9 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                         maxLines: null,
                       ),
                       const Divider(height: 32),
+                      // 富文本格式工具栏
+                      _buildFormatToolbar(context),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _contentController,
                         style: Theme.of(context).textTheme.bodyLarge,
@@ -108,13 +114,83 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                           contentPadding: EdgeInsets.zero,
                         ),
                         maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
                       ),
                     ],
                   ),
                 ),
+                _buildFolderBar(context),
                 _buildTagsBar(context),
               ],
             ),
+    );
+  }
+
+  Widget _buildFolderBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.folder_outlined, size: 16, color: AppColors.textHint),
+          const SizedBox(width: 8),
+          Text(
+            '文件夹',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textHint,
+                ),
+          ),
+          const Spacer(),
+          InkWell(
+            onTap: _showFolderSelector,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _selectedFolder ?? '未分类',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: _selectedFolder != null
+                              ? AppColors.primary
+                              : AppColors.textHint,
+                        ),
+                  ),
+                  if (_selectedFolder != null) ...[
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () {
+                        setState(() => _selectedFolder = null);
+                        HapticHelper.lightTap();
+                      },
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: AppColors.textHint,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: AppColors.textHint,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -184,6 +260,31 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
     );
   }
 
+  void _showFolderSelector() async {
+    HapticHelper.lightTap();
+    final allNotes = await ref.read(allNotesProvider.future);
+    final folders = allNotes
+        .map((n) => n.folder)
+        .where((f) => f != null && f.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList()
+      ..sort();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => _FolderSelectorDialog(
+        currentFolder: _selectedFolder,
+        existingFolders: folders,
+        onSelect: (folder) {
+          setState(() => _selectedFolder = folder);
+        },
+      ),
+    );
+  }
+
   Future<void> _saveNote() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
@@ -204,6 +305,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                 title: drift.Value(title.isEmpty ? null : title),
                 content: content,
                 tags: drift.Value(tagsJson),
+                folder: _selectedFolder != null ? drift.Value(_selectedFolder) : const drift.Value(null),
               ),
             );
         ref.invalidate(allNotesProvider);
@@ -213,6 +315,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                 title: title.isEmpty ? const drift.Value(null) : drift.Value(title),
                 content: content,
                 tags: tagsJson,
+                folder: _selectedFolder != null ? drift.Value(_selectedFolder) : const drift.Value(null),
                 updatedAt: DateTime.now(),
               ),
             );
@@ -272,6 +375,150 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  /// 应用Markdown格式到选中文本
+  void _applyFormat(String format) {
+    HapticHelper.lightTap();
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+
+    if (!selection.isValid) {
+      // 没有选中文本，在光标位置插入格式标记
+      final cursorPos = selection.baseOffset;
+      final formatStr = _getFormatString(format);
+      final newText = text.substring(0, cursorPos) +
+                      formatStr['prefix']! +
+                      formatStr['suffix']! +
+                      text.substring(cursorPos);
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: cursorPos + formatStr['prefix']!.length,
+        ),
+      );
+      return;
+    }
+
+    // 有选中文本，包裹选中内容
+    final start = selection.start;
+    final end = selection.end;
+    final selectedText = text.substring(start, end);
+    final formatStr = _getFormatString(format);
+
+    // 如果选中文本已经被该格式包裹，则移除格式
+    if (selectedText.startsWith(formatStr['prefix']!) &&
+        selectedText.endsWith(formatStr['suffix']!) &&
+        selectedText.length >= formatStr['prefix']!.length + formatStr['suffix']!.length) {
+      final unformattedText = selectedText.substring(
+        formatStr['prefix']!.length,
+        selectedText.length - formatStr['suffix']!.length,
+      );
+      final newText = text.substring(0, start) +
+                      unformattedText +
+                      text.substring(end);
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: start + unformattedText.length),
+      );
+      return;
+    }
+
+    // 添加格式包裹
+    final newText = text.substring(0, start) +
+                    formatStr['prefix']! +
+                    selectedText +
+                    formatStr['suffix']! +
+                    text.substring(end);
+    _contentController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: end + formatStr['prefix']!.length + formatStr['suffix']!.length,
+      ),
+    );
+  }
+
+  /// 获取格式标记前缀和后缀
+  Map<String, String> _getFormatString(String format) {
+    switch (format) {
+      case 'bold':
+        return {'prefix': '**', 'suffix': '**'};
+      case 'italic':
+        return {'prefix': '*', 'suffix': '*'};
+      case 'strikethrough':
+        return {'prefix': '~~', 'suffix': '~~'};
+      case 'heading':
+        return {'prefix': '## ', 'suffix': ''};
+      case 'list':
+        return {'prefix': '- ', 'suffix': ''};
+      case 'quote':
+        return {'prefix': '> ', 'suffix': ''};
+      case 'code':
+        return {'prefix': '`', 'suffix': '`'};
+      case 'hr':
+        return {'prefix': '\n---\n', 'suffix': ''};
+      default:
+        return {'prefix': '', 'suffix': ''};
+    }
+  }
+
+  /// 构建格式工具栏
+  Widget _buildFormatToolbar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: _formatButtons.map((btn) {
+          return _buildFormatButton(
+            context: context,
+            icon: btn.icon,
+            label: btn.label,
+            format: btn.format,
+            tooltip: btn.tooltip,
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// 构建单个格式按钮
+  Widget _buildFormatButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String format,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () => _applyFormat(format),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              if (label.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -357,6 +604,220 @@ class _AddTagDialogState extends State<_AddTagDialog> {
       return;
     }
     widget.onAdd(_selectedTag);
+    Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
+/// 格式按钮数据类
+class _FormatButton {
+  final IconData icon;
+  final String label;
+  final String format;
+  final String tooltip;
+
+  const _FormatButton({
+    required this.icon,
+    required this.label,
+    required this.format,
+    required this.tooltip,
+  });
+}
+
+/// 格式按钮列表
+const List<_FormatButton> _formatButtons = [
+  _FormatButton(
+    icon: Icons.format_bold,
+    label: 'B',
+    format: 'bold',
+    tooltip: '粗体',
+  ),
+  _FormatButton(
+    icon: Icons.format_italic,
+    label: 'I',
+    format: 'italic',
+    tooltip: '斜体',
+  ),
+  _FormatButton(
+    icon: Icons.strikethrough_s,
+    label: 'S',
+    format: 'strikethrough',
+    tooltip: '删除线',
+  ),
+  _FormatButton(
+    icon: Icons.title,
+    label: '',
+    format: 'heading',
+    tooltip: '标题',
+  ),
+  _FormatButton(
+    icon: Icons.format_list_bulleted,
+    label: '',
+    format: 'list',
+    tooltip: '列表',
+  ),
+  _FormatButton(
+    icon: Icons.format_quote,
+    label: '',
+    format: 'quote',
+    tooltip: '引用',
+  ),
+  _FormatButton(
+    icon: Icons.code,
+    label: '',
+    format: 'code',
+    tooltip: '代码',
+  ),
+  _FormatButton(
+    icon: Icons.horizontal_rule,
+    label: '',
+    format: 'hr',
+    tooltip: '分割线',
+  ),
+];
+
+/// 文件夹选择对话框
+class _FolderSelectorDialog extends StatefulWidget {
+  final String? currentFolder;
+  final List<String> existingFolders;
+  final ValueChanged<String> onSelect;
+
+  const _FolderSelectorDialog({
+    required this.currentFolder,
+    required this.existingFolders,
+    required this.onSelect,
+  });
+
+  @override
+  State<_FolderSelectorDialog> createState() => _FolderSelectorDialogState();
+}
+
+class _FolderSelectorDialogState extends State<_FolderSelectorDialog> {
+  final _controller = TextEditingController();
+  String _inputFolder = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.currentFolder != null) {
+      _controller.text = widget.currentFolder!;
+      _inputFolder = widget.currentFolder!;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择文件夹'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: '输入或选择文件夹名称',
+                suffixIcon: _inputFolder.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.check),
+                        onPressed: _confirmSelect,
+                      )
+                    : null,
+              ),
+              onChanged: (value) => _inputFolder = value.trim(),
+              onSubmitted: (_) => _confirmSelect(),
+            ),
+            const SizedBox(height: 16),
+            if (widget.existingFolders.isNotEmpty) ...[
+              Text(
+                '现有文件夹',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textHint,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.existingFolders.map((folder) {
+                  final isSelected = folder == _inputFolder;
+                  return FilterChip(
+                    label: Text(folder),
+                    selected: isSelected,
+                    onSelected: (_) => _selectFolder(folder),
+                    selectedColor: AppColors.primary.withOpacity(0.2),
+                    checkmarkColor: AppColors.primary,
+                  );
+                }).toList(),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text(
+              '常用文件夹',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textHint,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['工作', '生活', '学习', '日记', '项目', '灵感'].map((folder) {
+                final isSelected = folder == _inputFolder;
+                return FilterChip(
+                  label: Text(folder),
+                  selected: isSelected,
+                  onSelected: (_) => _selectFolder(folder),
+                  selectedColor: AppColors.primary.withOpacity(0.2),
+                  checkmarkColor: AppColors.primary,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        if (widget.currentFolder != null)
+          TextButton(
+            onPressed: () {
+              widget.onSelect('');
+              HapticHelper.lightTap();
+              Navigator.pop(context);
+            },
+            child: const Text('清除'),
+          ),
+        TextButton(
+          onPressed: _inputFolder.isEmpty ? null : _confirmSelect,
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+
+  void _selectFolder(String folder) {
+    setState(() {
+      _controller.text = folder;
+      _inputFolder = folder;
+    });
+    HapticHelper.lightTap();
+  }
+
+  void _confirmSelect() {
+    if (_inputFolder.isEmpty) return;
+    widget.onSelect(_inputFolder);
+    HapticHelper.lightTap();
     Navigator.pop(context);
   }
 

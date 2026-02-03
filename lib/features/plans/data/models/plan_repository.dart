@@ -221,4 +221,44 @@ class PlanRepository {
       'weekRemaining': thisWeekTasks.length - completedThisWeek,
     };
   }
+
+  /// 删除所有计划（级联删除任务）
+  Future<void> deleteAllPlans() async {
+    // 先删除所有任务
+    await _db.delete(_db.planTasks).go();
+    // 再删除所有计划
+    await _db.delete(_db.plans).go();
+  }
+
+  /// 从 JSON 数据创建计划（用于备份恢复）
+  Future<int> createPlanFromData(Map<String, dynamic> data) async {
+    final companion = PlansCompanion.insert(
+      title: data['title'] as String,
+      category: data['category'] as String,
+      startDate: DateTime.parse(data['start_date'] as String),
+      targetDate: DateTime.parse(data['target_date'] as String),
+      description: drift.Value(data['description'] as String? ?? ''),
+      status: drift.Value(data['status'] as String? ?? 'active'),
+      totalTasks: drift.Value(data['total_tasks'] as int? ?? 0),
+      completedTasks: drift.Value(data['completed_tasks'] as int? ?? 0),
+      streakDays: drift.Value(data['streak_days'] as int? ?? 0),
+    );
+    return await _db.into(_db.plans).insert(companion);
+  }
+
+  /// 从 JSON 数据创建任务（用于备份恢复）
+  Future<int> createTaskFromData(Map<String, dynamic> data) async {
+    final companion = PlanTasksCompanion.insert(
+      planId: data['plan_id'] as int,
+      title: data['title'] as String,
+      scheduledDate: DateTime.parse(data['scheduled_date'] as String),
+      taskType: data['task_type'] as String? ?? 'other',
+      isCompleted: data['is_completed'] as bool? ?? false ? const drift.Value(true) : const drift.Value(false),
+      completedAt: data['completed_at'] != null
+          ? drift.Value(DateTime.parse(data['completed_at'] as String))
+          : const drift.Value.absent(),
+      reminderId: drift.Value(data['reminder_id'] as int?),
+    );
+    return await _db.into(_db.planTasks).insert(companion);
+  }
 }

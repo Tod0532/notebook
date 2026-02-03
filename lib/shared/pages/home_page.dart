@@ -1,4 +1,4 @@
-/// 首页 - 带底部导航的主框架 (现代渐变风格)
+/// 首页 - 带底部导航的主框架 (Bento Grid 风格)
 /// 使用 ShellRoute 结构，底部导航栏始终可见
 
 import 'package:flutter/material.dart';
@@ -11,6 +11,7 @@ import 'package:thick_notepad/features/plans/presentation/providers/plan_provide
 import 'package:thick_notepad/shared/widgets/recent_activities.dart';
 import 'package:thick_notepad/shared/widgets/modern_cards.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/services/ai/deepseek_service.dart';
 
 /// 底部导航项配置
 class _NavItem {
@@ -98,13 +99,13 @@ class HomePage extends StatelessWidget {
   Widget _buildBottomNavBar(BuildContext context, int currentIndex, String location) {
     return Container(
       decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: AppColors.dividerColor.withOpacity(0.3),
+            width: 1,
           ),
-        ],
+        ),
       ),
       child: BottomNavigationBar(
         currentIndex: currentIndex,
@@ -147,7 +148,7 @@ class HomePage extends StatelessWidget {
 
 // ==================== 各模块视图（无 Scaffold） ====================
 
-/// 首页仪表盘视图 (现代渐变风格)
+/// 首页仪表盘视图 (Bento Grid 风格)
 class DashboardView extends ConsumerWidget {
   const DashboardView({super.key});
 
@@ -159,96 +160,107 @@ class DashboardView extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildGreeting(context).fadeIn(delay: DelayDuration.none),
-            const SizedBox(height: AppSpacing.xxl),
-            _buildQuickActions(context).fadeIn(delay: DelayDuration.short),
+            _buildGreetingHeader(context).slideIn(delay: DelayDuration.none),
+            const SizedBox(height: AppSpacing.md),
+            _buildAIGreeting(context).slideIn(delay: DelayDuration.short),
             const SizedBox(height: AppSpacing.lg),
-            _buildTodaySummary(context).fadeIn(delay: DelayDuration.medium),
+            _buildBentoGrid(context).slideIn(delay: DelayDuration.short),
             const SizedBox(height: AppSpacing.lg),
-            _buildRecentActivity(context).fadeIn(delay: DelayDuration.long),
+            _buildTodaySummary(context).slideIn(delay: DelayDuration.medium),
+            const SizedBox(height: AppSpacing.lg),
+            _buildRecentActivity(context).slideIn(delay: DelayDuration.long),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildGreeting(BuildContext context) {
+  /// 问候语头部 - 更大更醒目
+  Widget _buildGreetingHeader(BuildContext context) {
     final hour = DateTime.now().hour;
     String greeting;
     IconData icon;
-    Gradient gradient;
+    Color iconColor;
 
     if (hour < 6) {
       greeting = '夜深了';
       icon = Icons.nights_stay;
-      gradient = AppColors.infoGradient;
+      iconColor = AppColors.primary;
     } else if (hour < 12) {
       greeting = '早上好';
       icon = Icons.wb_sunny_outlined;
-      gradient = AppColors.primaryGradient;
+      iconColor = Colors.orange;
     } else if (hour < 14) {
       greeting = '中午好';
       icon = Icons.wb_twilight;
-      gradient = AppColors.warningGradient;
+      iconColor = Colors.deepOrange;
     } else if (hour < 18) {
       greeting = '下午好';
       icon = Icons.wb_sunny;
-      gradient = AppColors.secondaryGradient;
+      iconColor = Colors.orangeAccent;
     } else {
       greeting = '晚上好';
       icon = Icons.bedtime_outlined;
-      gradient = AppColors.infoGradient;
+      iconColor = AppColors.primary;
     }
 
     return Row(
       children: [
+        // 大头像图标
         Container(
-          width: 56,
-          height: 56,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: AppRadius.xlRadius,
-            boxShadow: AppShadows.light,
+            gradient: AppColors.primaryGradient,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity( 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Icon(icon, color: Colors.white, size: 28),
+          child: Icon(icon, color: Colors.white, size: 32),
         ),
         const SizedBox(width: AppSpacing.md),
-        Expanded(
+        Flexible(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 '$greeting，老大',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
                       letterSpacing: -0.5,
                     ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 '今天也是充满活力的一天！',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
+                      fontSize: 14,
                     ),
               ),
             ],
           ),
         ),
         // 设置按钮
-        InkWell(
+        ModernCard(
           onTap: () => context.push(AppRoutes.settings),
-          borderRadius: AppRadius.lgRadius,
+          padding: EdgeInsets.zero,
+          backgroundColor: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: AppRadius.lgRadius,
-              boxShadow: AppShadows.light,
-            ),
-            child: const Icon(
+            width: 52,
+            height: 52,
+            alignment: Alignment.center,
+            child: Icon(
               Icons.settings_outlined,
-              color: Colors.white,
+              color: AppColors.textSecondary,
               size: 24,
             ),
           ),
@@ -257,105 +269,204 @@ class DashboardView extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return Row(
+  /// AI 教练入口卡片
+  Widget _buildAIGreeting(BuildContext context) {
+    return ModernCard(
+      onTap: () => context.push(AppRoutes.userProfileSetup),
+      padding: const EdgeInsets.all(16),
+      backgroundColor: AppColors.secondary.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(20),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: AppColors.secondaryGradient,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.fitness_center, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('AI 教练', style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700, color: AppColors.secondary)),
+                const SizedBox(height: 2),
+                Text('创建专属训练和饮食计划', style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary, fontSize: 12)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
+        ],
+      ),
+    );
+  }
+
+  /// 获取 AI 问候语（带超时，避免卡顿）
+  Future<String> _getAIGreeting() async {
+    try {
+      final aiService = DeepSeekService.instance;
+      await aiService.init().timeout(const Duration(seconds: 2));
+
+      if (!aiService.isConfigured) {
+        return '点击配置 DeepSeek API Key';
+      }
+
+      final todayTasks = <String>[];
+      final greeting = await aiService.generateMorningGreeting(
+        todayTasks: todayTasks,
+        userName: '老大',
+      ).timeout(const Duration(seconds: 5));
+
+      return greeting;
+    } catch (e) {
+      return '创建专属训练和饮食计划';
+    }
+  }
+
+  /// 旧版AI问候（已禁用）
+  Widget _buildAIGreetingOld(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _getAIGreeting(),
+      builder: (context, snapshot) {
+        return ModernCard(
+          onTap: () => context.push(AppRoutes.aiSettings),
+          padding: const EdgeInsets.all(16),
+          backgroundColor: AppColors.primary.withOpacity( 0.08),
+          borderRadius: BorderRadius.circular(20),
+          child: Row(
+            children: [
+              // AI 图标
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 问候内容
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI 助手',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      snapshot.hasData
+                          ? snapshot.data!
+                          : '配置 API Key 启用 AI 功能',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              // 箭头图标
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.textHint,
+                size: 20,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Bento Grid 风格快捷操作 - 2x2 网格布局
+  Widget _buildBentoGrid(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: GradientCard.primary(
-            onTap: () => context.go(AppRoutes.notes),
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: AppRadius.lgRadius,
+        Row(
+          children: [
+            Text(
+              '快捷操作',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
                   ),
-                  child: const Icon(
-                    Icons.edit_note_outlined,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '记笔记',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
             ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: GradientCard.secondary(
-            onTap: () => context.push(AppRoutes.workoutEdit),
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: AppRadius.lgRadius,
+            const Spacer(),
+            Text(
+              '查看全部',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
                   ),
-                  child: const Icon(
-                    Icons.fitness_center_outlined,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '记运动',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
             ),
-          ),
+          ],
         ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: GradientCard(
-            gradient: AppColors.warningGradient,
-            onTap: () => context.go(AppRoutes.plans),
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: AppRadius.lgRadius,
-                  ),
-                  child: const Icon(
-                    Icons.add_task_outlined,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '新计划',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
+        const SizedBox(height: AppSpacing.md),
+        // Bento Grid 布局 - 使用固定高度避免溢出
+        SizedBox(
+          height: 140,
+          child: Row(
+            children: [
+            // 左侧：大卡片（记笔记）
+            Expanded(
+              flex: 3,
+              child: _BentoLargeCard(
+                icon: Icons.edit_note_rounded,
+                label: '记笔记',
+                subtitle: '记录想法',
+                gradient: AppColors.primaryGradient,
+                onTap: () => context.go(AppRoutes.notes),
+              ),
             ),
-          ),
+            const SizedBox(width: AppSpacing.md),
+            // 右侧：两个小卡片
+            Expanded(
+              flex: 2,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _BentoSmallCard(
+                      icon: Icons.fitness_center_rounded,
+                      label: '记运动',
+                      gradient: AppColors.secondaryGradient,
+                      onTap: () => context.push(AppRoutes.workoutEdit),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: _BentoSmallCard(
+                      icon: Icons.task_alt_rounded,
+                      label: '新计划',
+                      gradient: AppColors.warningGradient,
+                      onTap: () => context.go(AppRoutes.plans),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
       ],
     );
   }
@@ -368,11 +479,22 @@ class DashboardView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '最近动态',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+        Row(
+          children: [
+            Text(
+              '最近动态',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+            ),
+            const Spacer(),
+            Icon(
+              Icons.timeline_outlined,
+              color: AppColors.textHint,
+              size: 20,
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.md),
         const RecentActivitiesList(),
@@ -381,9 +503,143 @@ class DashboardView extends ConsumerWidget {
   }
 }
 
+// ==================== Bento Grid 卡片组件 ====================
+
+/// Bento 大卡片 - 占据左侧大部分空间
+class _BentoLargeCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Gradient gradient;
+  final VoidCallback onTap;
+
+  const _BentoLargeCard({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        // 使用 Expanded 填满可用高度，避免溢出
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: gradient.colors.first.withOpacity( 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 图标
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity( 0.25),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withOpacity( 0.85),
+                    fontSize: 12,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bento 小卡片 - 右侧两个小卡片
+class _BentoSmallCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Gradient gradient;
+  final VoidCallback onTap;
+
+  const _BentoSmallCard({
+    required this.icon,
+    required this.label,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: gradient.colors.first.withOpacity( 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity( 0.25),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ==================== 今日概览数据组件 ====================
 
-/// 今日概览数据区域 (现代渐变风格)
+/// 今日概览数据区域 (Bento 风格)
 class _TodaySummarySection extends ConsumerWidget {
   const _TodaySummarySection();
 
@@ -398,7 +654,8 @@ class _TodaySummarySection extends ConsumerWidget {
         Text(
           '今日概览',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
               ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -438,7 +695,7 @@ class _TaskSummaryCard extends ConsumerWidget {
 
         return _GradientStatCard(
           gradient: AppColors.successGradient,
-          icon: Icons.check_circle_outline,
+          icon: Icons.check_circle_rounded,
           label: '完成任务',
           value: '$completed/$total',
           subtitle: remaining > 0 ? '还剩$remaining项' : '全部完成',
@@ -447,7 +704,7 @@ class _TaskSummaryCard extends ConsumerWidget {
       },
       loading: () => const _GradientStatCard(
         gradient: AppColors.successGradient,
-        icon: Icons.check_circle_outline,
+        icon: Icons.check_circle_rounded,
         label: '完成任务',
         value: '-',
         isEmpty: true,
@@ -483,7 +740,7 @@ class _WorkoutSummaryCard extends ConsumerWidget {
 
         return _GradientStatCard(
           gradient: AppColors.secondaryGradient,
-          icon: Icons.timer_outlined,
+          icon: Icons.timer_rounded,
           label: '运动时长',
           value: '${todayMinutes}分钟',
           subtitle: count > 0 ? '本周$count次运动' : '本周暂无运动',
@@ -492,7 +749,7 @@ class _WorkoutSummaryCard extends ConsumerWidget {
       },
       loading: () => const _GradientStatCard(
         gradient: AppColors.secondaryGradient,
-        icon: Icons.timer_outlined,
+        icon: Icons.timer_rounded,
         label: '运动时长',
         value: '-',
         isEmpty: true,
@@ -508,7 +765,7 @@ class _WorkoutSummaryCard extends ConsumerWidget {
   }
 }
 
-/// 渐变统计卡片 - 统一风格
+/// 渐变统计卡片 - 统一风格（更立体的设计）
 class _GradientStatCard extends StatelessWidget {
   final Gradient gradient;
   final IconData icon;
@@ -529,83 +786,105 @@ class _GradientStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 120,
       decoration: BoxDecoration(
         gradient: isEmpty ? null : gradient,
         color: isEmpty ? AppColors.surfaceVariant : null,
-        borderRadius: AppRadius.xlRadius,
-        boxShadow: isEmpty ? AppShadows.subtle : AppShadows.light,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isEmpty
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity( 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: gradient.colors.first.withOpacity( 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: gradient.colors.first.withOpacity( 0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
       ),
       child: ClipRRect(
-        borderRadius: AppRadius.xlRadius,
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: isEmpty
-                          ? AppColors.textHint.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.25),
-                      borderRadius: AppRadius.mdRadius,
+                          ? AppColors.textHint.withOpacity( 0.15)
+                          : Colors.white.withOpacity( 0.25),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       icon,
                       color: isEmpty ? AppColors.textHint : Colors.white,
-                      size: 22,
+                      size: 18,
                     ),
                   ),
                   if (!isEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 4,
+                        horizontal: 5,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: AppRadius.smRadius,
+                        color: Colors.white.withOpacity( 0.2),
+                        borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         '今天',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               fontSize: 11,
                             ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.sm),
               Text(
                 value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: isEmpty ? AppColors.textHint : Colors.white,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
                     ),
               ),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isEmpty
-                          ? AppColors.textHint.withOpacity(0.8)
-                          : Colors.white.withOpacity(0.9),
+                          ? AppColors.textHint.withOpacity( 0.7)
+                          : Colors.white.withOpacity( 0.85),
+                      fontSize: 10,
                     ),
               ),
               if (subtitle != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitle!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: isEmpty
                             ? AppColors.textHint
-                            : Colors.white.withOpacity(0.7),
-                        fontSize: 10,
+                            : Colors.white.withOpacity( 0.7),
+                        fontSize: 11,
                       ),
                 ),
               ],
