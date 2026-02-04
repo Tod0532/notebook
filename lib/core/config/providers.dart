@@ -16,7 +16,6 @@ import 'package:thick_notepad/services/heart_rate/heart_rate_service.dart';
 import 'package:thick_notepad/services/speech/speech_recognition_service.dart';
 import 'package:thick_notepad/services/speech/speech_synthesis_service.dart';
 import 'package:thick_notepad/services/speech/intent_parser.dart';
-import 'package:thick_notepad/features/heart_rate/data/repositories/heart_rate_repository.dart';
 import 'package:thick_notepad/services/weather/weather_service.dart';
 import 'package:thick_notepad/features/emotion/data/repositories/emotion_repository.dart';
 import 'package:thick_notepad/features/location/data/repositories/geofence_repository.dart';
@@ -165,7 +164,7 @@ final challengeServiceProvider = Provider<ChallengeService>((ref) {
   service.setDatabase(db);
   service.setGamificationService(gamificationService);
   // 初始化自动刷新
-  service.initAutoRefresh();
+  service.initialize();
   return service;
 });
 

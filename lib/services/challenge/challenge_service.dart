@@ -12,10 +12,14 @@ import 'dart:async';
 import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/services/gamification/gamification_service.dart';
+
+/// 模块级随机数生成器（类外静态方法可访问）
+final _random = Random();
 
 // ==================== SharedPreferences 键定义 ====================
 
@@ -292,14 +296,11 @@ class ChallengeService {
   /// SharedPreferences 实例
   SharedPreferences? _prefs;
 
-  /// AppLifecycleListener 用于监听应用状态
-  AppLifecycleListener? _lifecycleListener;
+  /// 生命周期监听器标志
+  bool _isLifecycleObserverAttached = false;
 
   /// 是否已初始化
   bool _isInitialized = false;
-
-  /// 类级别随机数生成器（单例，确保随机质量）
-  static final _random = Random();
 
   /// 获取单例实例
   static ChallengeService get instance {
@@ -436,18 +437,12 @@ class ChallengeService {
 
   /// 初始化应用生命周期监听器
   void _initLifecycleListener() {
-    // 使用 AppLifecycleListener 监听应用状态变化
-    _lifecycleListener = AppLifecycleListener(
-      // 应用从后台恢复时检查刷新
-      onStateChange: _onAppStateChanged,
-    );
-  }
-
-  /// 应用状态变化回调
-  void _onAppStateChanged(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // 应用从后台恢复时检查并刷新
-      _checkAndRefreshOnAppResumed();
+    // 使用 WidgetsBindingObserver 监听应用状态变化
+    if (!_isLifecycleObserverAttached) {
+      WidgetsBinding.instance.addObserver(_LifecycleObserver(
+        onResumed: _checkAndRefreshOnAppResumed,
+      ));
+      _isLifecycleObserverAttached = true;
     }
   }
 
@@ -878,8 +873,7 @@ class ChallengeService {
   /// 销毁服务，清理定时器和监听器
   void dispose() {
     _stopTimers();
-    _lifecycleListener?.dispose();
-    _lifecycleListener = null;
+    // 生命周期观察者会在应用关闭时自动清理
   }
 
   // ==================== 挑战进度检测（供其他模块调用）====================
@@ -945,6 +939,25 @@ class ChallengeService {
           updatedAt: Value(now),
         ),
       );
+    }
+  }
+}
+
+// ==================== 生命周期观察者 ====================
+
+/// 生命周期观察者 - 用于监听应用状态变化
+/// 使用 WidgetsBindingObserver 模式替代 AppLifecycleListener，提高兼容性
+class _LifecycleObserver with WidgetsBindingObserver {
+  final VoidCallback onResumed;
+
+  _LifecycleObserver({required this.onResumed}) {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      onResumed();
     }
   }
 }

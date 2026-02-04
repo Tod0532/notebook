@@ -355,18 +355,20 @@ class WeatherService {
         'timezone': 'auto',
       };
 
-      // 并行获取天气数据和空气质量（类型安全）
+      // 并行获取天气数据和空气质量
+      final weatherFuture = _dio.get(
+        '${WeatherServiceConfig.baseUrl}/forecast',
+        queryParameters: params,
+      );
+
+      // 空气质量（获取失败时使用默认值50）
+      final aqiFuture = getAirQuality(lat, lon).catchError((_) => 50);
+
       final results = await Future.wait([
-        // 天气数据响应 - 使用 then 确保类型安全
-        _dio.get(
-          '${WeatherServiceConfig.baseUrl}/forecast',
-          queryParameters: params,
-        ).then<Response>((response) => response),
-        // 空气质量（获取失败时使用默认值50）- 使用 then 确保类型安全
-        getAirQuality(lat, lon).catchError<int>((_) => 50).then<int>((aqi) => aqi),
+        weatherFuture,
+        aqiFuture,
       ], eagerError: false);
 
-      // 直接使用，无需运行时类型转换
       final response = results[0] as Response;
       final aqi = results[1] as int;
 

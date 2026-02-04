@@ -7,32 +7,43 @@ import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/features/challenge/presentation/providers/challenge_providers.dart';
 import 'dart:developer' as developer;
-import 'package:flutter/scaffold_snack_bar.dart';
 
 /// 挑战卡片
 class ChallengeCard extends ConsumerWidget {
   final Map<String, dynamic> challengeData;
   final bool isWeekly;
 
-  const ChallengeCard({
+  // 缓存奖励值用于回调中访问
+  late final int _expReward;
+  late final int _pointsReward;
+
+  ChallengeCard({
     super.key,
     required this.challengeData,
     this.isWeekly = false,
-  });
+  }) {
+    // 在构造函数中初始化奖励值
+    final challenge = challengeData['challenge'];
+    _expReward = challenge?.expReward ?? 0;
+    _pointsReward = challenge?.pointsReward ?? 0;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 支持每日和每周挑战
-    final challenge = isWeekly
-        ? challengeData['challenge'] as WeeklyChallenge
-        : challengeData['challenge'] as DailyChallenge;
-    final progress = isWeekly
-        ? challengeData['progress'] as UserWeeklyChallengeProgress?
-        : challengeData['progress'] as UserChallengeProgress?;
+    // 从字典中获取挑战数据和进度
+    final challenge = challengeData['challenge'];
+    final progress = challengeData['progress'];
     final progressPercent = challengeData['progressPercent'] as double;
 
+    // 安全地获取属性值
     final isCompleted = progress?.isCompleted ?? false;
     final rewardClaimed = progress?.rewardClaimed ?? false;
+    final challengeType = challenge?.type ?? 'workout';
+    final challengeTitle = challenge?.title ?? '挑战';
+    final challengeDesc = challenge?.description ?? '';
+    final targetCount = challenge?.targetCount ?? 1;
+    final currentCount = progress?.currentCount ?? 0;
+    final challengeId = challenge?.id ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -64,12 +75,12 @@ class ChallengeCard extends ConsumerWidget {
           Row(
             children: [
               // 类型图标
-              _buildTypeIcon(challenge.type),
+              _buildTypeIcon(challengeType),
               const SizedBox(width: AppSpacing.sm),
               // 标题
               Expanded(
                 child: Text(
-                  challenge.title,
+                  challengeTitle,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -87,24 +98,24 @@ class ChallengeCard extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
           // 描述
           Text(
-            challenge.description,
+            challengeDesc,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondary,
                 ),
           ),
           const SizedBox(height: AppSpacing.md),
           // 进度条
-          _buildProgressBar(context, progressPercent, challenge.targetCount, progress?.currentCount ?? 0),
+          _buildProgressBar(context, progressPercent, targetCount, currentCount),
           const SizedBox(height: AppSpacing.md),
           // 奖励和操作
           Row(
             children: [
               // 奖励预览
-              _buildRewardChip(context, challenge.expReward, challenge.pointsReward),
+              _buildRewardChip(context, _expReward, _pointsReward),
               const Spacer(),
               // 操作按钮
               if (isCompleted && !rewardClaimed)
-                _buildClaimButton(context, ref, challenge.id)
+                _buildClaimButton(context, ref, challengeId)
               else if (rewardClaimed)
                 _buildClaimedButton(context),
             ],
@@ -290,11 +301,8 @@ class ChallengeCard extends ConsumerWidget {
         if (context.mounted) {
           if (success) {
             // 获取奖励信息用于显示
-            final challenge = isWeekly
-                ? challengeData['challenge'] as WeeklyChallenge
-                : challengeData['challenge'] as DailyChallenge;
-            final exp = challenge.expReward;
-            final points = challenge.pointsReward;
+            final exp = _expReward;
+            final points = _pointsReward;
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
