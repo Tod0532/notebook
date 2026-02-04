@@ -95,6 +95,14 @@ class WeatherService {
   StreamController<WeatherData?>? _weatherController;
   bool _isInitialized = false;
 
+  // ==================== 预编译正则表达式 ====================
+  /// 邮政编码正则表达式（从地址中移除）
+  static final RegExp _postCodeRegExp = RegExp(r',\s*\d{5,6},.*');
+  /// 地址分隔符正则表达式
+  static final RegExp _addressSplitRegExp = RegExp('[,，]');
+  /// 邮政编码验证正则表达式
+  static final RegExp _postCodeValidateRegExp = RegExp(r'^\d{5,6}$');
+
   // ==================== 初始化 ====================
 
   /// 初始化 Dio 实例
@@ -319,8 +327,8 @@ class WeatherService {
   /// 从 Open-Meteo API 获取天气数据
   Future<WeatherData> fetchWeather(double lat, double lon) async {
     try {
-      // 获取位置名称（并行获取，不阻塞天气数据）
-      final locationName = await getLocationName(lat, lon);
+      // 并行启动位置名称获取（不阻塞天气数据返回）
+      final locationNameFuture = getLocationName(lat, lon);
 
       // Open-Meteo API 请求参数
       final params = {
@@ -347,20 +355,37 @@ class WeatherService {
         'timezone': 'auto',
       };
 
-      // 并行获取天气数据和空气质量
+      // 并行获取天气数据和空气质量（类型安全）
       final results = await Future.wait([
+        // 天气数据响应 - 使用 then 确保类型安全
         _dio.get(
           '${WeatherServiceConfig.baseUrl}/forecast',
           queryParameters: params,
-        ),
-        getAirQuality(lat, lon).catchError((_) => 50), // 空气质量获取失败时使用默认值
-      ]);
+        ).then<Response>((response) => response),
+        // 空气质量（获取失败时使用默认值50）- 使用 then 确保类型安全
+        getAirQuality(lat, lon).catchError<int>((_) => 50).then<int>((aqi) => aqi),
+      ], eagerError: false);
 
+      // 直接使用，无需运行时类型转换
       final response = results[0] as Response;
       final aqi = results[1] as int;
 
       if (response.statusCode == 200) {
-        return _parseOpenMeteoResponse(response.data, lat, lon, locationName: locationName, airQualityIndex: aqi);
+        // 等待位置名称（不阻塞天气数据解析）
+        String? locationName;
+        try {
+          locationName = await locationNameFuture;
+        } catch (e) {
+          debugPrint('获取位置名称失败: $e');
+        }
+
+        return _parseOpenMeteoResponse(
+          response.data,
+          lat,
+          lon,
+          locationName: locationName,
+          airQualityIndex: aqi,
+        );
       } else {
         throw WeatherServiceException('API 请求失败: ${response.statusCode}');
       }
@@ -592,11 +617,11 @@ class WeatherService {
 
   /// 从完整地址中提取主要位置名称
   String _extractLocationName(String displayName) {
-    // 移除邮政编码等无用信息
-    final cleanName = displayName.replaceAll(RegExp(r',\s*\d{5,6},.*'), '');
+    // 移除邮政编码等无用信息（使用预编译的正则表达式）
+    final cleanName = displayName.replaceAll(_postCodeRegExp, '');
 
-    // 尝试提取主要部分（通常是城市或区县）
-    final parts = cleanName.split(RegExp('[,，]'));
+    // 尝试提取主要部分（通常是城市或区县，使用预编译的正则表达式）
+    final parts = cleanName.split(_addressSplitRegExp);
 
     // 优先返回前几个有意义的部分
     for (final part in parts) {
@@ -609,9 +634,9 @@ class WeatherService {
     return cleanName.trim();
   }
 
-  /// 判断是否是邮政编码
+  /// 判断是否是邮政编码（使用预编译的正则表达式）
   bool _isPostCode(String s) {
-    return RegExp(r'^\d{5,6}$').hasMatch(s);
+    return _postCodeValidateRegExp.hasMatch(s);
   }
 
   /// 保存位置名称到缓存

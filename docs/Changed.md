@@ -3306,3 +3306,45 @@ context.push('/coach/iteration?userProfileId=$profileId&workoutPlanId=$planId');
 - 添加单元测试
 
 ---
+
+---
+
+## 紧急问题修复完成（2026-02-05）
+
+### 修复概述
+使用5个并行智能体修复代码审核发现的13个严重问题。
+
+### 修复结果
+
+| 文件 | 修复问题数 | 状态 |
+|------|-----------|------|
+| gacha_service.dart | 4 | ✅ 完成 |
+| challenge_service.dart | 6 | ✅ 完成 |
+| weather_service.dart | 3 | ✅ 完成 |
+| note_repository.dart | 3 | ✅ 完成 |
+| plan_repository.dart | 3 | ✅ 完成 |
+
+### 抽卡服务修复
+1. **软保底概率归一化** - 确保总和始终为100%
+2. **isNew判断修复** - 查询已收集物品正确判断
+3. **保底触发点修复** - 第10/50/100抽正确触发
+4. **单例模式重构** - 使用Dart标准单例
+
+### 挑战服务修复
+1. **奖励发放事务性** - 先发奖励再更新状态
+2. **随机数生成** - 使用Random()单例替代时间戳
+3. **自动刷新机制** - SharedPreferences+生命周期监听
+4. **ISO周数计算** - DateFormat('w')标准
+5. **UTC时间** - 所有时间操作使用UTC避免边界问题
+
+### 天气服务修复
+1. **并行获取优化** - 位置名称不阻塞天气数据
+2. **类型安全** - Future.wait使用then<T>()
+3. **正则预编译** - 静态变量避免重复编译
+
+### 仓库集成修复
+1. **统一异常处理** - NoteRepositoryException和PlanRepositoryException
+2. **JSON解析** - 使用jsonDecode()替代字符串替换
+3. **日志统一** - 使用debugPrint记录错误
+
+---

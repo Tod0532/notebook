@@ -81,8 +81,8 @@ class GachaConfig {
   /// - 50抽必出史诗以上
   /// - 100抽必出传说
   static Map<GachaRarity, double> getRarityProbabilities(int pityCount) {
-    // 100抽保底：必出传说
-    if (pityCount >= legendaryPityThreshold - 1) {
+    // 100抽保底：必出传说（修复：移除-1偏移）
+    if (pityCount >= legendaryPityThreshold) {
       return {
         GachaRarity.common: 0.0,
         GachaRarity.rare: 0.0,
@@ -91,8 +91,8 @@ class GachaConfig {
       };
     }
 
-    // 50抽保底：必出史诗以上
-    if (pityCount >= epicPityThreshold - 1) {
+    // 50抽保底：必出史诗以上（修复：移除-1偏移）
+    if (pityCount >= epicPityThreshold) {
       return {
         GachaRarity.common: 0.0,
         GachaRarity.rare: 0.0,
@@ -101,21 +101,28 @@ class GachaConfig {
       };
     }
 
-    // 10抽保底：必出稀有以上（但仍保留更高稀有度的概率）
-    if (pityCount >= rarePityThreshold - 1) {
-      // 软保底：逐渐提高稀有度概率
-      final softPityProgress = (pityCount - rarePityThreshold + 1) /
-          (epicPityThreshold - rarePityThreshold);
+    // 10抽保底：必出稀有以上（修复：使用正确的触发点和概率归一化）
+    if (pityCount >= rarePityThreshold) {
+      // 软保底阶段：从第10抽到第49抽
+      // 进度值：0.0 (第10抽) -> 1.0 (第49抽)
+      final softPityProgress = (pityCount - rarePityThreshold) /
+          (epicPityThreshold - rarePityThreshold - 1);
 
-      final rareChance = 0.70 + (0.15 * softPityProgress); // 70% -> 85%
-      final epicChance = 0.25 + (0.10 * softPityProgress); // 25% -> 35%
-      final legendaryChance = 0.05 + (0.10 * softPityProgress); // 5% -> 15%
+      // 修复：调整概率增量，确保总和为100%
+      // 初始：稀有70%、史诗25%、传说5% = 100%
+      // 最终：稀有80%、史诗15%、传说5% = 100%
+      final rareChance = 0.70 + (0.10 * softPityProgress); // 70% -> 80%
+      final epicChance = 0.25 - (0.10 * softPityProgress); // 25% -> 15%
+      final legendaryChance = 0.05; // 保持5%不变
+
+      // 归一化处理，确保总和精确为100%
+      final total = rareChance + epicChance + legendaryChance;
 
       return {
         GachaRarity.common: 0.0,
-        GachaRarity.rare: rareChance,
-        GachaRarity.epic: epicChance,
-        GachaRarity.legendary: legendaryChance,
+        GachaRarity.rare: rareChance / total,
+        GachaRarity.epic: epicChance / total,
+        GachaRarity.legendary: legendaryChance / total,
       };
     }
 
@@ -747,28 +754,11 @@ class GachaResult {
 
 /// 抽卡服务 - 单例模式
 class GachaService {
-  static GachaService? _instance;
-  static final _lock = Object();
+  // 使用Dart标准单例模式，确保线程安全
+  static final GachaService instance = GachaService._internal();
 
   AppDatabase? _database;
   UserGachaStatus? _status;
-
-  /// 获取单例实例
-  static GachaService get instance {
-    if (_instance == null) {
-      synchronized(_lock, () {
-        _instance ??= GachaService._internal();
-      });
-    }
-    return _instance!;
-  }
-
-  /// 同步锁操作
-  static void synchronized(Object lock, void Function() fn) {
-    if (_instance == null) {
-      fn();
-    }
-  }
 
   GachaService._internal();
 
@@ -867,8 +857,11 @@ class GachaService {
       }
     }
 
-    // 抽卡逻辑
-    final result = _performGacha(status.pityCount);
+    // 获取当前已收集物品，用于判断isNew
+    final collectedItems = jsonDecode(status.collectedItems) as List;
+
+    // 抽卡逻辑（修复：传入已收集物品列表以正确判断isNew）
+    final result = _performGacha(status.pityCount, collectedItems);
 
     // 保存抽卡记录
     await database.into(database.gachaRecords).insert(
@@ -893,9 +886,7 @@ class GachaService {
     }
 
     // 更新已收集物品
-    final collectedItems = jsonDecode(status.collectedItems) as List;
-    final isNew = !collectedItems.any((item) => item['name'] == result.item.name);
-    if (isNew) {
+    if (result.isNew) {
       collectedItems.add(result.item.toJson());
     }
 
@@ -917,11 +908,19 @@ class GachaService {
   /// 十连抽
   Future<List<GachaResult>> drawTen() async {
     final results = <GachaResult>[];
-    int currentPity = (await _getUserStatus()).pityCount;
+    final status = await _getUserStatus();
+    int currentPity = status.pityCount;
+    final collectedItems = jsonDecode(status.collectedItems) as List;
 
     for (int i = 0; i < 10; i++) {
-      final result = _performGacha(currentPity);
+      // 修复：传入已收集物品列表以正确判断isNew
+      final result = _performGacha(currentPity, collectedItems);
       results.add(result);
+
+      // 更新已收集物品
+      if (result.isNew) {
+        collectedItems.add(result.item.toJson());
+      }
 
       if (result.rarity != GachaRarity.common) {
         currentPity = 0;
@@ -940,17 +939,6 @@ class GachaService {
           );
     }
 
-    // 更新状态
-    final status = await _getUserStatus();
-    final collectedItems = jsonDecode(status.collectedItems) as List;
-
-    for (final result in results) {
-      final isNew = !collectedItems.any((item) => item['name'] == result.item.name);
-      if (isNew) {
-        collectedItems.add(result.item.toJson());
-      }
-    }
-
     await _updateStatus(
       UserGachaStatusesCompanion(
         id: Value(status.id),
@@ -965,7 +953,10 @@ class GachaService {
   }
 
   /// 执行抽卡逻辑
-  GachaResult _performGacha(int pityCount) {
+  ///
+  /// [pityCount] 当前保底计数
+  /// [collectedItems] 已收集物品列表，用于判断是否为新物品
+  GachaResult _performGacha(int pityCount, List collectedItems) {
     // 获取考虑保底后的概率
     final probabilities = GachaConfig.getRarityProbabilities(pityCount);
 
@@ -984,13 +975,13 @@ class GachaService {
     rarity ??= GachaRarity.common;
 
     // 从对应稀有度池中随机选择物品
-    final item = GachaItemPool.getRandomItem(rarity);
+    final gachaItem = GachaItemPool.getRandomItem(rarity);
 
-    // 检查是否新获得（简化版，实际应该查询已收集物品）
-    final isNew = Random().nextBool();
+    // 修复：正确判断是否为新物品，通过查询已收集物品列表
+    final isNew = !collectedItems.any((item) => item['name'] == gachaItem.name);
 
     return GachaResult(
-      item: item,
+      item: gachaItem,
       isNew: isNew,
       rarity: rarity,
     );

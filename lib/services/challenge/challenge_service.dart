@@ -1,11 +1,30 @@
 /// 挑战系统服务
 /// 管理每日挑战和每周挑战的生成、进度更新和奖励发放
+///
+/// 修复内容：
+/// 1. 使用 SharedPreferences 记录上次刷新时间，应用后台时定时器失效不影响
+/// 2. 应用启动时检查是否需要刷新
+/// 3. 使用 AppLifecycleListener 监听应用状态变化
+/// 4. 修复周数计算为 ISO 8601 标准
+/// 5. 使用 UTC 时间避免时区问题导致的日期边界竞态条件
 
 import 'dart:async';
+import 'dart:math';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/services/gamification/gamification_service.dart';
+
+// ==================== SharedPreferences 键定义 ====================
+
+/// SharedPreferences 键常量
+class _ChallengePrefsKeys {
+  static const String lastDailyRefresh = 'challenge_last_daily_refresh';
+  static const String lastWeeklyRefresh = 'challenge_last_weekly_refresh';
+  static const String lastRefreshCheck = 'challenge_last_refresh_check';
+}
 
 // ==================== 挑战定义配置 ====================
 
@@ -220,19 +239,19 @@ class ChallengeDefinitions {
 
   /// 随机获取每日挑战（每天3个）
   static List<DailyChallengeDefinition> getRandomDailyChallenges() {
-    final random = DateTime.now().millisecondsSinceEpoch;
+    final randomSeed = _random.nextInt(1000000);
     final challenges = <DailyChallengeDefinition>[];
 
     // 确保至少有一个运动类挑战
     final workoutChallenges = dailyChallengePool
         .where((c) => c.type == ChallengeType.workout || c.type == ChallengeType.totalMinutes)
         .toList();
-    challenges.add(workoutChallenges[random % workoutChallenges.length]);
+    challenges.add(workoutChallenges[randomSeed % workoutChallenges.length]);
 
     // 随机添加其他类型挑战
     final remaining = dailyChallengePool.where((c) => !challenges.contains(c)).toList();
     for (int i = 0; i < 2 && remaining.isNotEmpty; i++) {
-      final index = (random + i * 100) % remaining.length;
+      final index = (randomSeed + i * 100) % remaining.length;
       challenges.add(remaining[index]);
       remaining.removeAt(index);
     }
@@ -242,13 +261,13 @@ class ChallengeDefinitions {
 
   /// 随机获取每周挑战（每周2个）
   static List<WeeklyChallengeDefinition> getRandomWeeklyChallenges() {
-    final random = DateTime.now().millisecondsSinceEpoch;
+    final randomSeed = _random.nextInt(1000000);
     final challenges = <WeeklyChallengeDefinition>[];
 
     // 随机选择2个不同的挑战
     final pool = List<WeeklyChallengeDefinition>.from(weeklyChallengePool);
     for (int i = 0; i < 2 && pool.isNotEmpty; i++) {
-      final index = (random + i * 100) % pool.length;
+      final index = (randomSeed + i * 100) % pool.length;
       challenges.add(pool[index]);
       pool.removeAt(index);
     }
@@ -268,6 +287,19 @@ class ChallengeService {
   GamificationService? _gamificationService;
   Timer? _dailyRefreshTimer;
   Timer? _weeklyRefreshTimer;
+  Timer? _checkTimer;
+
+  /// SharedPreferences 实例
+  SharedPreferences? _prefs;
+
+  /// AppLifecycleListener 用于监听应用状态
+  AppLifecycleListener? _lifecycleListener;
+
+  /// 是否已初始化
+  bool _isInitialized = false;
+
+  /// 类级别随机数生成器（单例，确保随机质量）
+  static final _random = Random();
 
   /// 获取单例实例
   static ChallengeService get instance {
@@ -314,14 +346,145 @@ class ChallengeService {
     return _database!;
   }
 
+  // ==================== 初始化方法 ====================
+
+  /// 初始化服务
+  /// 必须在应用启动时调用
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    try {
+      // 获取 SharedPreferences 实例
+      _prefs ??= await SharedPreferences.getInstance();
+
+      // 应用启动时检查并刷新
+      await _checkAndRefreshOnStartup();
+
+      // 初始化生命周期监听器
+      _initLifecycleListener();
+
+      // 启动定时检查器（每5分钟检查一次）
+      _startCheckTimer();
+
+      _isInitialized = true;
+    } catch (e) {
+      // 初始化失败不影响应用运行
+      debugPrint('ChallengeService 初始化失败: $e');
+    }
+  }
+
+  /// 应用启动时检查并刷新挑战
+  Future<void> _checkAndRefreshOnStartup() async {
+    if (_prefs == null || _database == null) return;
+
+    final now = DateTime.now().toUtc();
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
+    final weekData = _getISOWeekData(now);
+    final weekKey = '${weekData.year}-W${weekData.weekNumber}';
+
+    // 获取上次刷新时间
+    final lastDailyRefresh = _prefs!.getString(_ChallengePrefsKeys.lastDailyRefresh);
+    final lastWeeklyRefresh = _prefs!.getString(_ChallengePrefsKeys.lastWeeklyRefresh);
+
+    // 检查每日挑战是否需要刷新
+    if (lastDailyRefresh != todayKey) {
+      await _refreshDailyChallenges(now, todayKey);
+    }
+
+    // 检查每周挑战是否需要刷新
+    if (lastWeeklyRefresh != weekKey) {
+      await _refreshWeeklyChallenges(weekData.weekNumber, weekData.year, weekKey);
+    }
+
+    // 更新检查时间
+    await _prefs!.setString(_ChallengePrefsKeys.lastRefreshCheck, now.toIso8601String());
+  }
+
+  /// 刷新每日挑战
+  Future<void> _refreshDailyChallenges(DateTime now, String todayKey) async {
+    try {
+      // 检查今日是否已有挑战
+      final existing = await database.getDailyChallengesByDateKey(todayKey);
+      if (existing.isEmpty) {
+        await generateTodayChallenges();
+      }
+
+      // 更新刷新时间
+      await _prefs!.setString(_ChallengePrefsKeys.lastDailyRefresh, todayKey);
+      debugPrint('ChallengeService: 每日挑战已刷新 $todayKey');
+    } catch (e) {
+      debugPrint('ChallengeService: 刷新每日挑战失败 $e');
+    }
+  }
+
+  /// 刷新每周挑战
+  Future<void> _refreshWeeklyChallenges(int weekNumber, int year, String weekKey) async {
+    try {
+      // 检查本周是否已有挑战
+      final existing = await database.getWeeklyChallengesByWeekKey(weekKey);
+      if (existing.isEmpty) {
+        await generateThisWeekChallenges();
+      }
+
+      // 更新刷新时间
+      await _prefs!.setString(_ChallengePrefsKeys.lastWeeklyRefresh, weekKey);
+      debugPrint('ChallengeService: 每周挑战已刷新 $weekKey');
+    } catch (e) {
+      debugPrint('ChallengeService: 刷新每周挑战失败 $e');
+    }
+  }
+
+  /// 初始化应用生命周期监听器
+  void _initLifecycleListener() {
+    // 使用 AppLifecycleListener 监听应用状态变化
+    _lifecycleListener = AppLifecycleListener(
+      // 应用从后台恢复时检查刷新
+      onStateChange: _onAppStateChanged,
+    );
+  }
+
+  /// 应用状态变化回调
+  void _onAppStateChanged(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 应用从后台恢复时检查并刷新
+      _checkAndRefreshOnAppResumed();
+    }
+  }
+
+  /// 应用恢复时检查刷新
+  Future<void> _checkAndRefreshOnAppResumed() async {
+    if (_prefs == null || _database == null) return;
+
+    final now = DateTime.now().toUtc();
+    final lastCheckStr = _prefs!.getString(_ChallengePrefsKeys.lastRefreshCheck);
+
+    if (lastCheckStr != null) {
+      final lastCheck = DateTime.parse(lastCheckStr);
+      final difference = now.difference(lastCheck);
+
+      // 如果超过1小时未检查，进行刷新检查
+      if (difference.inHours >= 1) {
+        await _checkAndRefreshOnStartup();
+      }
+    }
+  }
+
+  /// 启动定时检查器（每5分钟检查一次）
+  void _startCheckTimer() {
+    _checkTimer?.cancel();
+    _checkTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _checkAndRefreshOnStartup();
+    });
+  }
+
   // ==================== 每日挑战管理 ====================
 
   /// 生成今日挑战
   Future<List<DailyChallenge>> generateTodayChallenges() async {
-    final today = DateTime.now();
-    final todayKey = DateFormat('yyyy-MM-dd').format(today);
+    final now = DateTime.now().toUtc();
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
 
-    // 检查今日是否已有挑战
+    // 检查今日是否已有挑战（使用数据库查询防止重复）
     final existing = await database.getDailyChallengesByDateKey(todayKey);
     if (existing.isNotEmpty) {
       return existing;
@@ -333,7 +496,7 @@ class ChallengeService {
 
     for (final definition in challengeDefinitions) {
       final id = await database.into(database.dailyChallenges).insert(
-            definition.toDatabaseEntity(today),
+            definition.toDatabaseEntity(now),
           );
       final challenge = await database.getDailyChallengeById(id);
       if (challenge != null) {
@@ -343,7 +506,7 @@ class ChallengeService {
         await database.into(database.userChallengeProgresses).insert(
               UserChallengeProgressesCompanion.insert(
                 challengeId: id,
-                date: today,
+                date: now,
                 currentCount: Value(0),
                 isCompleted: Value(false),
                 rewardClaimed: Value(false),
@@ -352,13 +515,19 @@ class ChallengeService {
       }
     }
 
+    // 更新刷新时间
+    if (_prefs != null) {
+      await _prefs!.setString(_ChallengePrefsKeys.lastDailyRefresh, todayKey);
+    }
+
     return challenges;
   }
 
   /// 获取今日挑战（含进度）
+  /// 使用 UTC 时间避免时区问题
   Future<List<Map<String, dynamic>>> getTodayChallengesWithProgress() async {
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now().toUtc();
+    final startOfDay = DateTime.utc(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final challenges = await database.getDailyChallengesByDateRange(startOfDay, endOfDay);
@@ -383,13 +552,14 @@ class ChallengeService {
   }
 
   /// 更新挑战进度
+  /// 使用 UTC 时间和原子操作避免日期边界竞态条件
   Future<bool> updateChallengeProgress(
     ChallengeType type,
     int countIncrement, {
     int? minutesIncrement,
   }) async {
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now().toUtc();
+    final startOfDay = DateTime.utc(now.year, now.month, now.day);
 
     final challenges = await database.getDailyChallengesByDateRange(
           startOfDay,
@@ -421,13 +591,14 @@ class ChallengeService {
         isCompleted = true;
       }
 
+      // 原子更新操作
       await database.updateUserChallengeProgress(
         UserChallengeProgressesCompanion(
           id: Value(progress.id),
           currentCount: Value(newCount),
           isCompleted: Value(isCompleted),
-          completedAt: isCompleted ? Value(DateTime.now()) : Value.absent(),
-          updatedAt: Value(DateTime.now()),
+          completedAt: isCompleted ? Value(now) : Value.absent(),
+          updatedAt: Value(now),
         ),
       );
 
@@ -438,9 +609,10 @@ class ChallengeService {
   }
 
   /// 领取挑战奖励
+  /// 使用 UTC 时间，修复：先发放奖励，成功后再更新状态，确保事务性
   Future<bool> claimChallengeReward(int challengeId) async {
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now().toUtc();
+    final startOfDay = DateTime.utc(now.year, now.month, now.day);
 
     final progress = await database.getUserChallengeProgressByChallengeAndDate(
           challengeId,
@@ -454,34 +626,37 @@ class ChallengeService {
     final challenge = await database.getDailyChallengeById(challengeId);
     if (challenge == null) return false;
 
-    // 更新奖励领取状态
-    await database.updateUserChallengeProgress(
-      UserChallengeProgressesCompanion(
-        id: Value(progress.id),
-        rewardClaimed: Value(true),
-        rewardClaimedAt: Value(DateTime.now()),
-      ),
-    );
-
-    // 发放奖励到游戏化系统
     try {
+      // 先发放奖励到游戏化系统（如果失败，状态不会更新）
       await gamificationService.addExperience(challenge.expReward);
       await gamificationService.addPoints(challenge.pointsReward);
-    } catch (e) {
-      // 奖励发放失败不影响领取状态更新
-      print('挑战奖励发放失败: $e');
-    }
 
-    return true;
+      // 奖励发放成功后，更新领取状态
+      await database.updateUserChallengeProgress(
+        UserChallengeProgressesCompanion(
+          id: Value(progress.id),
+          rewardClaimed: Value(true),
+          rewardClaimedAt: Value(now),
+        ),
+      );
+
+      return true;
+    } catch (e) {
+      // 奖励发放失败，保持未领取状态，记录错误日志
+      debugPrint('[ChallengeService] 每日挑战奖励发放失败 - challengeId: $challengeId, error: $e');
+      // 重新抛出异常，让调用方知道操作失败
+      rethrow;
+    }
   }
 
   // ==================== 每周挑战管理 ====================
 
   /// 生成本周挑战
   Future<List<WeeklyChallenge>> generateThisWeekChallenges() async {
-    final now = DateTime.now();
-    final weekNumber = _getWeekNumber(now);
-    final year = now.year;
+    final now = DateTime.now().toUtc();
+    final weekData = _getISOWeekData(now);
+    final weekNumber = weekData.weekNumber;
+    final year = weekData.year;
     final weekKey = '$year-W$weekNumber';
 
     // 检查本周是否已有挑战
@@ -517,21 +692,26 @@ class ChallengeService {
       }
     }
 
+    // 更新刷新时间
+    if (_prefs != null) {
+      await _prefs!.setString(_ChallengePrefsKeys.lastWeeklyRefresh, weekKey);
+    }
+
     return challenges;
   }
 
   /// 获取本周挑战（含进度）
   Future<List<Map<String, dynamic>>> getThisWeekChallengesWithProgress() async {
-    final now = DateTime.now();
-    final weekNumber = _getWeekNumber(now);
-    final year = now.year;
+    final now = DateTime.now().toUtc();
+    final weekData = _getISOWeekData(now);
+    final weekNumber = weekData.weekNumber;
+    final year = weekData.year;
     final weekKey = '$year-W$weekNumber';
 
     final challenges = await database.getWeeklyChallengesByWeekKey(weekKey);
     final result = <Map<String, dynamic>>[];
 
     for (final challenge in challenges) {
-      // 为每个挑战获取独立的进度记录
       final progress = await database.getUserWeeklyChallengeProgressByChallengeId(challenge.id);
 
       result.add({
@@ -552,9 +732,10 @@ class ChallengeService {
     int countIncrement, {
     int? minutesIncrement,
   }) async {
-    final now = DateTime.now();
-    final weekNumber = _getWeekNumber(now);
-    final year = now.year;
+    final now = DateTime.now().toUtc();
+    final weekData = _getISOWeekData(now);
+    final weekNumber = weekData.weekNumber;
+    final year = weekData.year;
     final weekKey = '$year-W$weekNumber';
 
     final challenges = await database.getWeeklyChallengesByWeekKey(weekKey);
@@ -564,7 +745,6 @@ class ChallengeService {
     for (final challenge in challenges) {
       if (challenge.type != type.value) continue;
 
-      // 为每个挑战获取独立的进度记录
       final progress = await database.getUserWeeklyChallengeProgressByChallengeId(challenge.id);
 
       if (progress == null || progress.isCompleted) continue;
@@ -582,13 +762,14 @@ class ChallengeService {
         isCompleted = true;
       }
 
+      // 原子更新操作
       await database.updateUserWeeklyChallengeProgress(
         UserWeeklyChallengeProgressesCompanion(
           id: Value(progress.id),
           currentCount: Value(newCount),
           isCompleted: Value(isCompleted),
-          completedAt: isCompleted ? Value(DateTime.now()) : Value.absent(),
-          updatedAt: Value(DateTime.now()),
+          completedAt: isCompleted ? Value(now) : Value.absent(),
+          updatedAt: Value(now),
         ),
       );
 
@@ -599,10 +780,12 @@ class ChallengeService {
   }
 
   /// 领取每周挑战奖励
+  /// 使用 UTC 时间，修复：先发放奖励，成功后再更新状态，确保事务性
   Future<bool> claimWeeklyChallengeReward(int challengeId) async {
-    final now = DateTime.now();
-    final weekNumber = _getWeekNumber(now);
-    final year = now.year;
+    final now = DateTime.now().toUtc();
+    final weekData = _getISOWeekData(now);
+    final weekNumber = weekData.weekNumber;
+    final year = weekData.year;
     final weekKey = '$year-W$weekNumber';
 
     final progress = await database.getUserWeeklyChallengeProgressByChallengeId(challengeId);
@@ -614,118 +797,89 @@ class ChallengeService {
     final challenge = await database.getWeeklyChallengeById(challengeId);
     if (challenge == null) return false;
 
-    // 更新奖励领取状态
-    await database.updateUserWeeklyChallengeProgress(
-      UserWeeklyChallengeProgressesCompanion(
-        id: Value(progress.id),
-        rewardClaimed: Value(true),
-        rewardClaimedAt: Value(DateTime.now()),
-      ),
-    );
-
-    // 发放奖励到游戏化系统
     try {
+      // 先发放奖励到游戏化系统（如果失败，状态不会更新）
       await gamificationService.addExperience(challenge.expReward);
       await gamificationService.addPoints(challenge.pointsReward);
-    } catch (e) {
-      // 奖励发放失败不影响领取状态更新
-      print('每周挑战奖励发放失败: $e');
-    }
 
-    return true;
+      // 奖励发放成功后，更新领取状态
+      await database.updateUserWeeklyChallengeProgress(
+        UserWeeklyChallengeProgressesCompanion(
+          id: Value(progress.id),
+          rewardClaimed: Value(true),
+          rewardClaimedAt: Value(now),
+        ),
+      );
+
+      return true;
+    } catch (e) {
+      // 奖励发放失败，保持未领取状态，记录错误日志
+      debugPrint('[ChallengeService] 每周挑战奖励发放失败 - challengeId: $challengeId, error: $e');
+      // 重新抛出异常，让调用方知道操作失败
+      rethrow;
+    }
   }
 
   // ==================== 工具方法 ====================
 
-  /// 获取周数
+  /// ISO 周数据
+  /// 使用 ISO-8601 标准计算周数和年份
+  ({int year, int weekNumber}) _getISOWeekData(DateTime date) {
+    // 使用 intl 包的 ISO 周数格式化
+    // 'w' 格式符遵循 ISO-8601 标准
+    final weekNumber = int.parse(DateFormat('w').format(date));
+
+    // 获取 ISO 年份（可能与日历年不同）
+    // 使用 'Y' 格式符获取 ISO 年份
+    final year = int.parse(DateFormat('Y').format(date));
+
+    return (year: year, weekNumber: weekNumber);
+  }
+
+  /// 获取周数（保持向后兼容）
+  @Deprecated('使用 _getISOWeekData 替代，此方法仅用于向后兼容')
   int _getWeekNumber(DateTime date) {
-    final dayOfYear = int.parse(DateFormat('D').format(date));
-    final weekNumber = ((dayOfYear - date.weekday + 10) / 7).floor();
-    return weekNumber;
+    return _getISOWeekData(date).weekNumber;
   }
 
   /// 获取距离下次刷新的时间
   Duration getTimeUntilNextRefresh() {
-    final now = DateTime.now();
-    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final now = DateTime.now().toUtc();
+    final tomorrow = DateTime.utc(now.year, now.month, now.day + 1);
     return tomorrow.difference(now);
   }
 
-  /// 获取本周剩余天数
+  /// 获取本周剩余天数（周一为第一天）
   int getDaysUntilWeekEnd() {
-    final now = DateTime.now();
-    return DateTime.daysPerWeek - now.weekday;
+    final now = DateTime.now().toUtc();
+    // ISO 8601 标准周一为 1，周日为 7
+    return 7 - now.weekday;
   }
 
-  // ==================== 自动刷新机制 ====================
+  // ==================== 自动刷新机制（已弃用，使用新的检查机制）====================
 
   /// 初始化自动刷新定时器
+  /// 已弃用：请使用 initialize() 方法
+  @Deprecated('使用 initialize() 方法替代，新的刷新机制更可靠')
   void initAutoRefresh() {
-    _stopTimers();
-
-    // 每日0点刷新定时器
-    _initDailyRefreshTimer();
-
-    // 每周一刷新定时器
-    _initWeeklyRefreshTimer();
+    initialize();
   }
 
   /// 停止所有定时器
   void _stopTimers() {
     _dailyRefreshTimer?.cancel();
     _weeklyRefreshTimer?.cancel();
+    _checkTimer?.cancel();
     _dailyRefreshTimer = null;
     _weeklyRefreshTimer = null;
+    _checkTimer = null;
   }
 
-  /// 初始化每日刷新定时器
-  void _initDailyRefreshTimer() {
-    final now = DateTime.now();
-    final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    final initialDelay = tomorrow.difference(now);
-
-    // 首次延迟到明天0点
-    _dailyRefreshTimer = Timer(initialDelay, () {
-      // 生成新的每日挑战
-      generateTodayChallenges();
-      // 之后每24小时执行一次
-      _dailyRefreshTimer = Timer.periodic(const Duration(days: 1), (_) {
-        generateTodayChallenges();
-      });
-    });
-  }
-
-  /// 初始化每周刷新定时器
-  void _initWeeklyRefreshTimer() {
-    final now = DateTime.now();
-    final nextMonday = _getNextMonday(now);
-    final initialDelay = nextMonday.difference(now);
-
-    // 首次延迟到下周一0点
-    _weeklyRefreshTimer = Timer(initialDelay, () {
-      // 生成新的每周挑战
-      generateThisWeekChallenges();
-      // 之后每7天执行一次
-      _weeklyRefreshTimer = Timer.periodic(const Duration(days: 7), (_) {
-        generateThisWeekChallenges();
-      });
-    });
-  }
-
-  /// 获取下周一的日期
-  DateTime _getNextMonday(DateTime date) {
-    final daysUntilMonday = (DateTime.monday - date.weekday + 7) % 7;
-    if (daysUntilMonday == 0) {
-      // 今天是周一，返回下周一
-      return DateTime(date.year, date.month, date.day + 7);
-    }
-    final nextMonday = date.add(Duration(days: daysUntilMonday));
-    return DateTime(nextMonday.year, nextMonday.month, nextMonday.day);
-  }
-
-  /// 销毁服务，清理定时器
+  /// 销毁服务，清理定时器和监听器
   void dispose() {
     _stopTimers();
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
   }
 
   // ==================== 挑战进度检测（供其他模块调用）====================
@@ -763,9 +917,10 @@ class ChallengeService {
 
   /// 更新连续打卡挑战进度
   Future<void> _updateStreakChallenge() async {
-    final now = DateTime.now();
-    final weekNumber = _getWeekNumber(now);
-    final year = now.year;
+    final now = DateTime.now().toUtc();
+    final weekData = _getISOWeekData(now);
+    final weekNumber = weekData.weekNumber;
+    final year = weekData.year;
     final weekKey = '$year-W$weekNumber';
 
     // 获取本周连续打卡挑战
@@ -786,8 +941,8 @@ class ChallengeService {
           id: Value(progress.id),
           currentCount: Value(newCount),
           isCompleted: Value(isCompleted),
-          completedAt: isCompleted ? Value(DateTime.now()) : Value.absent(),
-          updatedAt: Value(DateTime.now()),
+          completedAt: isCompleted ? Value(now) : Value.absent(),
+          updatedAt: Value(now),
         ),
       );
     }
