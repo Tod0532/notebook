@@ -2,6 +2,63 @@
 
 ---
 
+## 运行时错误修复（2026-02-05）
+
+### 修复概述
+修复了首次手机测试时发现的两个运行时错误：
+1. ChallengeService 周数解析错误
+2. 空气质量 API 404 错误
+
+### 修复详情
+
+#### 问题1: ChallengeService 周数解析失败
+**错误信息**: `FormatException: Invalid radix-10 number (at character 1) w`
+
+**原因分析**:
+- `DateFormat('w').format(date)` 在某些环境下返回带 "W" 前缀的字符串（如 "W05"）
+- `int.parse()` 无法直接解析带前缀的字符串
+
+**修复方案**:
+```dart
+// 移除可能的 "W" 前缀，确保可以正确解析
+String weekStr = DateFormat('w').format(date);
+weekStr = weekStr.replaceAll('W', '').replaceAll('w', '');
+final weekNumber = int.parse(weekStr);
+```
+
+**修改文件**: `lib/services/challenge/challenge_service.dart`
+
+---
+
+#### 问题2: 空气质量 API 404
+**错误信息**: Open-Meteo 空气质量端点返回 404
+
+**原因分析**:
+- 空气质量 API 的基础 URL 与天气 API 不同
+- 应使用 `https://air-quality-api.open-meteo.com/v1` 而非 `https://api.open-meteo.com/v1`
+
+**修复方案**:
+```dart
+// 使用正确的空气质量 API 基础 URL
+const String aqiBaseUrl = 'https://air-quality-api.open-meteo.com/v1';
+
+final response = await _dio.get(
+  '$aqiBaseUrl/air-quality',
+  queryParameters: params,
+);
+```
+
+**修改文件**: `lib/services/weather/weather_service.dart`
+
+---
+
+### 编译结果
+- Flutter 分析: ✅ 通过（仅有 info/warning）
+- Release APK: ✅ 编译成功 (69.3MB)
+- 设备安装: ✅ Seeker (Android 15)
+
+---
+
 ## 天气API集成与运动推荐功能（2026-02-05）
 
 ### 功能概述

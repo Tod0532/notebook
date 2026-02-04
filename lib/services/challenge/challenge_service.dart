@@ -820,9 +820,12 @@ class ChallengeService {
   /// ISO 周数据
   /// 使用 ISO-8601 标准计算周数和年份
   ({int year, int weekNumber}) _getISOWeekData(DateTime date) {
-    // 使用 intl 包的 ISO 周数格式化
-    // 'w' 格式符遵循 ISO-8601 标准
-    final weekNumber = int.parse(DateFormat('w').format(date));
+    // 方案1：使用 intl 包的 ISO 周数格式化
+    // 移除可能的 "W" 前缀，确保可以正确解析
+    String weekStr = DateFormat('w').format(date);
+    // 如果返回的是 "W05" 格式，移除 "W" 前缀
+    weekStr = weekStr.replaceAll('W', '').replaceAll('w', '');
+    final weekNumber = int.parse(weekStr);
 
     // 获取 ISO 年份（可能与日历年不同）
     // 使用 'Y' 格式符获取 ISO 年份

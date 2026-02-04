@@ -498,31 +498,33 @@ class WeatherService {
   // ==================== 空气质量 ====================
 
   /// 获取空气质量（使用 Open-Meteo Air Quality API）
+  /// 注意：Open-Meteo 的空气质量 API 端点是独立的 GFS 系统
   Future<int> getAirQuality(double lat, double lon) async {
     try {
       final params = {
         'latitude': lat,
         'longitude': lon,
-        'current': [
-          'us_aqi',
-          'pm10',
-          'pm2_5',
-          'carbon_monoxide',
-          'nitrogen_dioxide',
-          'sulphur_dioxide',
-          'ozone',
-        ],
+        'current': 'us_aqi',
         'timezone': 'auto',
       };
 
+      // 使用正确的空气质量 API 基础 URL
+      // GFS 系统的空气质量预报与欧洲系统不同
+      const String aqiBaseUrl = 'https://air-quality-api.open-meteo.com/v1';
+
       final response = await _dio.get(
-        '${WeatherServiceConfig.baseUrl}/air-quality',
+        '$aqiBaseUrl/air-quality',
         queryParameters: params,
       );
 
-      if (response.statusCode == 200) {
-        final aqi = response.data['current']?['us_aqi'] as int?;
-        return aqi ?? 50;
+      if (response.statusCode == 200 && response.data != null) {
+        final current = response.data['current'];
+        if (current != null) {
+          final aqi = current['us_aqi'] as int?;
+          if (aqi != null) {
+            return aqi;
+          }
+        }
       }
 
       return 50; // 默认值
