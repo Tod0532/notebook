@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/features/challenge/presentation/providers/challenge_providers.dart';
+import 'dart:developer' as developer;
+import 'package:flutter/scaffold_snack_bar.dart';
 
 /// 挑战卡片
 class ChallengeCard extends ConsumerWidget {
@@ -20,8 +22,13 @@ class ChallengeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final challenge = challengeData['challenge'] as DailyChallenge;
-    final progress = challengeData['progress'] as UserChallengeProgress?;
+    // 支持每日和每周挑战
+    final challenge = isWeekly
+        ? challengeData['challenge'] as WeeklyChallenge
+        : challengeData['challenge'] as DailyChallenge;
+    final progress = isWeekly
+        ? challengeData['progress'] as UserWeeklyChallengeProgress?
+        : challengeData['progress'] as UserChallengeProgress?;
     final progressPercent = challengeData['progressPercent'] as double;
 
     final isCompleted = progress?.isCompleted ?? false;
@@ -272,10 +279,53 @@ class ChallengeCard extends ConsumerWidget {
     return ElevatedButton.icon(
       onPressed: () async {
         final notifier = ref.read(challengeNotifierProvider.notifier);
+        bool success = false;
         if (isWeekly) {
-          await notifier.claimWeeklyReward(challengeId);
+          success = await notifier.claimWeeklyReward(challengeId);
         } else {
-          await notifier.claimDailyReward(challengeId);
+          success = await notifier.claimDailyReward(challengeId);
+        }
+
+        // 显示领取结果提示
+        if (context.mounted) {
+          if (success) {
+            // 获取奖励信息用于显示
+            final challenge = isWeekly
+                ? challengeData['challenge'] as WeeklyChallenge
+                : challengeData['challenge'] as DailyChallenge;
+            final exp = challenge.expReward;
+            final points = challenge.pointsReward;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text('奖励已领取！+$exp EXP, +$points 积分'),
+                  ],
+                ),
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('领取失败，请稍后重试'),
+                  ],
+                ),
+                backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       },
       icon: const Icon(Icons.card_giftcard_rounded, size: 18),

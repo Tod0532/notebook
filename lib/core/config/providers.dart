@@ -36,7 +36,11 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 /// 笔记仓库 Provider
 final noteRepositoryProvider = Provider<NoteRepository>((ref) {
-  return NoteRepository(ref.watch(databaseProvider));
+  final repo = NoteRepository(ref.watch(databaseProvider));
+  // 注入挑战服务用于进度更新
+  final challengeService = ref.watch(challengeServiceProvider);
+  repo.setChallengeService(challengeService);
+  return repo;
 });
 
 /// 提醒仓库 Provider
@@ -46,12 +50,20 @@ final reminderRepositoryProvider = Provider<ReminderRepository>((ref) {
 
 /// 运动仓库 Provider
 final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
-  return WorkoutRepository(ref.watch(databaseProvider));
+  final repo = WorkoutRepository(ref.watch(databaseProvider));
+  // 注入挑战服务用于进度更新
+  final challengeService = ref.watch(challengeServiceProvider);
+  repo.setChallengeService(challengeService);
+  return repo;
 });
 
 /// 计划仓库 Provider
 final planRepositoryProvider = Provider<PlanRepository>((ref) {
-  return PlanRepository(ref.watch(databaseProvider));
+  final repo = PlanRepository(ref.watch(databaseProvider));
+  // 注入挑战服务用于进度更新
+  final challengeService = ref.watch(challengeServiceProvider);
+  repo.setChallengeService(challengeService);
+  return repo;
 });
 
 // ==================== AI教练功能仓库 Providers ====================
@@ -145,10 +157,15 @@ final geofenceRepositoryProvider = Provider<GeofenceRepository>((ref) {
 // ==================== 挑战系统服务 Providers ====================
 
 /// 挑战服务 Provider（单例）
+/// 注意：使用 Provider 而非单例，以正确处理依赖关系
 final challengeServiceProvider = Provider<ChallengeService>((ref) {
   final db = ref.watch(databaseProvider);
+  final gamificationService = ref.watch(gamificationServiceProvider);
   final service = ChallengeService.instance;
   service.setDatabase(db);
+  service.setGamificationService(gamificationService);
+  // 初始化自动刷新
+  service.initAutoRefresh();
   return service;
 });
 

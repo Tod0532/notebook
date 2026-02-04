@@ -1,12 +1,19 @@
 /// 笔记仓库 - 封装笔记相关的数据库操作
 
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/challenge/challenge_service.dart';
 import 'package:drift/drift.dart' as drift;
 
 class NoteRepository {
   final AppDatabase _db;
+  ChallengeService? _challengeService;
 
   NoteRepository(this._db);
+
+  /// 设置挑战服务（可选，用于挑战进度更新）
+  void setChallengeService(ChallengeService? service) {
+    _challengeService = service;
+  }
 
   /// 获取所有笔记（未删除）
   Future<List<Note>> getAllNotes() async {
@@ -79,7 +86,16 @@ class NoteRepository {
 
   /// 创建笔记
   Future<int> createNote(NotesCompanion note) async {
-    return await _db.into(_db.notes).insert(note);
+    final id = await _db.into(_db.notes).insert(note);
+
+    // 更新挑战进度（异步，不影响主流程）
+    if (_challengeService != null) {
+      _challengeService!.onNoteCreated().catchError((e) {
+        // 忽略挑战更新错误，不影响笔记创建
+      });
+    }
+
+    return id;
   }
 
   /// 更新笔记

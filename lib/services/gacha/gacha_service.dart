@@ -75,24 +75,51 @@ class GachaConfig {
   static const int legendaryPityThreshold = 100;
 
   /// 获取稀有度概率（考虑保底）
+  ///
+  /// 保底机制说明：
+  /// - 10抽必出稀有以上
+  /// - 50抽必出史诗以上
+  /// - 100抽必出传说
   static Map<GachaRarity, double> getRarityProbabilities(int pityCount) {
-    // 保底机制：每10抽必出稀有以上
-    if (pityCount >= rarePityThreshold) {
-      final guaranteedRare = pityCount >= legendaryPityThreshold
-          ? GachaRarity.legendary
-          : pityCount >= epicPityThreshold
-              ? GachaRarity.epic
-              : GachaRarity.rare;
-
+    // 100抽保底：必出传说
+    if (pityCount >= legendaryPityThreshold - 1) {
       return {
         GachaRarity.common: 0.0,
-        GachaRarity.rare: guaranteedRare == GachaRarity.rare ? 1.0 : 0.0,
-        GachaRarity.epic: guaranteedRare == GachaRarity.epic ? 1.0 : 0.2,
-        GachaRarity.legendary: guaranteedRare == GachaRarity.legendary ? 1.0 : 0.05,
+        GachaRarity.rare: 0.0,
+        GachaRarity.epic: 0.0,
+        GachaRarity.legendary: 1.0,
       };
     }
 
-    // 正常概率
+    // 50抽保底：必出史诗以上
+    if (pityCount >= epicPityThreshold - 1) {
+      return {
+        GachaRarity.common: 0.0,
+        GachaRarity.rare: 0.0,
+        GachaRarity.epic: 1.0,
+        GachaRarity.legendary: 0.0,
+      };
+    }
+
+    // 10抽保底：必出稀有以上（但仍保留更高稀有度的概率）
+    if (pityCount >= rarePityThreshold - 1) {
+      // 软保底：逐渐提高稀有度概率
+      final softPityProgress = (pityCount - rarePityThreshold + 1) /
+          (epicPityThreshold - rarePityThreshold);
+
+      final rareChance = 0.70 + (0.15 * softPityProgress); // 70% -> 85%
+      final epicChance = 0.25 + (0.10 * softPityProgress); // 25% -> 35%
+      final legendaryChance = 0.05 + (0.10 * softPityProgress); // 5% -> 15%
+
+      return {
+        GachaRarity.common: 0.0,
+        GachaRarity.rare: rareChance,
+        GachaRarity.epic: epicChance,
+        GachaRarity.legendary: legendaryChance,
+      };
+    }
+
+    // 正常概率：普通60%、稀有30%、史诗8%、传说2%
     return {
       GachaRarity.common: 0.60,
       GachaRarity.rare: 0.30,
@@ -140,101 +167,337 @@ class GachaItem {
 }
 
 /// 物品池配置
+///
+/// 物品池设计原则：
+/// 1. 普通池：日常易获得的称号和徽章，保持新鲜感
+/// 2. 稀有池：有一定挑战性的成就，加上基础主题
+/// 3. 史诗池：长期坚持的成就证明，优质主题
+/// 4. 传说池：终极成就，稀有且独特
 class GachaItemPool {
-  /// 普通物品池
+  /// 普通物品池 - 20个物品
   static const List<GachaItem> commonItems = [
-    // 称号
+    // ========== 称号 (10个) ==========
     GachaItem(
       name: '早起鸟',
-      description: '连续3天在早上8点前完成活动',
+      description: '晨光中的先行者，在6点前开始活动',
       type: GachaItemType.title,
       rarity: GachaRarity.common,
     ),
     GachaItem(
       name: '夜猫子',
-      description: '在晚上10点后还有活动记录',
+      description: '夜晚的守护者，在22点后仍在坚持',
       type: GachaItemType.title,
       rarity: GachaRarity.common,
     ),
     GachaItem(
       name: '记录者',
-      description: '创建第10条笔记',
+      description: '生活的观察家，创建第10条笔记',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '初出茅庐',
+      description: '旅程的开始，完成第一次运动记录',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '持之以恒',
+      description: '连续3天保持活动记录',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '周末达人',
+      description: '周末也不松懈，完成运动计划',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '计划入门',
+      description: '创建第一个个人计划',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '笔耕不辍',
+      description: '连续7天记录笔记',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '健康意识',
+      description: '关注心率健康，完成首次心率监测',
+      type: GachaItemType.title,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '探索者',
+      description: '使用GPS追踪功能记录运动路线',
       type: GachaItemType.title,
       rarity: GachaRarity.common,
     ),
 
-    // 徽章
+    // ========== 徽章 (10个) ==========
     GachaItem(
       name: '青铜徽章',
-      description: '新手冒险家的证明',
+      description: '新手冒险家的证明，迈出第一步',
       type: GachaItemType.badge,
       rarity: GachaRarity.common,
     ),
     GachaItem(
       name: '运动初学者',
-      description: '完成第一次运动记录',
+      description: '完成第一次运动记录的纪念',
       type: GachaItemType.badge,
       rarity: GachaRarity.common,
     ),
     GachaItem(
       name: '笔记达人',
-      description: '连续7天记录笔记',
+      description: '连续7天记录笔记的坚持',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '步履不停',
+      description: '单日步数超过5000步',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '晨练者',
+      description: '在早晨完成运动',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '晚练者',
+      description: '在傍晚完成运动',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '计划新手',
+      description: '创建并完成第一个计划',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '心有灵犀',
+      description: '连续监测心率3天',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '路线初探',
+      description: '记录第一条GPS运动路线',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '元气满满',
+      description: '连续7天保持活跃状态',
       type: GachaItemType.badge,
       rarity: GachaRarity.common,
     ),
   ];
 
-  /// 稀有物品池
+  /// 稀有物品池 - 20个物品
   static const List<GachaItem> rareItems = [
+    // ========== 称号 (10个) ==========
     GachaItem(
       name: '健身爱好者',
-      description: '连续7天完成运动',
+      description: '连续7天完成运动，坚持就是胜利',
       type: GachaItemType.title,
       rarity: GachaRarity.rare,
     ),
     GachaItem(
       name: '计划大师',
-      description: '完成第50个计划任务',
+      description: '完成第50个计划任务，执行力超群',
       type: GachaItemType.title,
       rarity: GachaRarity.rare,
     ),
     GachaItem(
-      name: '白银徽章',
-      description: '熟练冒险家的证明',
-      type: GachaItemType.badge,
+      name: '运动新星',
+      description: '累计运动时长达到10小时',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '千步英雄',
+      description: '单日步数超过10000步',
+      type: GachaItemType.title,
       rarity: GachaRarity.rare,
     ),
     GachaItem(
       name: '周末战士',
-      description: '周末累计运动3小时',
+      description: '周末累计运动3小时以上',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '月度坚持',
+      description: '连续30天保持活动记录',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '笔记收藏家',
+      description: '创建第100条笔记',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '路线达人',
+      description: '记录10条不同的运动路线',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '心率守护',
+      description: '连续30天监测心率',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '计划达人',
+      description: '完成10个不同的计划',
+      type: GachaItemType.title,
+      rarity: GachaRarity.rare,
+    ),
+
+    // ========== 徽章 (5个) ==========
+    GachaItem(
+      name: '白银徽章',
+      description: '熟练冒险家的证明，渐入佳境',
       type: GachaItemType.badge,
       rarity: GachaRarity.rare,
     ),
     GachaItem(
+      name: '运动先锋',
+      description: '连续7天完成运动计划',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '千步达人',
+      description: '单日步数突破10000步',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '计划完成者',
+      description: '完成5个计划任务',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '路线探索者',
+      description: '记录5条不同的运动路线',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.rare,
+    ),
+
+    // ========== 主题 (5个) ==========
+    GachaItem(
       name: '深蓝主题',
-      description: '优雅的深蓝色主题',
+      description: '优雅深邃的深蓝色调，沉稳大气',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '森林主题',
+      description: '清新的森林绿色调，自然舒适',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '海洋主题',
+      description: '宁静的海洋蓝色调，心旷神怡',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '简约白主题',
+      description: '纯净简约的白色调，清爽干净',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.rare,
+    ),
+    GachaItem(
+      name: '暖阳主题',
+      description: '温暖的橙黄色调，充满活力',
       type: GachaItemType.theme,
       rarity: GachaRarity.rare,
     ),
   ];
 
-  /// 史诗物品池
+  /// 史诗物品池 - 20个物品
   static const List<GachaItem> epicItems = [
+    // ========== 称号 (10个) ==========
     GachaItem(
       name: '运动健将',
-      description: '连续30天完成运动',
+      description: '连续30天完成运动，毅力非凡',
       type: GachaItemType.title,
       rarity: GachaRarity.epic,
     ),
     GachaItem(
       name: '百日坚持',
-      description: '连续打卡100天',
+      description: '连续打卡100天，百折不挠',
       type: GachaItemType.title,
       rarity: GachaRarity.epic,
     ),
     GachaItem(
+      name: '运动专家',
+      description: '累计运动时长达到100小时',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '万步传奇',
+      description: '单日步数超过20000步',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '马拉松者',
+      description: '单次运动时长超过2小时',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '季度冠军',
+      description: '连续90天保持活动记录',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '笔记大师',
+      description: '创建第500条笔记',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '路线大师',
+      description: '记录50条不同的运动路线',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '心率达人',
+      description: '连续90天监测心率',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '完美执行',
+      description: '连续完成30个计划任务',
+      type: GachaItemType.title,
+      rarity: GachaRarity.epic,
+    ),
+
+    // ========== 徽章 (5个) ==========
+    GachaItem(
       name: '黄金徽章',
-      description: '精英冒险家的证明',
+      description: '精英冒险家的证明，实力超群',
       type: GachaItemType.badge,
       rarity: GachaRarity.epic,
     ),
@@ -245,42 +508,151 @@ class GachaItemPool {
       rarity: GachaRarity.epic,
     ),
     GachaItem(
+      name: '百日战士',
+      description: '连续打卡100天的坚持者',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '万步王者',
+      description: '单日步数突破20000步',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '路线专家',
+      description: '记录20条不同的运动路线',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.epic,
+    ),
+
+    // ========== 主题 (5个) ==========
+    GachaItem(
       name: '极光主题',
-      description: '绚丽的极光渐变主题',
+      description: '绚丽多彩的极光渐变，梦幻绚丽',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '日落主题',
+      description: '温暖的日落橙红渐变，浪漫迷人',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '紫霞主题',
+      description: '神秘的紫霞渐变，优雅高贵',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '暗夜主题',
+      description: '深邃的暗夜主题，护眼舒适',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.epic,
+    ),
+    GachaItem(
+      name: '樱花主题',
+      description: '温柔的粉樱色调，浪漫唯美',
       type: GachaItemType.theme,
       rarity: GachaRarity.epic,
     ),
   ];
 
-  /// 传说物品池
+  /// 传说物品池 - 15个物品
   static const List<GachaItem> legendaryItems = [
+    // ========== 称号 (8个) ==========
     GachaItem(
       name: '传奇大师',
-      description: '达到50级',
+      description: '达到50级，真正的传奇人物',
       type: GachaItemType.title,
       rarity: GachaRarity.legendary,
     ),
     GachaItem(
       name: '不朽意志',
-      description: '连续打卡365天',
+      description: '连续打卡365天，一年的坚持与陪伴',
       type: GachaItemType.title,
       rarity: GachaRarity.legendary,
     ),
     GachaItem(
+      name: '运动之神',
+      description: '累计运动时长达到500小时',
+      type: GachaItemType.title,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '极限挑战',
+      description: '单次运动时长超过4小时',
+      type: GachaItemType.title,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '万步之神',
+      description: '单日步数超过30000步',
+      type: GachaItemType.title,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '年度王者',
+      description: '连续365天保持活动记录',
+      type: GachaItemType.title,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '千日传说',
+      description: '连续打卡1000天，千日不朽的传奇',
+      type: GachaItemType.title,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '全能大师',
+      description: '同时达到运动、笔记、计划三项成就顶级',
+      type: GachaItemType.title,
+      rarity: GachaRarity.legendary,
+    ),
+
+    // ========== 徽章 (4个) ==========
+    GachaItem(
       name: '钻石徽章',
-      description: '传说冒险家的证明',
+      description: '传说冒险家的证明，璀璨夺目',
       type: GachaItemType.badge,
       rarity: GachaRarity.legendary,
     ),
     GachaItem(
       name: '永恒徽章',
-      description: '一年的坚持与陪伴',
+      description: '一年的坚持与陪伴，永恒的纪念',
       type: GachaItemType.badge,
       rarity: GachaRarity.legendary,
     ),
     GachaItem(
+      name: '传奇徽章',
+      description: '达到50级的传奇证明',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '神话徽章',
+      description: '连续打卡1000天的神话级成就',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.legendary,
+    ),
+
+    // ========== 主题 (3个) ==========
+    GachaItem(
       name: '星空主题',
-      description: '神秘的星空主题',
+      description: '神秘璀璨的星空主题，浩瀚无垠',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '银河主题',
+      description: '绚烂的银河渐变，梦幻星辰',
+      type: GachaItemType.theme,
+      rarity: GachaRarity.legendary,
+    ),
+    GachaItem(
+      name: '黄金殿堂',
+      description: '奢华璀璨的金色调，王者风范',
       type: GachaItemType.theme,
       rarity: GachaRarity.legendary,
     ),
@@ -305,6 +677,38 @@ class GachaItemPool {
     final items = getItemsByRarity(rarity);
     final random = Random().nextInt(items.length);
     return items[random];
+  }
+
+  /// 获取所有物品
+  static List<GachaItem> getAllItems() {
+    return [
+      ...commonItems,
+      ...rareItems,
+      ...epicItems,
+      ...legendaryItems,
+    ];
+  }
+
+  /// 获取物品总数
+  static int get totalItemCount => getAllItems().length;
+
+  /// 按类型获取物品
+  static List<GachaItem> getItemsByType(GachaItemType type) {
+    return getAllItems().where((item) => item.type == type).toList();
+  }
+
+  /// 获取物品统计信息
+  static Map<String, int> getItemStats() {
+    return {
+      'total': totalItemCount,
+      'common': commonItems.length,
+      'rare': rareItems.length,
+      'epic': epicItems.length,
+      'legendary': legendaryItems.length,
+      'title': getItemsByType(GachaItemType.title).length,
+      'badge': getItemsByType(GachaItemType.badge).length,
+      'theme': getItemsByType(GachaItemType.theme).length,
+    };
   }
 }
 

@@ -49,6 +49,12 @@ const List<_NavItem> _navItems = [
     route: AppRoutes.notes,
   ),
   _NavItem(
+    label: '提醒',
+    icon: Icons.notifications_outlined,
+    activeIcon: Icons.notifications,
+    route: AppRoutes.reminders,
+  ),
+  _NavItem(
     label: '运动',
     icon: Icons.fitness_center_outlined,
     activeIcon: Icons.fitness_center,

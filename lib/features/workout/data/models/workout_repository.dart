@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/features/workout/data/models/workout_stats_models.dart' as stats;
 import 'package:thick_notepad/services/calories/calorie_calculator_service.dart';
+import 'package:thick_notepad/services/challenge/challenge_service.dart';
 import 'package:drift/drift.dart' as drift;
 
 /// 运动仓库异常类
@@ -27,8 +28,14 @@ class WorkoutRepositoryException implements Exception {
 
 class WorkoutRepository {
   final AppDatabase _db;
+  ChallengeService? _challengeService;
 
   WorkoutRepository(this._db);
+
+  /// 设置挑战服务（可选，用于挑战进度更新）
+  void setChallengeService(ChallengeService? service) {
+    _challengeService = service;
+  }
 
   /// 获取所有运动记录
   Future<List<Workout>> getAllWorkouts() async {
@@ -101,7 +108,17 @@ class WorkoutRepository {
   /// 创建运动记录
   Future<int> createWorkout(WorkoutsCompanion workout) async {
     try {
-      return await _db.into(_db.workouts).insert(workout);
+      final id = await _db.into(_db.workouts).insert(workout);
+
+      // 更新挑战进度（异步，不影响主流程）
+      if (_challengeService != null) {
+        final duration = workout.durationMinutes.value;
+        _challengeService!.onWorkoutCompleted(durationMinutes: duration ?? 0).catchError((e) {
+          debugPrint('更新运动挑战进度失败: $e');
+        });
+      }
+
+      return id;
     } catch (e, st) {
       debugPrint('创建运动记录失败: $e');
       throw WorkoutRepositoryException('创建运动记录失败', e, st);

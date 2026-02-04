@@ -1,12 +1,19 @@
 /// 计划仓库 - 封装计划相关的数据库操作
 
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/challenge/challenge_service.dart';
 import 'package:drift/drift.dart' as drift;
 
 class PlanRepository {
   final AppDatabase _db;
+  ChallengeService? _challengeService;
 
   PlanRepository(this._db);
+
+  /// 设置挑战服务（可选，用于挑战进度更新）
+  void setChallengeService(ChallengeService? service) {
+    _challengeService = service;
+  }
 
   /// 获取所有计划
   Future<List<Plan>> getAllPlans() async {
@@ -196,6 +203,13 @@ class PlanRepository {
 
     // 增加连续天数
     await incrementStreak(task.planId);
+
+    // 更新挑战进度（异步，不影响主流程）
+    if (_challengeService != null) {
+      _challengeService!.onPlanTaskCompleted().catchError((e) {
+        // 忽略挑战更新错误，不影响任务完成
+      });
+    }
   }
 
   /// 标记任务为未完成

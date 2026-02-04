@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/gamification/gamification_service.dart';
 
 // ==================== 挑战定义配置 ====================
 
@@ -264,6 +265,9 @@ class ChallengeService {
   static final _lock = Object();
 
   AppDatabase? _database;
+  GamificationService? _gamificationService;
+  Timer? _dailyRefreshTimer;
+  Timer? _weeklyRefreshTimer;
 
   /// 获取单例实例
   static ChallengeService get instance {
@@ -287,6 +291,19 @@ class ChallengeService {
   /// 设置数据库实例
   void setDatabase(AppDatabase database) {
     _database = database;
+  }
+
+  /// 设置游戏化服务实例
+  void setGamificationService(GamificationService service) {
+    _gamificationService = service;
+  }
+
+  /// 确保游戏化服务已初始化
+  GamificationService get gamificationService {
+    if (_gamificationService == null) {
+      throw StateError('ChallengeService: 游戏化服务未初始化，请先调用 setGamificationService()');
+    }
+    return _gamificationService!;
   }
 
   /// 确保数据库已初始化
@@ -446,8 +463,14 @@ class ChallengeService {
       ),
     );
 
-    // TODO: 发放奖励到游戏化系统
-    // 这里需要调用游戏化服务的接口来增加经验和积分
+    // 发放奖励到游戏化系统
+    try {
+      await gamificationService.addExperience(challenge.expReward);
+      await gamificationService.addPoints(challenge.pointsReward);
+    } catch (e) {
+      // 奖励发放失败不影响领取状态更新
+      print('挑战奖励发放失败: $e');
+    }
 
     return true;
   }
@@ -508,7 +531,8 @@ class ChallengeService {
     final result = <Map<String, dynamic>>[];
 
     for (final challenge in challenges) {
-      final progress = await database.getUserWeeklyChallengeProgressByWeekKey(weekKey);
+      // 为每个挑战获取独立的进度记录
+      final progress = await database.getUserWeeklyChallengeProgressByChallengeId(challenge.id);
 
       result.add({
         'challenge': challenge,
@@ -540,7 +564,8 @@ class ChallengeService {
     for (final challenge in challenges) {
       if (challenge.type != type.value) continue;
 
-      final progress = await database.getUserWeeklyChallengeProgressByWeekKey(weekKey);
+      // 为每个挑战获取独立的进度记录
+      final progress = await database.getUserWeeklyChallengeProgressByChallengeId(challenge.id);
 
       if (progress == null || progress.isCompleted) continue;
 
@@ -598,7 +623,14 @@ class ChallengeService {
       ),
     );
 
-    // TODO: 发放奖励到游戏化系统
+    // 发放奖励到游戏化系统
+    try {
+      await gamificationService.addExperience(challenge.expReward);
+      await gamificationService.addPoints(challenge.pointsReward);
+    } catch (e) {
+      // 奖励发放失败不影响领取状态更新
+      print('每周挑战奖励发放失败: $e');
+    }
 
     return true;
   }
@@ -623,5 +655,141 @@ class ChallengeService {
   int getDaysUntilWeekEnd() {
     final now = DateTime.now();
     return DateTime.daysPerWeek - now.weekday;
+  }
+
+  // ==================== 自动刷新机制 ====================
+
+  /// 初始化自动刷新定时器
+  void initAutoRefresh() {
+    _stopTimers();
+
+    // 每日0点刷新定时器
+    _initDailyRefreshTimer();
+
+    // 每周一刷新定时器
+    _initWeeklyRefreshTimer();
+  }
+
+  /// 停止所有定时器
+  void _stopTimers() {
+    _dailyRefreshTimer?.cancel();
+    _weeklyRefreshTimer?.cancel();
+    _dailyRefreshTimer = null;
+    _weeklyRefreshTimer = null;
+  }
+
+  /// 初始化每日刷新定时器
+  void _initDailyRefreshTimer() {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final initialDelay = tomorrow.difference(now);
+
+    // 首次延迟到明天0点
+    _dailyRefreshTimer = Timer(initialDelay, () {
+      // 生成新的每日挑战
+      generateTodayChallenges();
+      // 之后每24小时执行一次
+      _dailyRefreshTimer = Timer.periodic(const Duration(days: 1), (_) {
+        generateTodayChallenges();
+      });
+    });
+  }
+
+  /// 初始化每周刷新定时器
+  void _initWeeklyRefreshTimer() {
+    final now = DateTime.now();
+    final nextMonday = _getNextMonday(now);
+    final initialDelay = nextMonday.difference(now);
+
+    // 首次延迟到下周一0点
+    _weeklyRefreshTimer = Timer(initialDelay, () {
+      // 生成新的每周挑战
+      generateThisWeekChallenges();
+      // 之后每7天执行一次
+      _weeklyRefreshTimer = Timer.periodic(const Duration(days: 7), (_) {
+        generateThisWeekChallenges();
+      });
+    });
+  }
+
+  /// 获取下周一的日期
+  DateTime _getNextMonday(DateTime date) {
+    final daysUntilMonday = (DateTime.monday - date.weekday + 7) % 7;
+    if (daysUntilMonday == 0) {
+      // 今天是周一，返回下周一
+      return DateTime(date.year, date.month, date.day + 7);
+    }
+    final nextMonday = date.add(Duration(days: daysUntilMonday));
+    return DateTime(nextMonday.year, nextMonday.month, nextMonday.day);
+  }
+
+  /// 销毁服务，清理定时器
+  void dispose() {
+    _stopTimers();
+  }
+
+  // ==================== 挑战进度检测（供其他模块调用）====================
+
+  /// 运动完成时调用，更新相关挑战进度
+  Future<void> onWorkoutCompleted({int durationMinutes = 0}) async {
+    // 更新每日运动挑战
+    await updateChallengeProgress(ChallengeType.workout, 1);
+    // 更新运动时长挑战
+    if (durationMinutes > 0) {
+      await updateChallengeProgress(ChallengeType.totalMinutes, 0, minutesIncrement: durationMinutes);
+    }
+    // 更新每周挑战
+    await updateWeeklyChallengeProgress(ChallengeType.workout, 1);
+    if (durationMinutes > 0) {
+      await updateWeeklyChallengeProgress(ChallengeType.totalMinutes, 0, minutesIncrement: durationMinutes);
+    }
+    // 更新连续打卡挑战
+    await _updateStreakChallenge();
+  }
+
+  /// 笔记创建时调用，更新相关挑战进度
+  Future<void> onNoteCreated() async {
+    await updateChallengeProgress(ChallengeType.note, 1);
+    await updateWeeklyChallengeProgress(ChallengeType.note, 1);
+    await _updateStreakChallenge();
+  }
+
+  /// 计划任务完成时调用，更新相关挑战进度
+  Future<void> onPlanTaskCompleted() async {
+    await updateChallengeProgress(ChallengeType.plan, 1);
+    await updateWeeklyChallengeProgress(ChallengeType.plan, 1);
+    await _updateStreakChallenge();
+  }
+
+  /// 更新连续打卡挑战进度
+  Future<void> _updateStreakChallenge() async {
+    final now = DateTime.now();
+    final weekNumber = _getWeekNumber(now);
+    final year = now.year;
+    final weekKey = '$year-W$weekNumber';
+
+    // 获取本周连续打卡挑战
+    final challenges = await database.getWeeklyChallengesByWeekKey(weekKey);
+    final streakChallenges = challenges.where((c) => c.type == ChallengeType.streak.value);
+
+    for (final challenge in streakChallenges) {
+      final progress = await database.getUserWeeklyChallengeProgressByChallengeId(challenge.id);
+      if (progress == null || progress.isCompleted) continue;
+
+      // 获取游戏化服务的连续天数
+      final currentStreak = await gamificationService.getCurrentStreak();
+      final newCount = currentStreak.clamp(0, challenge.targetCount);
+      final isCompleted = newCount >= challenge.targetCount;
+
+      await database.updateUserWeeklyChallengeProgress(
+        UserWeeklyChallengeProgressesCompanion(
+          id: Value(progress.id),
+          currentCount: Value(newCount),
+          isCompleted: Value(isCompleted),
+          completedAt: isCompleted ? Value(DateTime.now()) : Value.absent(),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    }
   }
 }
