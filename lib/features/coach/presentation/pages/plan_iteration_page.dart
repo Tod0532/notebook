@@ -222,7 +222,7 @@ class _PlanIterationPageState extends ConsumerState<PlanIterationPage>
       );
 
       if (newPlan != null && mounted) {
-        await HapticHelper.successTap();
+        await HapticHelper.success();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('训练计划已重新生成！'),
@@ -563,7 +563,7 @@ class _PlanIterationPageState extends ConsumerState<PlanIterationPage>
         break;
       case '买不到':
         color = AppColors.error;
-        icon = Icons.shopping_cart_off;
+        icon = Icons.shopping_basket;
         break;
       case '太难做':
         color = AppColors.warning;
@@ -906,18 +906,24 @@ class _PlanIterationPageState extends ConsumerState<PlanIterationPage>
 
   /// 获取反馈原因文本
   String _getFeedbackReasonText(String reason) {
-    const map = {
-      'too_hard': '太难',
-      'too_easy': '太简单',
+    // 训练动作反馈原因
+    const exerciseReasons = {
+      'too_hard': '太难了',
+      'too_easy': '太简单了',
       'dislike': '不喜欢',
       'no_equipment': '没器械',
       'injury': '身体不适合',
+    };
+    // 食材反馈原因
+    const foodReasons = {
       'unavailable': '买不到',
       'too_hard': '太难做',
+      'dislike': '不喜欢吃',
       'allergy': '过敏',
       'too_expensive': '太贵',
     };
-    return map[reason] ?? reason;
+
+    return exerciseReasons[reason] ?? foodReasons[reason] ?? reason;
   }
 
   /// 浮动操作按钮

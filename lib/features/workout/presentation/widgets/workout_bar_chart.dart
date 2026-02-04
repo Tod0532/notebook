@@ -79,7 +79,7 @@ class WorkoutBarChart extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: yMax,
+                maxY: yMax.toDouble(),
                 minY: 0,
                 groupsSpace: 12,
                 barTouchData: BarTouchData(
@@ -177,7 +177,7 @@ class WorkoutBarChart extends StatelessWidget {
                   },
                 ),
                 borderData: FlBorderData(show: false),
-                barGroups: _buildBarGroups(yMax),
+                barGroups: _buildBarGroups(yMax.toDouble()),
               ),
             ),
           ),
@@ -358,9 +358,9 @@ class WorkoutTypeBarChart extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: yMax,
+                maxY: yMax.toDouble(),
                 minY: 0,
-                barGroups: _buildHorizontalBarGroups(yMax),
+                barGroups: _buildHorizontalBarGroups(yMax.toDouble()),
                 titlesData: FlTitlesData(
                   show: true,
                   leftTitles: AxisTitles(

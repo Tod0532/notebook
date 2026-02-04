@@ -1,18 +1,23 @@
 /// 运动统计模型
 /// 用于图表展示的数据结构
 
+import 'package:flutter/material.dart';
+import 'package:thick_notepad/services/database/database.dart' as db;
+
 /// 每日运动统计
 class DailyWorkoutStats {
   final DateTime date;
   final int totalMinutes;
   final int workoutCount;
   final Map<String, int> minutesByType;
+  final double totalCalories; // 总卡路里消耗
 
   DailyWorkoutStats({
     required this.date,
     required this.totalMinutes,
     required this.workoutCount,
     required this.minutesByType,
+    this.totalCalories = 0,
   });
 
   /// 获取日期显示文本（如：1月1日）
@@ -23,6 +28,9 @@ class DailyWorkoutStats {
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     return '周${weekdays[date.weekday - 1]}';
   }
+
+  /// 获取卡路里显示文本
+  String get caloriesText => '${totalCalories.toStringAsFixed(0)} 千卡';
 }
 
 /// 周度运动统计
@@ -33,6 +41,7 @@ class WeeklyWorkoutStats {
   final int workoutCount;
   final Map<String, int> minutesByType;
   final List<DailyWorkoutStats> dailyStats;
+  final double totalCalories; // 总卡路里消耗
 
   WeeklyWorkoutStats({
     required this.weekStart,
@@ -41,12 +50,16 @@ class WeeklyWorkoutStats {
     required this.workoutCount,
     required this.minutesByType,
     required this.dailyStats,
+    this.totalCalories = 0,
   });
 
   /// 获取周显示文本（如：1月第1周）
   String get displayText => '${weekStart.month}月第${_getWeekNumber}周';
 
   int get _getWeekNumber => ((weekStart.day - 1) ~/ 7) + 1;
+
+  /// 获取卡路里显示文本
+  String get caloriesText => '${totalCalories.toStringAsFixed(0)} 千卡';
 }
 
 /// 月度运动统计
@@ -57,6 +70,7 @@ class MonthlyWorkoutStats {
   final int activeDays;
   final Map<String, int> minutesByType;
   final List<DailyWorkoutStats> dailyStats;
+  final double totalCalories; // 总卡路里消耗
 
   MonthlyWorkoutStats({
     required this.month,
@@ -65,10 +79,17 @@ class MonthlyWorkoutStats {
     required this.activeDays,
     required this.minutesByType,
     required this.dailyStats,
+    this.totalCalories = 0,
   });
 
   /// 获取月份显示文本（如：1月）
   String get displayText => '${month.month}月';
+
+  /// 获取卡路里显示文本
+  String get caloriesText => '${totalCalories.toStringAsFixed(0)} 千卡';
+
+  /// 获取平均每日卡路里
+  double get averageDailyCalories => activeDays > 0 ? totalCalories / activeDays : 0;
 }
 
 /// 运动类型分布统计
@@ -99,11 +120,13 @@ class WorkoutTrendPoint {
   final DateTime date;
   final int minutes;
   final int count;
+  final double calories; // 卡路里消耗
 
   WorkoutTrendPoint({
     required this.date,
     required this.minutes,
     required this.count,
+    this.calories = 0,
   });
 }
 
@@ -131,9 +154,6 @@ enum ChartType {
   const ChartType(this.displayName);
 }
 
-/// 导入主题色
-import 'package:flutter/material.dart';
-
 /// 运动分类色配置
 class WorkoutCategoryColors {
   static const Map<String, Color> colors = {
@@ -147,68 +167,14 @@ class WorkoutCategoryColors {
     return colors[category] ?? colors['other']!;
   }
 
+  /// 根据运动类型获取颜色
+  /// 使用数据库中定义的 WorkoutType 枚举
   static Color getColorByType(String type) {
-    // 根据运动类型获取颜色
-    for (final workoutType in WorkoutType.values) {
-      if (workoutType.name == type) {
-        return getColor(workoutType.category);
-      }
-    }
-    return colors['other']!;
+    final workoutType = db.WorkoutType.fromString(type);
+    if (workoutType == null) return getColor('other');
+    return getColor(workoutType.category);
   }
 }
 
-/// 运动类型枚举（从数据库导入）
-enum WorkoutType {
-  // 有氧类
-  running('跑步', 'cardio'),
-  cycling('骑行', 'cardio'),
-  swimming('游泳', 'cardio'),
-  jumpRope('跳绳', 'cardio'),
-  hiit('HIIT', 'cardio'),
-  aerobics('有操', 'cardio'),
-  stairClimbing('爬楼梯', 'cardio'),
-
-  // 力量类
-  chest('胸肌', 'strength'),
-  back('背肌', 'strength'),
-  legs('腿部', 'strength'),
-  shoulders('肩部', 'strength'),
-  arms('手臂', 'strength'),
-  core('核心', 'strength'),
-  fullBody('全身', 'strength'),
-
-  // 球类
-  basketball('篮球', 'sports'),
-  football('足球', 'sports'),
-  badminton('羽毛球', 'sports'),
-  tableTennis('乒乓球', 'sports'),
-  tennis('网球', 'sports'),
-  volleyball('排球', 'sports'),
-
-  // 其他
-  yoga('瑜伽', 'other'),
-  pilates('普拉提', 'other'),
-  hiking('徒步', 'other'),
-  climbing('登山', 'other'),
-  meditation('冥想', 'other'),
-  stretching('拉伸', 'other'),
-  walking('散步', 'other'),
-  other('其他', 'other');
-
-  final String displayName;
-  final String category;
-
-  const WorkoutType(this.displayName, this.category);
-
-  static WorkoutType? fromString(String value) {
-    return WorkoutType.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => WorkoutType.other,
-    );
-  }
-
-  static List<WorkoutType> getByCategory(String category) {
-    return WorkoutType.values.where((e) => e.category == category).toList();
-  }
-}
+// 导出数据库中的 WorkoutType 以便其他模块使用
+typedef WorkoutType = db.WorkoutType;

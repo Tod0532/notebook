@@ -6,6 +6,7 @@ import 'package:riverpod/riverpod.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
 import 'package:thick_notepad/features/workout/presentation/providers/workout_providers.dart';
 import 'package:thick_notepad/features/plans/presentation/providers/plan_providers.dart';
+import 'package:thick_notepad/features/plans/presentation/providers/plan_calendar_provider.dart';
 import 'package:thick_notepad/features/reminders/presentation/providers/reminder_providers.dart';
 import 'package:thick_notepad/shared/widgets/recent_activities.dart';
 
@@ -38,6 +39,7 @@ class ProviderInvalidator {
     ref.invalidate(todayTasksProvider);
     ref.invalidate(thisWeekTasksProvider);
     ref.invalidate(taskStatsProvider);
+    ref.invalidate(calendarEventsProvider);
   }
 
   /// 刷新提醒相关的所有 Provider (Ref 版本)
@@ -80,6 +82,7 @@ class ProviderInvalidator {
     ref.invalidate(todayTasksProvider);
     ref.invalidate(thisWeekTasksProvider);
     ref.invalidate(taskStatsProvider);
+    ref.invalidate(calendarEventsProvider);
   }
 
   /// 刷新提醒相关的所有 Provider (WidgetRef 版本)

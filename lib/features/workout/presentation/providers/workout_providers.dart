@@ -117,3 +117,33 @@ class ChartTypeNotifier extends StateNotifier<ChartType> {
 final chartTypeProvider = StateNotifierProvider<ChartTypeNotifier, ChartType>((ref) {
   return ChartTypeNotifier();
 });
+
+// ==================== 卡路里统计 Providers ====================
+
+/// 今日卡路里消耗 Provider
+/// 返回整数值（千卡）
+final todayCaloriesProvider = FutureProvider.autoDispose<int>((ref) async {
+  final repository = ref.watch(workoutRepositoryProvider);
+  return await repository.getTodayCalories();
+});
+
+/// 本周卡路里消耗 Provider
+/// 返回整数值（千卡）
+final thisWeekCaloriesProvider = FutureProvider.autoDispose<int>((ref) async {
+  final repository = ref.watch(workoutRepositoryProvider);
+  return await repository.getThisWeekCalories();
+});
+
+/// 本月卡路里消耗 Provider
+/// 返回整数值（千卡）
+final thisMonthCaloriesProvider = FutureProvider.autoDispose<int>((ref) async {
+  final repository = ref.watch(workoutRepositoryProvider);
+  return await repository.getThisMonthCalories();
+});
+
+/// 卡路里汇总 Provider（今日、本周、本月）
+/// 返回 Map<String, int> 格式
+final caloriesSummaryProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final repository = ref.watch(workoutRepositoryProvider);
+  return await repository.getCaloriesSummary();
+});

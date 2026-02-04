@@ -91,6 +91,7 @@ class GpsStatistics {
   final double? averagePace; // 平均配速（分钟/公里）
   final double? elevationGain; // 累计爬升（米）
   final double? elevationLoss; // 累计下降（米）
+  final double calories; // 消耗卡路里（千卡）
 
   GpsStatistics({
     required this.distance,
@@ -100,6 +101,7 @@ class GpsStatistics {
     this.averagePace,
     this.elevationGain,
     this.elevationLoss,
+    this.calories = 0,
   });
 
   /// 格式化距离显示
@@ -129,12 +131,28 @@ class GpsStatistics {
     }
     final minutes = averagePace!.floor();
     final seconds = ((averagePace! - minutes) * 60).round();
-    return '${minutes}'':'${seconds.toString().padLeft(2, '0')}"';
+    return "${minutes}':${seconds.toString().padLeft(2, '0')}\"";
   }
 
   /// 格式化速度显示
   String get speedText {
     return '${(averageSpeed * 3.6).toStringAsFixed(1)} km/h'; // 转换为 km/h
+  }
+
+  /// 格式化卡路里显示
+  String get caloriesText {
+    if (calories < 1) {
+      return '0 千卡';
+    }
+    return '${calories.toStringAsFixed(0)} 千卡';
+  }
+
+  /// 格式化海拔显示
+  String get elevationText {
+    if (elevationGain == null || elevationGain! < 1) {
+      return '0米';
+    }
+    return '+${elevationGain!.toStringAsFixed(0)}米';
   }
 }
 
@@ -178,6 +196,24 @@ class GpsTrackingService {
   Duration _pausedDuration = Duration.zero;
   DateTime? _pausedAt;
 
+  // ==================== 运动类型和体重配置 ====================
+  String _workoutType = 'running'; // 默认跑步
+  double _userWeight = 70.0; // 默认体重70kg
+  static const Map<String, double> _metValues = {
+    'running': 9.8,       // 跑步
+    'cycling': 7.5,       // 骑行
+    'swimming': 8.0,      // 游泳
+    'walking': 4.0,       // 散步/步行
+    'hiking': 6.0,        // 徒步
+    'climbing': 8.0,      // 登山
+    'jumpRope': 11.0,     // 跳绳
+    'hiit': 11.0,         // HIIT
+    'basketball': 8.0,    // 篮球
+    'football': 9.0,      // 足球
+    'badminton': 5.5,     // 羽毛球
+    'other': 5.0,         // 其他运动
+  };
+
   // ==================== Getters ====================
   GpsTrackingStatus get status => _status;
   Stream<GpsTrackingStatus> get statusStream => _statusController.stream;
@@ -187,6 +223,28 @@ class GpsTrackingService {
 
   /// 获取当前统计
   GpsStatistics get currentStatistics => _calculateStatistics();
+
+  /// 设置运动类型（用于卡路里计算）
+  void setWorkoutType(String type) {
+    _workoutType = type;
+  }
+
+  /// 设置用户体重（用于卡路里计算）
+  void setUserWeight(double weight) {
+    _userWeight = weight;
+  }
+
+  /// 获取运动类型的MET值
+  double get _metValue {
+    return _metValues[_workoutType] ?? _metValues['other']!;
+  }
+
+  /// 计算卡路里消耗
+  /// 公式: MET × 体重(kg) × 时间(小时)
+  double _calculateCalories(Duration duration) {
+    final hours = duration.inSeconds / 3600;
+    return _metValue * _userWeight * hours;
+  }
 
   // ==================== 权限检查 ====================
 
@@ -296,7 +354,7 @@ class GpsTrackingService {
       // 开始位置监听
       final locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 5, // 5米更新一次
+        distanceFilter: 0, // 0 表示不做距离过滤，始终更新
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: '运动追踪中',
@@ -451,6 +509,7 @@ class GpsTrackingService {
         duration: _currentDuration,
         averageSpeed: 0,
         maxSpeed: 0,
+        calories: _calculateCalories(_currentDuration),
       );
     }
 
@@ -493,14 +552,18 @@ class GpsTrackingService {
       averagePace = (duration.inSeconds / 60) / (totalDistance / 1000);
     }
 
+    // 计算卡路里
+    final calories = _calculateCalories(duration);
+
     return GpsStatistics(
       distance: totalDistance,
       duration: duration,
-      averageSpeed: averageSpeed,
+      averageSpeed: averageSpeed.toDouble(),
       maxSpeed: maxSpeed,
       averagePace: averagePace,
       elevationGain: elevationGain,
       elevationLoss: elevationLoss,
+      calories: calories,
     );
   }
 
@@ -582,6 +645,7 @@ extension GpsStatisticsExtension on GpsStatistics {
       'averagePace': averagePace,
       'elevationGain': elevationGain,
       'elevationLoss': elevationLoss,
+      'calories': calories,
     };
   }
 }

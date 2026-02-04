@@ -101,6 +101,23 @@ class PlanRepository {
         .get();
   }
 
+  /// 获取所有任务
+  Future<List<PlanTask>> getAllTasks() async {
+    return await (_db.select(_db.planTasks)
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.scheduledDate)]))
+        .get();
+  }
+
+  /// 按日期范围获取任务
+  Future<List<PlanTask>> getTasksByDateRange(DateTime start, DateTime end) async {
+    return await (_db.select(_db.planTasks)
+          ..where((tbl) =>
+              tbl.scheduledDate.isBiggerOrEqualValue(start) &
+              tbl.scheduledDate.isSmallerOrEqualValue(end))
+          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.scheduledDate)]))
+        .get();
+  }
+
   /// 获取今日任务
   Future<List<PlanTask>> getTodayTasks() async {
     final now = DateTime.now();

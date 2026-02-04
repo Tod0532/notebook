@@ -7,7 +7,11 @@ import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/constants/app_constants.dart';
 import 'package:thick_notepad/core/utils/haptic_helper.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
+import 'package:thick_notepad/features/emotion/presentation/providers/emotion_providers.dart';
+import 'package:thick_notepad/features/emotion/presentation/widgets/emotion_insight_card.dart';
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/emotion/emotion_analyzer.dart';
+import 'package:thick_notepad/services/emotion/emotion_workout_mapper.dart';
 import 'package:drift/drift.dart' as drift;
 
 /// 笔记编辑页
@@ -27,6 +31,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
   String? _selectedFolder;
   bool _isLoading = false;
   Note? _existingNote;
+  EmotionResult? _emotionAnalysis;
 
   @override
   void initState() {
@@ -72,6 +77,12 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
       appBar: AppBar(
         title: Text(widget.noteId == null ? '新建笔记' : '编辑笔记'),
         actions: [
+          // 情绪分析按钮
+          IconButton(
+            icon: const Icon(Icons.mood),
+            onPressed: _analyzeEmotion,
+            tooltip: '分析情绪',
+          ),
           if (widget.noteId != null)
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -115,7 +126,10 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                         ),
                         maxLines: null,
                         textCapitalization: TextCapitalization.sentences,
+                        onChanged: (_) => _onContentChanged(),
                       ),
+                      // 情绪分析结果
+                      if (_emotionAnalysis != null) _buildEmotionResult(context),
                     ],
                   ),
                 ),
@@ -298,9 +312,10 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
 
     try {
       final tagsJson = _formatTags(_tags);
+      int? savedNoteId;
 
       if (widget.noteId == null) {
-        await ref.read(createNoteProvider.notifier).create(
+        savedNoteId = await ref.read(createNoteProvider.notifier).create(
               NotesCompanion.insert(
                 title: drift.Value(title.isEmpty ? null : title),
                 content: content,
@@ -309,6 +324,11 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
               ),
             );
         ref.invalidate(allNotesProvider);
+
+        // 保存后自动分析情绪
+        if (content.isNotEmpty && savedNoteId != null) {
+          await ref.read(createEmotionRecordProvider.notifier).createFromNote(savedNoteId, content);
+        }
       } else {
         await ref.read(updateNoteProvider.notifier).update(
               _existingNote!.copyWith(
@@ -320,6 +340,15 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
               ),
             );
         ref.invalidate(allNotesProvider);
+        savedNoteId = widget.noteId;
+
+        // 更新后重新分析情绪
+        if (content.isNotEmpty) {
+          // 先删除旧的记录
+          await ref.read(createEmotionRecordProvider.notifier).deleteByNote(widget.noteId!);
+          // 创建新的分析记录
+          await ref.read(createEmotionRecordProvider.notifier).createFromNote(widget.noteId!, content);
+        }
       }
 
       if (mounted) {
@@ -335,6 +364,155 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// 分析情绪
+  void _analyzeEmotion() {
+    final content = _contentController.text.trim();
+    if (content.isEmpty) {
+      _showSnackBar('请先输入笔记内容');
+      return;
+    }
+
+    HapticHelper.lightTap();
+    final result = EmotionAnalyzer.analyze(content);
+    setState(() => _emotionAnalysis = result);
+
+    // 显示分析结果对话框
+    if (mounted) {
+      _showEmotionDialog(result);
+    }
+  }
+
+  /// 内容变化时自动分析情绪（防抖）
+  DateTime? _lastAnalysisTime;
+  void _onContentChanged() {
+    final now = DateTime.now();
+    if (_lastAnalysisTime != null &&
+        now.difference(_lastAnalysisTime!).inSeconds < 2) {
+      return;
+    }
+
+    final content = _contentController.text.trim();
+    if (content.length > 10) {
+      _lastAnalysisTime = now;
+      final result = EmotionAnalyzer.analyze(content);
+      setState(() => _emotionAnalysis = result);
+    }
+  }
+
+  /// 显示情绪分析结果对话框
+  void _showEmotionDialog(EmotionResult result) {
+    showDialog(
+      context: context,
+      builder: (context) => _EmotionResultDialog(result: result),
+    );
+  }
+
+  /// 构建情绪分析结果卡片
+  Widget _buildEmotionResult(BuildContext context) {
+    final result = _emotionAnalysis!;
+    final color = Color(
+      int.parse(result.emotion.colorHex.replaceFirst('#', '0xFF')),
+    );
+    final recommendation = EmotionWorkoutMapper.getBestRecommendation(result.emotion);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withOpacity(0.15),
+            color.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: AppRadius.lgRadius,
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              EmotionIcon(emotion: result.emotion, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '检测到：${result.emotion.displayName}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text(
+                      '置信度 ${(result.confidence * 100).toStringAsFixed(0)}%',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: color.withOpacity(0.8),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () => setState(() => _emotionAnalysis = null),
+                color: color.withOpacity(0.6),
+              ),
+            ],
+          ),
+          if (result.matchedKeywords.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: result.matchedKeywords.take(5).map((keyword) {
+                return Chip(
+                  label: Text(keyword),
+                  labelStyle: TextStyle(fontSize: 12, color: color),
+                  backgroundColor: color.withOpacity(0.1),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: AppRadius.mdRadius,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.directions_run, color: AppColors.success, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '推荐：${recommendation.workoutType.displayName}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ),
+                Text(
+                  recommendation.reason,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                  textAlign: TextAlign.end,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _deleteNote(BuildContext context) {
@@ -520,6 +698,207 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
         ),
       ),
     );
+  }
+}
+
+/// 情绪分析结果对话框
+class _EmotionResultDialog extends StatelessWidget {
+  final EmotionResult result;
+
+  const _EmotionResultDialog({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(
+      int.parse(result.emotion.colorHex.replaceFirst('#', '0xFF')),
+    );
+    final recommendation = EmotionWorkoutMapper.getBestRecommendation(result.emotion);
+    final suggestion = EmotionAnalyzer.getSuggestion(result.emotion);
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          EmotionIcon(emotion: result.emotion, size: 28),
+          const SizedBox(width: 12),
+          Text('情绪分析'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 主要情绪
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    color.withOpacity(0.2),
+                    color.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: AppRadius.mdRadius,
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    result.emotion.displayName,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '置信度 ${(result.confidence * 100).toStringAsFixed(0)}%',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: color.withOpacity(0.8),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 匹配关键词
+            if (result.matchedKeywords.isNotEmpty) ...[
+              Text(
+                '检测到的关键词',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: result.matchedKeywords.map((keyword) {
+                  return Chip(
+                    label: Text(keyword),
+                    backgroundColor: color.withOpacity(0.15),
+                    labelStyle: TextStyle(color: color),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // 情绪建议
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: AppRadius.mdRadius,
+                border: Border.all(color: AppColors.info.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb, color: AppColors.info),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      suggestion,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.info,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 运动推荐
+            Text(
+              '推荐运动',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: AppRadius.mdRadius,
+                border: Border.all(color: AppColors.success.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.directions_run, color: AppColors.success),
+                      const SizedBox(width: 8),
+                      Text(
+                        recommendation.workoutType.displayName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _getIntensityLabel(recommendation.intensity),
+                          style: TextStyle(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    recommendation.reason,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                  ),
+                  if (recommendation.suggestedDuration != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '建议时长：${recommendation.suggestedDuration}分钟',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textHint,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+
+  String _getIntensityLabel(int intensity) {
+    switch (intensity) {
+      case 1:
+        return '轻松';
+      case 2:
+        return '轻度';
+      case 3:
+        return '中等';
+      case 4:
+        return '较强';
+      case 5:
+        return '高强度';
+      default:
+        return '';
+    }
   }
 }
 

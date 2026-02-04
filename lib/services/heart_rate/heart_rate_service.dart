@@ -251,8 +251,8 @@ class HeartRateService {
   Future<bool> isBluetoothEnabled() async {
     try {
       if (await isBluetoothAvailable()) {
-        final state = await FlutterBluePlus.bluetoothState.first;
-        return state == BluetoothState.on;
+        final state = await FlutterBluePlus.adapterState.first;
+        return state == BluetoothAdapterState.on;
       }
       return false;
     } catch (e) {
@@ -576,24 +576,33 @@ class HeartRateService {
     }
   }
 
-  /// 获取区间时长
+  /// 获取区间时长（从当前会话统计数据中获取）
   int _getZoneDuration(String zone) {
-    if (_zoneConfig == null) return 0;
+    // 从已计算的时长统计中获取
     switch (zone) {
       case 'zone1':
-        return _zoneConfig!.zone1Duration ?? 0;
+        return _sessionZoneDurations['zone1'] ?? 0;
       case 'zone2':
-        return _zoneConfig!.zone2Duration ?? 0;
+        return _sessionZoneDurations['zone2'] ?? 0;
       case 'zone3':
-        return _zoneConfig!.zone3Duration ?? 0;
+        return _sessionZoneDurations['zone3'] ?? 0;
       case 'zone4':
-        return _zoneConfig!.zone4Duration ?? 0;
+        return _sessionZoneDurations['zone4'] ?? 0;
       case 'zone5':
-        return _zoneConfig!.zone5Duration ?? 0;
+        return _sessionZoneDurations['zone5'] ?? 0;
       default:
         return 0;
     }
   }
+
+  // 当前会话的区间时长统计
+  final Map<String, int> _sessionZoneDurations = {
+    'zone1': 0,
+    'zone2': 0,
+    'zone3': 0,
+    'zone4': 0,
+    'zone5': 0,
+  };
 
   /// 启动定时保存
   void _startSaveTimer() {
@@ -618,7 +627,7 @@ class HeartRateService {
         return HeartRateRecordsCompanion.insert(
           heartRate: data.heartRate,
           rrInterval: drift.Value(data.rrInterval),
-          timestamp: data.timestamp,
+          timestamp: drift.Value(data.timestamp),
           sessionId: _currentSessionId!,
           deviceId: drift.Value(_connectedDevice?.remoteId.str),
           deviceName: drift.Value(_connectedDevice?.platformName),
@@ -684,13 +693,17 @@ class HeartRateService {
             ..where((tbl) => tbl.sessionId.equals(_currentSessionId!)))
           .write(
         HeartRateSessionsCompanion(
-          zone1Duration: drift.Value(durations['zone1']),
-          zone2Duration: drift.Value(durations['zone2']),
-          zone3Duration: drift.Value(durations['zone3']),
-          zone4Duration: drift.Value(durations['zone4']),
-          zone5Duration: drift.Value(durations['zone5']),
+          zone1Duration: drift.Value(durations['zone1']!),
+          zone2Duration: drift.Value(durations['zone2']!),
+          zone3Duration: drift.Value(durations['zone3']!),
+          zone4Duration: drift.Value(durations['zone4']!),
+          zone5Duration: drift.Value(durations['zone5']!),
         ),
       );
+
+      // 同步更新内存中的统计
+      _sessionZoneDurations.clear();
+      _sessionZoneDurations.addAll(durations);
     } catch (e) {
       debugPrint('更新区间时长失败: $e');
     }
@@ -703,8 +716,7 @@ class HeartRateService {
     // 这里应该从数据库读取所有数据进行统计
     // 简化实现：使用内存中的数据
     if (_sessionData.isEmpty) {
-      final heartRate = _heartRateController.stream.lastOrNull;
-      if (heartRate == null) return null;
+      return null;
     }
 
     final heartRates = _sessionData.map((d) => d.heartRate).toList();
@@ -782,18 +794,18 @@ class HeartRateService {
     if (_db == null) return [];
 
     try {
-      final query = _db!.select(_db!.heartRateRecords);
+      var query = _db!.select(_db!.heartRateRecords);
 
       if (sessionId != null) {
-        query.where((tbl) => tbl.sessionId.equals(sessionId));
+        query = query..where((tbl) => tbl.sessionId.equals(sessionId));
       }
 
       if (workoutId != null) {
-        query.where((tbl) => tbl.linkedWorkoutId.equals(workoutId));
+        query = query..where((tbl) => tbl.linkedWorkoutId.equals(workoutId));
       }
 
-      query.limit(limit);
-      query.order([(tbl) => drift.OrderingTerm.desc(tbl.timestamp)]);
+      query = query..limit(limit);
+      query = query..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.timestamp)]);
 
       return await query.get();
     } catch (e) {

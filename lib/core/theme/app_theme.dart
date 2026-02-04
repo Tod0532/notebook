@@ -81,6 +81,28 @@ class AppColors {
     colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
   );
 
+  // ==================== 游戏化等级渐变 ====================
+  // 黄金渐变
+  static const LinearGradient goldGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFD700), Color(0xFFFFED4E), Color(0xFFFFF59D)],
+  );
+
+  // 钻石渐变
+  static const LinearGradient diamondGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFB9F2FF), Color(0xFFD4ECFF), Color(0xFFE8F4FF)],
+  );
+
+  // 传说渐变
+  static const LinearGradient legendaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E8E), Color(0xFFFFB4B4)],
+  );
+
   // ==================== 基础色 ====================
   // 背景色
   static const Color background = Color(0xFFF8FAFC);      // 浅灰蓝

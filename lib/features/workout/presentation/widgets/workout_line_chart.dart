@@ -152,10 +152,10 @@ class WorkoutLineChart extends StatelessWidget {
                 minX: 0,
                 maxX: (data.length - 1).toDouble(),
                 minY: 0,
-                maxY: yMax,
+                maxY: yMax.toDouble(),
                 lineBarsData: [
                   _buildMainLine(),
-                  if (avgMinutes > 0) _buildAverageLine(avgMinutes, yMax),
+                  if (avgMinutes > 0) _buildAverageLine(avgMinutes, yMax.toDouble()),
                 ],
                 lineTouchData: LineTouchData(
                   enabled: true,
@@ -495,7 +495,7 @@ class WorkoutMultiLineChart extends StatelessWidget {
           Wrap(
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.xs,
-            children: _buildLegendItems(colors),
+            children: _buildLegendItems(context, colors),
           ),
         ],
       ),
@@ -543,7 +543,7 @@ class WorkoutMultiLineChart extends StatelessWidget {
     return lines;
   }
 
-  List<Widget> _buildLegendItems(List<Color> colors) {
+  List<Widget> _buildLegendItems(BuildContext context, List<Color> colors) {
     final items = <Widget>[];
     int colorIndex = 0;
 

@@ -77,6 +77,16 @@ class WorkoutPlanRepository {
     );
   }
 
+  /// 更新训练计划状态
+  Future<void> updatePlanStatus(int planId, String status) async {
+    await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
+      WorkoutPlansCompanion(
+        status: drift.Value(status),
+        updatedAt: drift.Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// 删除训练计划
   Future<int> deletePlan(int id) async {
     // 删除计划及其关联的所有数据

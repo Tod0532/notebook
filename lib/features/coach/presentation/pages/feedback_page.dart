@@ -50,7 +50,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   ];
 
   final _commonFoodIssues = const [
-    {'icon': Icons.shopping_cart_off, 'title': '买不到食材', 'reason': 'unavailable', 'color': AppColors.error},
+    {'icon': Icons.shopping_basket, 'title': '买不到食材', 'reason': 'unavailable', 'color': AppColors.error},
     {'icon': Icons.restaurant, 'title': '太难做', 'reason': 'too_hard', 'color': AppColors.warning},
     {'icon': Icons.no_meals, 'title': '不喜欢吃', 'reason': 'dislike', 'color': AppColors.textHint},
     {'icon': Icons.sick, 'title': '过敏/不耐受', 'reason': 'allergy', 'color': AppColors.error},
@@ -124,7 +124,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         userProfileId: widget.userProfileId,
       );
 
-      await HapticHelper.successTap();
+      await HapticHelper.success();
 
       if (mounted) {
         // 重新加载反馈记录
@@ -259,7 +259,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
             ButtonSegment(
               value: FeedbackType.food,
               label: Text('饮食食材'),
-              icon: Icons.restaurant),
+              icon: Icon(Icons.restaurant),
             ),
           ],
           selected: {_selectedType},

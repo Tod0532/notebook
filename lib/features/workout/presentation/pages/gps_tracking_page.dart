@@ -6,6 +6,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/services/gps/gps_tracking_service.dart';
 
@@ -48,7 +50,7 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
 
   // 当前状态
   GpsTrackingStatus _status = GpsTrackingStatus.idle;
-  GpsStatistics _statistics = const GpsStatistics(
+  GpsStatistics _statistics = GpsStatistics(
     distance: 0,
     duration: Duration.zero,
     averageSpeed: 0,
@@ -72,6 +74,9 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
 
   /// 初始化追踪
   Future<void> _initializeTracking() async {
+    // 设置运动类型
+    _gpsService.setWorkoutType(_getWorkoutTypeKey(widget.workoutType));
+
     // 订阅状态变化
     _statusSubscription = _gpsService.statusStream.listen((status) {
       if (mounted) {
@@ -96,6 +101,24 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
     // 自动开始追踪
     await Future.delayed(const Duration(milliseconds: 500));
     await _startTracking();
+  }
+
+  /// 获取运动类型对应的键值
+  String _getWorkoutTypeKey(String displayName) {
+    final typeMap = {
+      '跑步': 'running',
+      '骑行': 'cycling',
+      '游泳': 'swimming',
+      '步行': 'walking',
+      '徒步': 'hiking',
+      '登山': 'climbing',
+      '跳绳': 'jumpRope',
+      'HIIT': 'hiit',
+      '篮球': 'basketball',
+      '足球': 'football',
+      '羽毛球': 'badminton',
+    };
+    return typeMap[displayName] ?? 'other';
   }
 
   /// 开始追踪
@@ -145,6 +168,11 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
               _buildSummaryRow('配速', _statistics.paceText!),
             const SizedBox(height: 8),
             _buildSummaryRow('平均速度', _statistics.speedText),
+            const SizedBox(height: 8),
+            _buildSummaryRow('消耗卡路里', _statistics.caloriesText),
+            const SizedBox(height: 8),
+            if (_statistics.elevationGain != null && _statistics.elevationGain! > 0)
+              _buildSummaryRow('累计爬升', _statistics.elevationText),
           ],
         ),
         actions: [
@@ -189,6 +217,10 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
     final result = {
       'distance': _statistics.distance,
       'duration': _statistics.duration.inSeconds,
+      'calories': _statistics.calories,
+      'elevationGain': _statistics.elevationGain,
+      'averageSpeed': _statistics.averageSpeed,
+      'maxSpeed': _statistics.maxSpeed,
       'trackPoints': _trackPoints.map((p) => p.toJson()).toList(),
     };
     Navigator.of(context).pop(result);
@@ -400,16 +432,15 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
                 '时长',
               ),
               _buildStatItem(
+                Icons.local_fire_department_outlined,
+                _statistics.caloriesText,
+                '卡路里',
+              ),
+              _buildStatItem(
                 Icons.speed_outlined,
                 _statistics.speedText,
                 '速度',
               ),
-              if (_statistics.paceText != null)
-                _buildStatItem(
-                  Icons.timer_outlined,
-                  _statistics.paceText!,
-                  '配速',
-                ),
             ],
           ),
         ],
@@ -595,62 +626,233 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
     );
   }
 
-  /// 地图占位符（后续可替换为真实地图）
+  /// 地图视图 - 使用flutter_map
   Widget _buildMapPlaceholder() {
-    return Container(
-      color: AppColors.background,
-      child: Center(
-        child: _trackPoints.isEmpty
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.map_outlined,
-                    size: 80,
-                    color: AppColors.textHint.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    _status == GpsTrackingStatus.starting
-                        ? '正在获取GPS信号...'
-                        : '等待开始追踪...',
-                    style: const TextStyle(
-                      color: AppColors.textHint,
-                      fontSize: 16,
-                    ),
-                  ),
-                  if (_status == GpsTrackingStatus.starting)
-                    const Padding(
-                      padding: EdgeInsets.only(top: AppSpacing.md),
-                      child: CircularProgressIndicator(),
-                    ),
-                ],
-              )
-            : _buildTrackVisualization(),
+    // 如果没有轨迹点，显示等待界面
+    if (_trackPoints.isEmpty) {
+      return Container(
+        color: AppColors.background,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.map_outlined,
+                size: 80,
+                color: AppColors.textHint.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                _status == GpsTrackingStatus.starting
+                    ? '正在获取GPS信号...'
+                    : '等待开始追踪...',
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 16,
+                ),
+              ),
+              if (_status == GpsTrackingStatus.starting)
+                const Padding(
+                  padding: EdgeInsets.only(top: AppSpacing.md),
+                  child: CircularProgressIndicator(),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 使用flutter_map显示轨迹
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: _calculateCenter(),
+        initialZoom: _calculateInitialZoom(),
+        minZoom: 10.0,
+        maxZoom: 19.0,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
       ),
+      children: [
+        // OpenStreetMap 图层
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.thick_notepad',
+          // 确保在网络加载时显示占位符
+          errorTileCallback: (tile, error, stackTrace) {
+            debugPrint('地图瓦片加载错误: $error');
+          },
+        ),
+
+        // 轨迹线图层
+        PolylineLayer(
+          polylines: [
+            Polyline(
+              points: _convertToLatLngPoints(),
+              strokeWidth: 4.0,
+              color: AppColors.primary,
+              pattern: const StrokePattern.solid(),
+            ),
+          ],
+        ),
+
+        // 起点和终点标记
+        MarkerLayer(
+          markers: _buildMarkers(),
+        ),
+
+        // 当前位置标记（如果正在追踪）
+        if (_status == GpsTrackingStatus.tracking && _trackPoints.isNotEmpty)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: LatLng(
+                  _trackPoints.last.latitude,
+                  _trackPoints.last.longitude,
+                ),
+                width: 40,
+                height: 40,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 
-  /// 简单的轨迹可视化（CustomPaint绘制）
-  Widget _buildTrackVisualization() {
-    if (_trackPoints.isEmpty) return const SizedBox();
+  /// 计算地图中心点
+  LatLng _calculateCenter() {
+    if (_trackPoints.isEmpty) {
+      return const LatLng(39.9042, 116.4074); // 默认北京
+    }
 
-    // 计算边界
-    final minLat = _trackPoints.map((p) => p.latitude).reduce(math.min);
-    final maxLat = _trackPoints.map((p) => p.latitude).reduce(math.max);
-    final minLon = _trackPoints.map((p) => p.longitude).reduce(math.min);
-    final maxLon = _trackPoints.map((p) => p.longitude).reduce(math.max);
+    final latSum = _trackPoints.map((p) => p.latitude).reduce((a, b) => a + b);
+    final lonSum = _trackPoints.map((p) => p.longitude).reduce((a, b) => a + b);
 
-    return CustomPaint(
-      size: Size.infinite,
-      painter: TrackPainter(
-        points: _trackPoints,
-        minLat: minLat,
-        maxLat: maxLat,
-        minLon: minLon,
-        maxLon: maxLon,
-      ),
+    return LatLng(
+      latSum / _trackPoints.length,
+      lonSum / _trackPoints.length,
     );
+  }
+
+  /// 计算初始缩放级别
+  double _calculateInitialZoom() {
+    if (_trackPoints.length < 2) return 17.0;
+
+    final latitudes = _trackPoints.map((p) => p.latitude).toList();
+    final longitudes = _trackPoints.map((p) => p.longitude).toList();
+
+    final minLat = latitudes.reduce(math.min);
+    final maxLat = latitudes.reduce(math.max);
+    final minLon = longitudes.reduce(math.min);
+    final maxLon = longitudes.reduce(math.max);
+
+    final latDiff = maxLat - minLat;
+    final lonDiff = maxLon - minLon;
+    final maxDiff = math.max(latDiff, lonDiff);
+
+    // 根据轨迹范围计算缩放级别
+    if (maxDiff < 0.001) return 18.0;
+    if (maxDiff < 0.005) return 16.0;
+    if (maxDiff < 0.01) return 15.0;
+    if (maxDiff < 0.05) return 13.0;
+    if (maxDiff < 0.1) return 12.0;
+    return 11.0;
+  }
+
+  /// 转换GPS点为LatLng列表
+  List<LatLng> _convertToLatLngPoints() {
+    return _trackPoints
+        .map((p) => LatLng(p.latitude, p.longitude))
+        .toList();
+  }
+
+  /// 构建起点和终点标记
+  List<Marker> _buildMarkers() {
+    final markers = <Marker>[];
+
+    // 起点标记
+    if (_trackPoints.isNotEmpty) {
+      markers.add(
+        Marker(
+          point: LatLng(
+            _trackPoints.first.latitude,
+            _trackPoints.first.longitude,
+          ),
+          width: 32,
+          height: 32,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.success,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.play_arrow,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 终点标记（如果有多个点）
+    if (_trackPoints.length > 1) {
+      markers.add(
+        Marker(
+          point: LatLng(
+            _trackPoints.last.latitude,
+            _trackPoints.last.longitude,
+          ),
+          width: 32,
+          height: 32,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.flag,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return markers;
   }
 
   /// 显示退出确认对话框
@@ -679,96 +881,5 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
         ],
       ),
     );
-  }
-}
-
-/// 轨迹绘制器
-class TrackPainter extends CustomPainter {
-  final List<GpsPoint> points;
-  final double minLat;
-  final double maxLat;
-  final double minLon;
-  final double maxLon;
-
-  TrackPainter({
-    required this.points,
-    required this.minLat,
-    required this.maxLat,
-    required this.minLon,
-    required this.maxLon,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
-
-    final paint = Paint()
-      ..color = AppColors.primary
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final path = Path();
-
-    for (int i = 0; i < points.length; i++) {
-      final point = points[i];
-      final x = _normalizeX(point.longitude, size.width);
-      final y = _normalizeY(point.latitude, size.height);
-
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-
-    canvas.drawPath(path, paint);
-
-    // 绘制起点标记
-    if (points.isNotEmpty) {
-      _drawMarker(canvas, points.first, size, AppColors.success);
-    }
-    // 绘制终点标记
-    if (points.length > 1) {
-      _drawMarker(canvas, points.last, size, AppColors.error);
-    }
-  }
-
-  void _drawMarker(Canvas canvas, GpsPoint point, Size size, Color color) {
-    final x = _normalizeX(point.longitude, size.width);
-    final y = _normalizeY(point.latitude, size.height);
-
-    final markerPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(Offset(x, y), 12, markerPaint);
-
-    final whitePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(Offset(x, y), 8, whitePaint);
-  }
-
-  double _normalizeX(double longitude, double width) {
-    final range = maxLon - minLon;
-    if (range == 0) return width / 2;
-    final padding = width * 0.1;
-    final availableWidth = width - 2 * padding;
-    return padding + ((longitude - minLon) / range) * availableWidth;
-  }
-
-  double _normalizeY(double latitude, double height) {
-    final range = maxLat - minLat;
-    if (range == 0) return height / 2;
-    final padding = height * 0.1;
-    final availableHeight = height - 2 * padding;
-    return height - padding - ((latitude - minLat) / range) * availableHeight;
-  }
-
-  @override
-  bool shouldRepaint(covariant TrackPainter oldDelegate) {
-    return oldDelegate.points.length != points.length;
   }
 }

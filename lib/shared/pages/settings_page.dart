@@ -130,6 +130,29 @@ class SettingsPage extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
+                // 天气功能分组
+                _SettingsSection(
+                  title: '天气功能',
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.cloud_rounded,
+                      iconColor: AppColors.info,
+                      title: '天气设置',
+                      subtitle: '根据天气推荐合适的运动',
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.push(AppRoutes.weatherSettings),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.location_on_rounded,
+                      iconColor: AppColors.success,
+                      title: '位置设置',
+                      subtitle: '配置地理围栏和位置提醒',
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.push(AppRoutes.locationSettings),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
                 // 关于分组
                 _SettingsSection(
                   title: '关于',

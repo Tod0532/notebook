@@ -35,6 +35,67 @@ class _WorkoutStatsPageState extends ConsumerState<WorkoutStatsPage>
     super.dispose();
   }
 
+  /// 显示数据详情对话框
+  void _showDataDetail(BuildContext context, String title, String content) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.xl),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: AppRadius.smRadius,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              content,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeRange = ref.watch(chartTimeRangeProvider);
@@ -290,35 +351,108 @@ class _WorkoutStatsPageState extends ConsumerState<WorkoutStatsPage>
 
   Widget _buildChartSkeleton() {
     return Container(
-      height: 280,
+      height: 300,
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: AppRadius.xlRadius,
+        border: Border.all(
+          color: AppColors.dividerColor.withOpacity(0.5),
+        ),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(),
+      child: Column(
+        children: [
+          // 标题骨架
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.dividerColor,
+                  borderRadius: AppRadius.smRadius,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Container(
+                width: 100,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: AppColors.dividerColor,
+                  borderRadius: AppRadius.smRadius,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          // 图表骨架
+          Expanded(
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+                strokeWidth: 3,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildChartError() {
+  Widget _buildChartError({VoidCallback? onRetry}) {
     return Container(
-      height: 200,
+      height: 250,
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.1),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: AppRadius.xlRadius,
-        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+        border: Border.all(
+          color: AppColors.error.withOpacity(0.3),
+        ),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, color: AppColors.error, size: 32),
-            SizedBox(height: 8),
-            Text(
-              '加载失败',
-              style: TextStyle(color: AppColors.error),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                color: AppColors.error,
+                size: 32,
+              ),
             ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '数据加载失败',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '请检查网络连接或稍后重试',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textHint,
+                  ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              ElevatedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('重试'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ],
         ),
       ),

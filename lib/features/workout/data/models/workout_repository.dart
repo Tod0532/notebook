@@ -3,7 +3,8 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:thick_notepad/services/database/database.dart';
-import 'package:thick_notepad/features/workout/data/models/workout_stats_models.dart';
+import 'package:thick_notepad/features/workout/data/models/workout_stats_models.dart' as stats;
+import 'package:thick_notepad/services/calories/calorie_calculator_service.dart';
 import 'package:drift/drift.dart' as drift;
 
 /// 运动仓库异常类
@@ -148,12 +149,14 @@ class WorkoutRepository {
         return {
           'count': 0,
           'totalMinutes': 0,
+          'totalCalories': 0.0,
           'uniqueDays': 0,
           'byType': <String, int>{},
         };
       }
 
       final totalMinutes = workouts.fold<int>(0, (sum, w) => sum + w.durationMinutes);
+      final totalCalories = workouts.fold<double>(0, (sum, w) => sum + (w.calories ?? 0));
 
       // 计算运动天数
       final uniqueDays = workouts.map((w) => DateTime(w.startTime.year, w.startTime.month, w.startTime.day)).toSet().length;
@@ -167,6 +170,7 @@ class WorkoutRepository {
       return {
         'count': workouts.length,
         'totalMinutes': totalMinutes,
+        'totalCalories': totalCalories,
         'uniqueDays': uniqueDays,
         'byType': byType,
       };
@@ -185,12 +189,14 @@ class WorkoutRepository {
         return {
           'count': 0,
           'totalMinutes': 0,
+          'totalCalories': 0.0,
           'uniqueDays': 0,
           'byType': <String, int>{},
         };
       }
 
       final totalMinutes = workouts.fold<int>(0, (sum, w) => sum + w.durationMinutes);
+      final totalCalories = workouts.fold<double>(0, (sum, w) => sum + (w.calories ?? 0));
       final uniqueDays = workouts.map((w) => DateTime(w.startTime.year, w.startTime.month, w.startTime.day)).toSet().length;
 
       final byType = <String, int>{};
@@ -201,6 +207,7 @@ class WorkoutRepository {
       return {
         'count': workouts.length,
         'totalMinutes': totalMinutes,
+        'totalCalories': totalCalories,
         'uniqueDays': uniqueDays,
         'byType': byType,
       };
@@ -304,7 +311,7 @@ class WorkoutRepository {
 
   /// 获取指定日期范围内的每日运动统计
   /// [days] 天数，如7天、30天
-  Future<List<DailyWorkoutStats>> getDailyStats(int days) async {
+  Future<List<stats.DailyWorkoutStats>> getDailyStats(int days) async {
     try {
       final now = DateTime.now();
       final startDate = now.subtract(Duration(days: days - 1));
@@ -323,24 +330,27 @@ class WorkoutRepository {
       }
 
       // 生成每日统计数据
-      final List<DailyWorkoutStats> dailyStats = [];
+      final List<stats.DailyWorkoutStats> dailyStats = [];
       for (int i = 0; i < days; i++) {
         final date = startOfDay.add(Duration(days: i));
         final dayWorkouts = workoutsByDate[date] ?? [];
 
         int totalMinutes = 0;
+        double totalCalories = 0;
         final Map<String, int> minutesByType = {};
 
         for (final workout in dayWorkouts) {
           totalMinutes += workout.durationMinutes;
+          totalCalories += workout.calories ?? 0;
           minutesByType[workout.type] = (minutesByType[workout.type] ?? 0) + workout.durationMinutes;
         }
 
-        dailyStats.add(DailyWorkoutStats(
+        dailyStats.add(stats.DailyWorkoutStats(
           date: date,
           totalMinutes: totalMinutes,
           workoutCount: dayWorkouts.length,
           minutesByType: minutesByType,
+          totalCalories: totalCalories,
         ));
       }
 
@@ -352,7 +362,7 @@ class WorkoutRepository {
   }
 
   /// 获取运动类型分布统计
-  Future<List<WorkoutTypeDistribution>> getTypeDistribution(int days) async {
+  Future<List<stats.WorkoutTypeDistribution>> getTypeDistribution(int days) async {
     try {
       final now = DateTime.now();
       final startDate = now.subtract(Duration(days: days - 1));
@@ -372,15 +382,15 @@ class WorkoutRepository {
       }
 
       // 转换为分布数据
-      final List<WorkoutTypeDistribution> distribution = [];
+      final List<stats.WorkoutTypeDistribution> distribution = [];
       for (final entry in minutesByType.entries) {
         final workoutType = WorkoutType.fromString(entry.key);
-        distribution.add(WorkoutTypeDistribution(
+        distribution.add(stats.WorkoutTypeDistribution(
           type: entry.key,
           displayName: workoutType?.displayName ?? entry.key,
           minutes: entry.value,
           count: countByType[entry.key] ?? 0,
-          color: WorkoutCategoryColors.getColorByType(entry.key),
+          color: stats.WorkoutCategoryColors.getColorByType(entry.key),
         ));
       }
 
@@ -395,15 +405,16 @@ class WorkoutRepository {
 
   /// 获取运动趋势数据点
   /// 用于折线图展示
-  Future<List<WorkoutTrendPoint>> getTrendData(int days) async {
+  Future<List<stats.WorkoutTrendPoint>> getTrendData(int days) async {
     try {
       final dailyStats = await getDailyStats(days);
 
       return dailyStats.map((stat) {
-        return WorkoutTrendPoint(
+        return stats.WorkoutTrendPoint(
           date: stat.date,
           minutes: stat.totalMinutes,
           count: stat.workoutCount,
+          calories: stat.totalCalories,
         );
       }).toList();
     } catch (e, st) {
@@ -414,10 +425,10 @@ class WorkoutRepository {
 
   /// 获取按周统计的数据
   /// [weeks] 周数
-  Future<List<WeeklyWorkoutStats>> getWeeklyStats(int weeks) async {
+  Future<List<stats.WeeklyWorkoutStats>> getWeeklyStats(int weeks) async {
     try {
       final now = DateTime.now();
-      final List<WeeklyWorkoutStats> weeklyStats = [];
+      final List<stats.WeeklyWorkoutStats> weeklyStats = [];
 
       for (int i = weeks - 1; i >= 0; i--) {
         final weekEnd = now.subtract(Duration(days: now.weekday - 1 + (i * 7)));
@@ -433,19 +444,22 @@ class WorkoutRepository {
             .get();
 
         int totalMinutes = 0;
+        double totalCalories = 0;
         final Map<String, int> minutesByType = {};
         for (final workout in workouts) {
           totalMinutes += workout.durationMinutes;
+          totalCalories += workout.calories ?? 0;
           minutesByType[workout.type] = (minutesByType[workout.type] ?? 0) + workout.durationMinutes;
         }
 
-        weeklyStats.add(WeeklyWorkoutStats(
+        weeklyStats.add(stats.WeeklyWorkoutStats(
           weekStart: weekStartDay,
           weekEnd: weekEndDay,
           totalMinutes: totalMinutes,
           workoutCount: workouts.length,
           minutesByType: minutesByType,
           dailyStats: [], // 简化版，不展开每日数据
+          totalCalories: totalCalories,
         ));
       }
 
@@ -458,10 +472,10 @@ class WorkoutRepository {
 
   /// 获取按月统计的数据
   /// [months] 月数
-  Future<List<MonthlyWorkoutStats>> getMonthlyStats(int months) async {
+  Future<List<stats.MonthlyWorkoutStats>> getMonthlyStats(int months) async {
     try {
       final now = DateTime.now();
-      final List<MonthlyWorkoutStats> monthlyStats = [];
+      final List<stats.MonthlyWorkoutStats> monthlyStats = [];
 
       for (int i = months - 1; i >= 0; i--) {
         final month = DateTime(now.year, now.month - i, 1);
@@ -477,22 +491,25 @@ class WorkoutRepository {
             .get();
 
         int totalMinutes = 0;
+        double totalCalories = 0;
         final Map<String, int> minutesByType = {};
         final Set<DateTime> activeDays = {};
 
         for (final workout in workouts) {
           totalMinutes += workout.durationMinutes;
+          totalCalories += workout.calories ?? 0;
           minutesByType[workout.type] = (minutesByType[workout.type] ?? 0) + workout.durationMinutes;
           activeDays.add(DateTime(workout.startTime.year, workout.startTime.month, workout.startTime.day));
         }
 
-        monthlyStats.add(MonthlyWorkoutStats(
+        monthlyStats.add(stats.MonthlyWorkoutStats(
           month: month,
           totalMinutes: totalMinutes,
           workoutCount: workouts.length,
           activeDays: activeDays.length,
           minutesByType: minutesByType,
           dailyStats: [], // 简化版
+          totalCalories: totalCalories,
         ));
       }
 
@@ -500,6 +517,189 @@ class WorkoutRepository {
     } catch (e, st) {
       debugPrint('获取月度运动统计失败: $e');
       throw WorkoutRepositoryException('获取月度运动统计失败', e, st);
+    }
+  }
+
+  // ==================== 卡路里计算相关方法 ====================
+
+  /// 估算单次运动消耗的卡路里
+  ///
+  /// 参数:
+  /// - [workoutType] 运动类型
+  /// - [durationMinutes] 运动时长（分钟）
+  /// - [distance] 运动距离（米）- 可选
+  /// - [sets] 力量训练组数 - 可选
+  /// - [weight] 用户体重（公斤）- 可选，默认70kg
+  ///
+  /// 返回值: 估算的卡路里消耗（千卡）
+  double estimateCalories({
+    required String workoutType,
+    required int durationMinutes,
+    double? distance,
+    int? sets,
+    double? weight,
+  }) {
+    final service = CalorieCalculatorService();
+
+    if (distance != null && distance > 0) {
+      return service.calculateCaloriesWithDistance(
+        workoutType: workoutType,
+        durationMinutes: durationMinutes,
+        distanceMeters: distance,
+        weight: weight,
+      );
+    } else if (sets != null && sets > 0) {
+      return service.calculateStrengthCalories(
+        workoutType: workoutType,
+        durationMinutes: durationMinutes,
+        sets: sets,
+        weight: weight,
+      );
+    } else {
+      return service.calculateCalories(
+        workoutType: workoutType,
+        durationMinutes: durationMinutes,
+        weight: weight,
+      );
+    }
+  }
+
+  /// 获取今日运动总卡路里消耗
+  /// 返回整数值（千卡）
+  Future<int> getTodayCalories() async {
+    try {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final todayEnd = todayStart.add(const Duration(days: 1));
+
+      final workouts = await (_db.select(_db.workouts)
+            ..where((tbl) =>
+                tbl.startTime.isBiggerOrEqualValue(todayStart) &
+                tbl.startTime.isSmallerOrEqualValue(todayEnd)))
+          .get();
+
+      final totalCalories = workouts.fold<double>(0, (sum, w) => sum + (w.calories ?? 0));
+      return totalCalories.round();
+    } catch (e, st) {
+      debugPrint('获取今日卡路里失败: $e');
+      throw WorkoutRepositoryException('获取今日卡路里失败', e, st);
+    }
+  }
+
+  /// 获取本周运动总卡路里消耗
+  /// 返回整数值（千卡）
+  Future<int> getThisWeekCalories() async {
+    try {
+      final workouts = await getThisWeekWorkouts();
+      final totalCalories = workouts.fold<double>(0, (sum, w) => sum + (w.calories ?? 0));
+      return totalCalories.round();
+    } catch (e, st) {
+      debugPrint('获取本周卡路里失败: $e');
+      throw WorkoutRepositoryException('获取本周卡路里失败', e, st);
+    }
+  }
+
+  /// 获取本月运动总卡路里消耗
+  /// 返回整数值（千卡）
+  Future<int> getThisMonthCalories() async {
+    try {
+      final workouts = await getThisMonthWorkouts();
+      final totalCalories = workouts.fold<double>(0, (sum, w) => sum + (w.calories ?? 0));
+      return totalCalories.round();
+    } catch (e, st) {
+      debugPrint('获取本月卡路里失败: $e');
+      throw WorkoutRepositoryException('获取本月卡路里失败', e, st);
+    }
+  }
+
+  /// 获取指定日期范围内的总卡路里消耗
+  /// 返回整数值（千卡）
+  Future<int> getCaloriesInDateRange(DateTime start, DateTime end) async {
+    try {
+      final workouts = await (_db.select(_db.workouts)
+            ..where((tbl) =>
+                tbl.startTime.isBiggerOrEqualValue(start) &
+                tbl.startTime.isSmallerOrEqualValue(end)))
+          .get();
+
+      final totalCalories = workouts.fold<double>(0, (sum, w) => sum + (w.calories ?? 0));
+      return totalCalories.round();
+    } catch (e, st) {
+      debugPrint('获取日期范围卡路里失败: $e');
+      throw WorkoutRepositoryException('获取日期范围卡路里失败', e, st);
+    }
+  }
+
+  /// 获取运动卡路里统计（包含今日、本周、本月）
+  /// 返回 Map<String, int> 格式
+  Future<Map<String, int>> getCaloriesSummary() async {
+    try {
+      final today = await getTodayCalories();
+      final week = await getThisWeekCalories();
+      final month = await getThisMonthCalories();
+
+      return {
+        'today': today,
+        'week': week,
+        'month': month,
+      };
+    } catch (e, st) {
+      debugPrint('获取卡路里汇总失败: $e');
+      throw WorkoutRepositoryException('获取卡路里汇总失败', e, st);
+    }
+  }
+
+  /// 自动计算并更新运动记录的卡路里
+  /// 用于已存在但卡路里为空的记录
+  Future<bool> updateWorkoutCalories(int workoutId) async {
+    try {
+      final workout = await getWorkoutById(workoutId);
+      if (workout == null) return false;
+
+      // 如果已经有卡路里数据，跳过
+      if (workout.calories != null && workout.calories! > 0) {
+        return true;
+      }
+
+      // 计算卡路里
+      final estimatedCalories = estimateCalories(
+        workoutType: workout.type,
+        durationMinutes: workout.durationMinutes,
+        distance: workout.distance,
+        sets: workout.sets,
+      );
+
+      // 更新数据库
+      await (_db.update(_db.workouts)..where((tbl) => tbl.id.equals(workoutId))).write(
+        WorkoutsCompanion(calories: drift.Value(estimatedCalories)),
+      );
+
+      return true;
+    } catch (e, st) {
+      debugPrint('更新运动卡路里失败: $e');
+      throw WorkoutRepositoryException('更新运动卡路里失败', e, st);
+    }
+  }
+
+  /// 批量更新所有缺失卡路里的运动记录
+  Future<int> updateAllMissingCalories() async {
+    try {
+      // 获取所有卡路里为空或为0的记录
+      final workouts = await (_db.select(_db.workouts)
+            ..where((tbl) =>
+                tbl.calories.isNull() | (tbl.calories.equals(0))))
+          .get();
+
+      int updated = 0;
+      for (final workout in workouts) {
+        final success = await updateWorkoutCalories(workout.id!);
+        if (success) updated++;
+      }
+
+      return updated;
+    } catch (e, st) {
+      debugPrint('批量更新卡路里失败: $e');
+      throw WorkoutRepositoryException('批量更新卡路里失败', e, st);
     }
   }
 }

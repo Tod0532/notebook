@@ -6,6 +6,8 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/heart_rate/heart_rate_service.dart';
+import 'package:thick_notepad/features/heart_rate/data/repositories/heart_rate_repository.dart';
 
 // ==================== 心率数据状态 ====================
 
@@ -267,6 +269,20 @@ final heartRateZoneProvider = FutureProvider.autoDispose<HeartRateZone?>((ref) a
   final db = ref.watch(databaseProvider);
   final configs = await db.select(db.heartRateZones).get();
   return configs.isNotEmpty ? configs.first : null;
+});
+
+// ==================== 心率仓库 Provider ====================
+
+/// 心率仓库 Provider - 用于设置页面和其他需要访问心率数据的地方
+final heartRateRepositoryProvider = Provider<HeartRateRepository>((ref) {
+  final db = ref.watch(databaseProvider);
+  return HeartRateRepository(db);
+});
+
+/// 心率设置配置状态 Provider（用于设置页面）
+final heartRateSettingsConfigProvider = FutureProvider.autoDispose<HeartRateZoneConfig?>((ref) async {
+  final repository = ref.watch(heartRateRepositoryProvider);
+  return await repository.getZoneConfig();
 });
 
 // ==================== 历史心率数据 Provider ====================

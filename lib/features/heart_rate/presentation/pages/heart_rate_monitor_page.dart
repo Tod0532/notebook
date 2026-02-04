@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
+import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/heart_rate/presentation/providers/heart_rate_providers.dart';
+import 'package:thick_notepad/features/heart_rate/presentation/widgets/realtime_heart_rate_chart.dart';
 import 'package:thick_notepad/shared/widgets/modern_cards.dart';
 import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
 import 'package:thick_notepad/shared/widgets/loading_widget.dart';
@@ -46,6 +49,13 @@ class _HeartRateMonitorPageState extends ConsumerState<HeartRateMonitorPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text('心率监测'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '心率设置',
+            onPressed: () => context.push(AppRoutes.heartRateSettings),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -109,6 +119,12 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
           // 心率显示区域
           _buildHeartRateSection(monitorState),
           const SizedBox(height: 20),
+
+          // 实时心率曲线图
+          if (monitorState.sessionId != null) ...[
+            _buildHeartRateChart(monitorState.sessionId!),
+            const SizedBox(height: 20),
+          ],
 
           // 统计信息区域
           if (monitorState.sessionId != null) ...[
@@ -415,6 +431,57 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
     );
   }
 
+  /// 实时心率曲线图
+  Widget _buildHeartRateChart(String sessionId) {
+    return ModernCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '实时心率曲线',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.1),
+                  borderRadius: AppRadius.smRadius,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.show_chart,
+                      color: AppColors.info,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '最近60秒',
+                      style: TextStyle(
+                        color: AppColors.info,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          RealtimeHeartRateChart(
+            sessionId: sessionId,
+            durationSeconds: 60,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatsSection(HeartRateMonitorState monitorState) {
     return ModernCard(
       child: Column(
@@ -635,7 +702,7 @@ class _HistoryTab extends ConsumerWidget {
             return const EmptyStateWidget(
               icon: Icons.history,
               title: '暂无历史记录',
-              message: '开始监测后，记录将显示在这里',
+              description: '开始监测后，记录将显示在这里',
             );
           }
 
@@ -653,7 +720,7 @@ class _HistoryTab extends ConsumerWidget {
           child: EmptyStateWidget(
             icon: Icons.error_outline,
             title: '加载失败',
-            message: error.toString(),
+            description: error.toString(),
             actionLabel: '重试',
             onAction: () => ref.invalidate(heartRateSessionsProvider),
           ),
@@ -911,7 +978,7 @@ class _SessionDetailSheetState extends ConsumerState<_SessionDetailSheet> {
                 child: EmptyStateWidget(
                   icon: Icons.error_outline,
                   title: '加载失败',
-                  message: error.toString(),
+                  description: error.toString(),
                 ),
               ),
             ),

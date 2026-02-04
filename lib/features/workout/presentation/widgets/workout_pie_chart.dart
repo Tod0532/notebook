@@ -230,7 +230,7 @@ class WorkoutPieChart extends StatelessWidget {
         child: Column(
           children: [
             Icon(
-              Icons.pie_chart_outlined,
+              Icons.pie_chart,
               size: 48,
               color: AppColors.textHint,
             ),

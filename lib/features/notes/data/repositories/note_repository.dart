@@ -16,6 +16,35 @@ class NoteRepository {
         .get();
   }
 
+  /// 获取已删除的笔记（回收站）
+  Future<List<Note>> getDeletedNotes() async {
+    return await (_db.select(_db.notes)
+          ..where((tbl) => tbl.isDeleted.equals(true))
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.deletedAt)]))
+        .get();
+  }
+
+  /// 按文件夹筛选笔记
+  Future<List<Note>> getNotesByFolder(String folder) async {
+    return await (_db.select(_db.notes)
+          ..where((tbl) => tbl.isDeleted.equals(false) & tbl.folder.equals(folder))
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+        .get();
+  }
+
+  /// 获取所有文件夹列表
+  Future<List<String>> getAllFolders() async {
+    final notes = await getAllNotes();
+    final folders = notes
+        .map((n) => n.folder)
+        .where((f) => f != null && f.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+    folders.sort();
+    return folders;
+  }
+
   /// 按标签筛选笔记
   Future<List<Note>> getNotesByTag(String tag) async {
     final allNotes = await getAllNotes();
@@ -61,7 +90,21 @@ class NoteRepository {
   /// 删除笔记（软删除）
   Future<int> deleteNote(int id) async {
     return await (_db.update(_db.notes)..where((tbl) => tbl.id.equals(id)))
-        .write(NotesCompanion(isDeleted: const drift.Value(true), updatedAt: drift.Value(DateTime.now())));
+        .write(NotesCompanion(
+          isDeleted: const drift.Value(true),
+          deletedAt: drift.Value(DateTime.now()),
+          updatedAt: drift.Value(DateTime.now()),
+        ));
+  }
+
+  /// 恢复笔记（从回收站恢复）
+  Future<int> restoreNote(int id) async {
+    return await (_db.update(_db.notes)..where((tbl) => tbl.id.equals(id)))
+        .write(NotesCompanion(
+          isDeleted: const drift.Value(false),
+          deletedAt: const drift.Value(null),
+          updatedAt: drift.Value(DateTime.now()),
+        ));
   }
 
   /// 永久删除
@@ -101,6 +144,49 @@ class NoteRepository {
   String formatTags(List<String> tags) {
     if (tags.isEmpty) return '[]';
     return '[${tags.map((e) => '"$e"').join(',')}]';
+  }
+
+  /// 解析图片JSON字符串
+  List<String> _parseImages(String? imagesJson) {
+    if (imagesJson == null || imagesJson.isEmpty || imagesJson == '[]') return [];
+    try {
+      final content = imagesJson.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').replaceAll("'", '');
+      if (content.isEmpty) return [];
+      return content.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// 格式化图片为JSON字符串
+  String formatImages(List<String> images) {
+    if (images.isEmpty) return '[]';
+    return '[${images.map((e) => '"$e"').join(',')}]';
+  }
+
+  /// 获取所有笔记中使用的图片路径
+  Future<List<String>> getAllUsedImagePaths() async {
+    final notes = await getAllNotes();
+    final allImages = <String>[];
+    for (final note in notes) {
+      allImages.addAll(_parseImages(note.images));
+    }
+    return allImages;
+  }
+
+  /// 清理空笔记（标题和内容都为空的笔记）
+  Future<int> cleanEmptyNotes() async {
+    final allNotes = await (_db.select(_db.notes)).get();
+    int deletedCount = 0;
+    for (final note in allNotes) {
+      final titleIsEmpty = note.title == null || note.title!.isEmpty;
+      final contentIsEmpty = note.content.isEmpty;
+      if (titleIsEmpty && contentIsEmpty) {
+        await permanentlyDeleteNote(note.id);
+        deletedCount++;
+      }
+    }
+    return deletedCount;
   }
 
   /// 删除所有笔记

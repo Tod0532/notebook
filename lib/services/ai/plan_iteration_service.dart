@@ -322,7 +322,7 @@ class PlanIterationService {
   }) async {
     try {
       // 获取用户画像
-      final profileRepo = UserProfileRepository(AppDatabase); // 需要传入实际的数据库实例
+      final profileRepo = UserProfileRepository(DatabaseProvider.instance);
       final userProfile = await profileRepo.getProfileById(userProfileId);
       if (userProfile == null) {
         throw Exception('用户画像不存在');
@@ -331,7 +331,7 @@ class PlanIterationService {
       // 获取当前计划
       Map<String, dynamic> currentPlan;
       if (planType == 'workout') {
-        final workoutRepo = WorkoutPlanRepository(AppDatabase);
+        final workoutRepo = WorkoutPlanRepository(DatabaseProvider.instance);
         final planWithDetails = await workoutRepo.getPlanWithDetails(planId);
         if (planWithDetails == null) {
           throw Exception('训练计划不存在');
@@ -355,13 +355,13 @@ class PlanIterationService {
           }).toList(),
         };
       } else {
-        final dietRepo = DietPlanRepository(AppDatabase);
+        final dietRepo = DietPlanRepository(DatabaseProvider.instance);
         // 饮食计划处理类似
         currentPlan = {};
       }
 
       // 获取用户反馈
-      final feedbackRepo = UserFeedbackRepository(AppDatabase);
+      final feedbackRepo = UserFeedbackRepository(DatabaseProvider.instance);
       final userFeedbackList = feedbacks ?? [];
       if (userFeedbackList.isEmpty) {
         final feedbacksData = await feedbackRepo.getRecentFeedbacks(
@@ -500,7 +500,7 @@ class PlanIterationService {
 
     final daysSinceUpdate = DateTime.now().difference(status.lastUpdateDate).inDays;
 
-    final feedbackRepo = UserFeedbackRepository(AppDatabase);
+    final feedbackRepo = UserFeedbackRepository(DatabaseProvider.instance);
     final feedbacksData = await feedbackRepo.getRecentFeedbacks(
       userProfileId: userProfileId,
       limit: 50,

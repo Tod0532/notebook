@@ -11,6 +11,7 @@ import 'package:thick_notepad/features/coach/data/repositories/workout_plan_repo
 import 'package:thick_notepad/features/coach/data/repositories/user_feedback_repository.dart';
 import 'package:thick_notepad/features/coach/data/repositories/user_profile_repository.dart';
 import 'package:thick_notepad/services/ai/deepseek_service.dart';
+import 'package:thick_notepad/services/ai/plan_integration_service.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
@@ -74,6 +75,89 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  /// 激活训练计划 - 创建每日提醒
+  Future<void> _activatePlan() async {
+    final plan = _planDetails!.plan;
+    final userProfileId = plan.userProfileId;
+
+    // 确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('激活训练计划'),
+        content: Text('将为这个${plan.totalDays}天的训练计划创建每日提醒，每天早上9点提醒您训练。是否继续？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('激活计划'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    // 显示加载对话框
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final integrationService = PlanIntegrationService.instance;
+
+      // 检查用户画像ID
+      final actualProfileId = userProfileId ?? await _getLatestProfileId();
+      if (actualProfileId == null) {
+        throw Exception('未找到用户画像');
+      }
+
+      // 调用整合服务激活计划
+      await integrationService.activateWorkoutPlan(widget.planId, actualProfileId);
+
+      // 更新计划状态为 active
+      final repo = ref.read(workoutPlanRepositoryProvider);
+      await repo.updatePlanStatus(widget.planId, 'active');
+
+      // 重新加载数据
+      await _loadPlan();
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('训练计划已激活！已创建${plan.totalDays}条每日提醒'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('激活失败: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  /// 获取最新的用户画像ID
+  Future<int?> _getLatestProfileId() async {
+    try {
+      final profileRepo = ref.read(userProfileRepositoryProvider);
+      final profile = await profileRepo.getLatestProfile();
+      return profile?.id;
+    } catch (e) {
+      debugPrint('获取用户画像失败: $e');
+      return null;
     }
   }
 
@@ -664,6 +748,7 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
     final progress = _planDetails!.progress;
     final completedDays = plan.currentDay;
     final totalDays = plan.totalDays;
+    final isNotActive = plan.status != 'active';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -707,12 +792,31 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            '${(progress * 100).toStringAsFixed(0)}% 完成',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 12,
-            ),
+          Row(
+            children: [
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}% 完成',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 12,
+                ),
+              ),
+              const Spacer(),
+              // 激活计划按钮
+              if (isNotActive)
+                TextButton.icon(
+                  onPressed: _activatePlan,
+                  icon: const Icon(Icons.play_arrow, color: Colors.white, size: 16),
+                  label: const Text(
+                    '激活计划',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

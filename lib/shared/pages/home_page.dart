@@ -12,6 +12,12 @@ import 'package:thick_notepad/shared/widgets/recent_activities.dart';
 import 'package:thick_notepad/shared/widgets/modern_cards.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:thick_notepad/services/ai/deepseek_service.dart';
+import 'package:thick_notepad/services/ai/plan_integration_service.dart';
+import 'package:thick_notepad/features/weather/presentation/widgets/weather_recommendation_card.dart';
+import 'package:thick_notepad/features/weather/presentation/providers/weather_providers.dart';
+import 'package:thick_notepad/features/gamification/presentation/widgets/level_progress_card.dart';
+import 'package:thick_notepad/features/gamification/presentation/widgets/streak_display.dart';
+import 'package:thick_notepad/features/gamification/presentation/providers/gamification_providers.dart';
 
 /// 底部导航项配置
 class _NavItem {
@@ -162,7 +168,18 @@ class DashboardView extends ConsumerWidget {
           children: [
             _buildGreetingHeader(context).slideIn(delay: DelayDuration.none),
             const SizedBox(height: AppSpacing.md),
+            // 游戏化组件：等级进度、连续打卡、签到
+            _buildGamificationSection(context).slideIn(delay: DelayDuration.short),
+            const SizedBox(height: AppSpacing.md),
             _buildAIGreeting(context).slideIn(delay: DelayDuration.short),
+            const SizedBox(height: AppSpacing.md),
+            Builder(
+              builder: (context) => _buildVoiceAssistantCard(context).slideIn(delay: DelayDuration.short),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildTodayTrainingTask().slideIn(delay: DelayDuration.short),
+            const SizedBox(height: AppSpacing.md),
+            _buildWeatherRecommendation().slideIn(delay: DelayDuration.short),
             const SizedBox(height: AppSpacing.lg),
             _buildBentoGrid(context).slideIn(delay: DelayDuration.short),
             const SizedBox(height: AppSpacing.lg),
@@ -307,8 +324,46 @@ class DashboardView extends ConsumerWidget {
     );
   }
 
+  /// 语音助手入口卡片
+  Widget _buildVoiceAssistantCard(BuildContext context) {
+    return ModernCard(
+      onTap: () => context.push(AppRoutes.voiceAssistant),
+      padding: const EdgeInsets.all(16),
+      backgroundColor: AppColors.infoGradient.colors.first.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(20),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: AppColors.infoGradient,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.mic, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('语音助手', style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700, color: AppColors.info)),
+                const SizedBox(height: 2),
+                Text('记笔记、运动打卡、查询进度', style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary, fontSize: 12)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
+        ],
+      ),
+    );
+  }
+
   /// 获取 AI 问候语（带超时，避免卡顿）
-  Future<String> _getAIGreeting() async {
+  static Future<String> _getAIGreeting() async {
     try {
       final aiService = DeepSeekService.instance;
       await aiService.init().timeout(const Duration(seconds: 2));
@@ -327,6 +382,329 @@ class DashboardView extends ConsumerWidget {
     } catch (e) {
       return '创建专属训练和饮食计划';
     }
+  }
+
+  /// 今日训练任务卡片
+  Widget _buildTodayTrainingTask() {
+    final integrationService = PlanIntegrationService.instance;
+
+    return FutureBuilder<TodayTrainingTask?>(
+      future: integrationService.getTodayTrainingTask(),
+      builder: (context, snapshot) {
+        // 如果没有活跃的训练计划，不显示卡片
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+
+        final task = snapshot.data!;
+
+        return ModernCard(
+          onTap: () => context.push('/coach/workout/${task.planId}'),
+          padding: const EdgeInsets.all(16),
+          backgroundColor: AppColors.secondary.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 标题行
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.secondaryGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.fitness_center,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '今日训练',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.secondary,
+                              ),
+                        ),
+                        Text(
+                          '${task.planName} · 第${task.dayNumber}/${task.totalDays}天',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!task.isCompleted)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '待完成',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.error,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '已完成',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.success,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 训练内容
+              Text(
+                task.trainingFocus,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              // 训练动作预览
+              if (task.exercises.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: task.exercises.take(3).map((exercise) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        exercise.name,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontSize: 11,
+                            ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 12),
+              // 底部信息
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${task.estimatedMinutes} 分钟',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textHint,
+                        ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.trending_up,
+                    size: 14,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '剩余${task.remainingDays}天',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textHint,
+                        ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '查看详情 →',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 游戏化区域 - 等级进度、连续打卡、签到按钮
+  Widget _buildGamificationSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 等级进度卡片
+        const LevelProgressCard(),
+        const SizedBox(height: AppSpacing.md),
+        // 连续打卡和签到区域
+        Row(
+          children: [
+            // 连续打卡显示
+            Expanded(
+              child: GestureDetector(
+                onTap: () => context.push(AppRoutes.achievements),
+                child: const StreakDisplay(isCompact: true),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            // 签到按钮
+            const DailyCheckInButton(),
+            const SizedBox(width: AppSpacing.sm),
+            // 成就入口
+            GestureDetector(
+              onTap: () => context.push(AppRoutes.achievements),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.military_tech,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '成就',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // 挑战和抽卡入口
+        Row(
+          children: [
+            // 每日挑战入口
+            Expanded(
+              child: GestureDetector(
+                onTap: () => context.push(AppRoutes.challenges),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.warningGradient,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.warning.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.emoji_events_rounded,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '每日挑战',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            // 抽卡入口
+            Expanded(
+              child: GestureDetector(
+                onTap: () => context.push(AppRoutes.gacha),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.secondaryGradient,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.secondary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.card_giftcard_rounded,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '幸运抽卡',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   /// 旧版AI问候（已禁用）
@@ -473,6 +851,11 @@ class DashboardView extends ConsumerWidget {
 
   Widget _buildTodaySummary(BuildContext context) {
     return _TodaySummarySection();
+  }
+
+  /// 天气推荐卡片
+  Widget _buildWeatherRecommendation() {
+    return const WeatherRecommendationCard();
   }
 
   Widget _buildRecentActivity(BuildContext context) {

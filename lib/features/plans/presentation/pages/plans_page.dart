@@ -88,21 +88,44 @@ class PlansView extends ConsumerWidget {
                   fontWeight: FontWeight.w800,
                 ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.warningGradient,
-              borderRadius: AppRadius.mdRadius,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.add, size: 20, color: Colors.white),
-              onPressed: () => _showCreatePlanSheet(context, ref),
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              constraints: const BoxConstraints(),
-            ),
+          Row(
+            children: [
+              // 日历视图切换按钮
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: AppRadius.mdRadius,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.calendar_month, size: 20, color: AppColors.textSecondary),
+                  onPressed: () => _switchToCalendarView(context),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  constraints: const BoxConstraints(),
+                  tooltip: '日历视图',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.warningGradient,
+                  borderRadius: AppRadius.mdRadius,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.add, size: 20, color: Colors.white),
+                  onPressed: () => _showCreatePlanSheet(context, ref),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  void _switchToCalendarView(BuildContext context) {
+    context.push('/plans/calendar');
   }
 
   void _showCreatePlanSheet(BuildContext context, WidgetRef ref) {

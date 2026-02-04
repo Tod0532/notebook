@@ -19,8 +19,10 @@ class Notes extends Table {
   TextColumn get content => text()();
   TextColumn get tags => text().withDefault(const Constant('[]'))(); // JSON数组
   TextColumn get folder => text().nullable()(); // 文件夹分类
+  TextColumn get images => text().nullable()(); // JSON数组：图片路径列表
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // 软删除时间
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
   IntColumn get color => integer().nullable()(); // 颜色标记
@@ -31,6 +33,7 @@ class Notes extends Table {
     {isDeleted}, // 过滤已删除笔记
     {isPinned}, // 查询置顶笔记
     {folder}, // 按文件夹查询
+    {deletedAt}, // 按删除时间查询（回收站排序）
   ];
 }
 
@@ -525,6 +528,544 @@ class HeartRateSessions extends Table {
   ];
 }
 
+// ==================== GPS追踪功能数据表 ====================
+
+/// GPS路线表 - 存储运动轨迹的汇总信息
+@DataClassName('GpsRoute')
+class GpsRoutes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 关联运动
+  IntColumn get workoutId => integer().references(Workouts, #id).nullable()(); // 关联的运动ID
+
+  // 运动类型
+  TextColumn get workoutType => text()(); // 运动类型（running/cycling等）
+
+  // 时间信息
+  DateTimeColumn get startTime => dateTime()(); // 开始时间
+  DateTimeColumn get endTime => dateTime().nullable()(); // 结束时间
+  IntColumn get duration => integer().nullable()(); // 时长（秒）
+
+  // 距离和速度
+  RealColumn get distance => real().nullable()(); // 总距离（米）
+  RealColumn get averageSpeed => real().nullable()(); // 平均速度（米/秒）
+  RealColumn get maxSpeed => real().nullable()(); // 最大速度（米/秒）
+
+  // 配速和海拔
+  RealColumn get averagePace => real().nullable()(); // 平均配速（分钟/公里）
+  RealColumn get elevationGain => real().nullable()(); // 累计爬升（米）
+  RealColumn get elevationLoss => real().nullable()(); // 累计下降（米）
+
+  // 卡路里
+  RealColumn get calories => real().nullable()(); // 消耗卡路里（千卡）
+
+  // 轨迹点数据（JSON格式存储）
+  TextColumn get points => text()(); // JSON数组：存储所有GPS坐标点
+
+  // 数据统计
+  IntColumn get pointCount => integer().withDefault(const Constant(0))(); // 轨迹点数量
+
+  // 创建时间
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {workoutId}, // 按运动ID查询
+    {startTime}, // 按开始时间查询
+    {workoutType}, // 按运动类型查询
+    {createdAt}, // 按创建时间查询
+  ];
+}
+
+// ==================== 游戏化系统数据表 ====================
+
+/// 游戏化用户档案表 - 存储用户的等级、积分、连续打卡等游戏化数据
+@DataClassName('GamificationUserProfile')
+class GamificationUserProfiles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 等级系统
+  IntColumn get level => integer().withDefault(const Constant(1))(); // 当前等级
+  IntColumn get experience => integer().withDefault(const Constant(0))(); // 当前经验值
+  IntColumn get totalExperience => integer().withDefault(const Constant(0))(); // 总经验值
+
+  // 积分系统
+  IntColumn get points => integer().withDefault(const Constant(0))(); // 当前积分
+  IntColumn get totalPoints => integer().withDefault(const Constant(0))(); // 总获得积分
+
+  // 连续打卡系统
+  IntColumn get currentStreak => integer().withDefault(const Constant(0))(); // 当前连续打卡天数
+  IntColumn get longestStreak => integer().withDefault(const Constant(0))(); // 最长连续打卡天数
+  DateTimeColumn get lastCheckInDate => dateTime().nullable()(); // 上次打卡日期
+
+  // 成就统计
+  IntColumn get unlockedAchievements => integer().withDefault(const Constant(0))(); // 已解锁成就数
+  IntColumn get totalAchievements => integer().withDefault(const Constant(0))(); // 总成就数
+
+  // 运动统计
+  IntColumn get totalWorkouts => integer().withDefault(const Constant(0))(); // 总运动次数
+  IntColumn get totalWorkoutMinutes => integer().withDefault(const Constant(0))(); // 总运动时长（分钟）
+
+  // 其他统计
+  IntColumn get totalNotes => integer().withDefault(const Constant(0))(); // 总笔记数
+  IntColumn get totalPlans => integer().withDefault(const Constant(0))(); // 总计划数
+  IntColumn get completedPlans => integer().withDefault(const Constant(0))(); // 完成计划数
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {level}, // 按等级查询排行榜
+    {points}, // 按积分查询排行榜
+    {currentStreak}, // 按连续打卡查询
+  ];
+}
+
+/// 成就表 - 定义所有可解锁的成就
+@DataClassName('Achievement')
+class Achievements extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 成就基本信息
+  TextColumn get code => text()(); // 成就代码（唯一标识）
+  TextColumn get name => text()(); // 成就名称
+  TextColumn get description => text()(); // 成就描述
+
+  // 成就分类
+  TextColumn get category => text()(); // workout/streak/note/plan/social/other
+  TextColumn get tier => text().withDefault(const Constant('bronze'))(); // bronze/silver/gold/diamond
+
+  // 解锁条件
+  TextColumn get conditionType => text()(); // workout_count/streak_days/total_minutes等
+  IntColumn get conditionValue => integer()(); // 条件值
+  TextColumn get conditionExtra => text().nullable()(); // 额外条件（JSON格式）
+
+  // 奖励
+  IntColumn get rewardPoints => integer().withDefault(const Constant(0))(); // 奖励积分
+  IntColumn get rewardExperience => integer().withDefault(const Constant(0))(); // 奖励经验
+
+  // 显示相关
+  TextColumn get iconCode => text().withDefault(const Constant('trophy'))(); // 图标代码
+  TextColumn get colorHex => text().nullable()(); // 颜色值
+
+  // 状态
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))(); // 是否启用
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))(); // 排序
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {code}, // 按代码查询
+    {category}, // 按分类查询
+    {tier}, // 按稀有度查询
+    {isActive}, // 过滤启用成就
+  ];
+}
+
+/// 用户成就关联表 - 记录用户解锁的成就
+@DataClassName('UserAchievement')
+class UserAchievements extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 关联
+  IntColumn get achievementId => integer().references(Achievements, #id)();
+  IntColumn get userProfileId => integer().references(GamificationUserProfiles, #id).nullable()(); // 可选，用于多用户
+
+  // 解锁信息
+  DateTimeColumn get unlockedAt => dateTime().withDefault(currentDateAndTime)(); // 解锁时间
+  IntColumn get progress => integer().withDefault(const Constant(0))(); // 进度值（用于渐进式成就）
+  BoolColumn get isNotified => boolean().withDefault(const Constant(false))(); // 是否已通知
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {achievementId}, // 按成就查询
+    {userProfileId}, // 按用户查询
+    {unlockedAt}, // 按解锁时间查询
+  ];
+}
+
+/// 每日打卡记录表 - 记录用户每日打卡详情
+@DataClassName('DailyStreak')
+class DailyStreaks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 用户关联
+  IntColumn get userProfileId => integer().references(GamificationUserProfiles, #id).nullable()();
+
+  // 日期信息
+  DateTimeColumn get checkInDate => dateTime()(); // 打卡日期
+
+  // 当日活动统计
+  IntColumn get workoutCount => integer().withDefault(const Constant(0))(); // 当日运动次数
+  IntColumn get workoutMinutes => integer().withDefault(const Constant(0))(); // 当日运动时长
+  IntColumn get noteCount => integer().withDefault(const Constant(0))(); // 当日笔记数
+  IntColumn get planTaskCount => integer().withDefault(const Constant(0))(); // 当日完成任务数
+
+  // 奖励
+  IntColumn get earnedPoints => integer().withDefault(const Constant(0))(); // 当日获得积分
+  IntColumn get earnedExperience => integer().withDefault(const Constant(0))(); // 当日获得经验
+
+  // 签到状态
+  BoolColumn get isCheckIn => boolean().withDefault(const Constant(true))(); // 是否已签到
+  DateTimeColumn get checkInTime => dateTime().nullable()(); // 签到时间
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {userProfileId}, // 按用户查询
+    {checkInDate}, // 按日期查询
+    {isCheckIn}, // 过滤已签到
+  ];
+}
+
+// ==================== 情绪分析功能数据表 ====================
+
+/// 情绪记录表 - 存储笔记的情绪分析结果
+@DataClassName('EmotionRecord')
+class EmotionRecords extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 关联笔记
+  IntColumn get noteId => integer().references(Notes, #id).nullable()(); // 关联笔记ID
+
+  // 情绪分析结果
+  TextColumn get emotionType => text()(); // 情绪类型：happy/sad/anxious/tired/stressed/calm/excited
+  RealColumn get confidence => real()(); // 置信度 (0.0-1.0)
+
+  // 分析的文本内容
+  TextColumn get analyzedText => text()(); // 分析的文本内容
+  TextColumn get matchedKeywords => text().nullable()(); // 匹配到的关键词（JSON数组）
+
+  // 推荐的运动
+  TextColumn get recommendedWorkout => text().nullable()(); // 推荐的运动类型
+  TextColumn get workoutReason => text().nullable()(); // 推荐理由
+  IntColumn get workoutIntensity => integer().nullable()(); // 推荐强度 (1-5)
+
+  // 时间信息
+  DateTimeColumn get analyzedAt => dateTime().withDefault(currentDateAndTime)(); // 分析时间
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {noteId}, // 按笔记ID查询
+    {emotionType}, // 按情绪类型查询
+    {analyzedAt}, // 按分析时间查询（用于趋势分析）
+  ];
+}
+
+// ==================== 位置提醒功能数据表 ====================
+
+/// 地理围栏表 - 存储用户设置的位置围栏
+@DataClassName('Geofence')
+class Geofences extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()(); // 围栏名称
+  TextColumn get address => text()(); // 地址描述
+  RealColumn get latitude => real()(); // 纬度
+  RealColumn get longitude => real()(); // 经度
+  RealColumn get radius => real().withDefault(const Constant(100.0))(); // 半径（米）
+  TextColumn get triggerType => text()(); // 触发类型: enter/exit/both
+  IntColumn get linkedReminderId => integer().nullable()(); // 关联的提醒ID
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))(); // 是否启用
+  IntColumn get iconCode => integer().withDefault(const Constant(0))(); // 图标代码
+  IntColumn get colorHex => integer().nullable()(); // 颜色值
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {isEnabled}, // 过滤启用围栏
+    {latitude, longitude}, // 位置查询
+    {createdAt}, // 按创建时间查询
+  ];
+}
+
+/// 位置事件记录表 - 存储围栏触发事件
+@DataClassName('LocationEvent')
+class LocationEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get geofenceId => integer().references(Geofences, #id)(); // 关联围栏
+  TextColumn get eventType => text()(); // 事件类型: entered/exited
+  DateTimeColumn get occurredAt => dateTime().withDefault(currentDateAndTime)(); // 发生时间
+  BoolColumn get isProcessed => boolean().withDefault(const Constant(false))(); // 是否已处理
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {geofenceId}, // 按围栏查询
+    {occurredAt}, // 按时间查询
+    {isProcessed}, // 过滤未处理事件
+  ];
+}
+
+// ==================== 每日/每周挑战系统数据表 ====================
+
+/// 每日挑战表 - 存储每日挑战任务定义
+@DataClassName('DailyChallenge')
+class DailyChallenges extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 挑战内容
+  TextColumn get title => text()(); // 挑战标题
+  TextColumn get description => text()(); // 挑战描述
+
+  // 奖励
+  IntColumn get expReward => integer()(); // 经验奖励
+  IntColumn get pointsReward => integer()(); // 积分奖励
+
+  // 挑战类型和目标
+  TextColumn get type => text()(); // 挑战类型: workout/note/plan/streak
+  IntColumn get targetCount => integer()(); // 目标次数
+
+  // 日期信息
+  DateTimeColumn get date => dateTime()(); // 挑战日期
+  TextColumn get dateKey => text()(); // 日期键 (格式: yyyy-MM-dd) 用于快速查询
+
+  // 状态
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))(); // 是否激活
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {dateKey}, // 按日期查询
+    {type}, // 按类型查询
+    {isActive}, // 过滤激活挑战
+    {date}, // 按日期时间查询
+  ];
+}
+
+/// 用户挑战进度表 - 记录用户完成挑战的进度
+@DataClassName('UserChallengeProgress')
+class UserChallengeProgresses extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 关联挑战
+  IntColumn get challengeId => integer().references(DailyChallenges, #id)(); // 关联挑战ID
+
+  // 进度信息
+  IntColumn get currentCount => integer().withDefault(const Constant(0))(); // 当前进度
+  BoolColumn get isCompleted => boolean().withDefault(const Constant(false))(); // 是否完成
+  DateTimeColumn get completedAt => dateTime().nullable()(); // 完成时间
+
+  // 日期信息
+  DateTimeColumn get date => dateTime()(); // 日期
+
+  // 奖励领取状态
+  BoolColumn get rewardClaimed => boolean().withDefault(const Constant(false))(); // 是否已领取奖励
+  DateTimeColumn get rewardClaimedAt => dateTime().nullable()(); // 奖励领取时间
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {challengeId}, // 按挑战ID查询
+    {date}, // 按日期查询
+    {isCompleted}, // 过滤已完成挑战
+    {rewardClaimed}, // 查询待领取奖励
+  ];
+}
+
+/// 每周挑战表 - 存储每周挑战任务定义
+@DataClassName('WeeklyChallenge')
+class WeeklyChallenges extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 挑战内容
+  TextColumn get title => text()(); // 挑战标题
+  TextColumn get description => text()(); // 挑战描述
+
+  // 奖励
+  IntColumn get expReward => integer()(); // 经验奖励
+  IntColumn get pointsReward => integer()(); // 积分奖励
+
+  // 挑战类型和目标
+  TextColumn get type => text()(); // 挑战类型: workout/streak/total_minutes等
+  IntColumn get targetCount => integer()(); // 目标次数
+
+  // 周信息
+  IntColumn get weekNumber => integer()(); // 周数 (1-52)
+  IntColumn get year => integer()(); // 年份
+  TextColumn get weekKey => text()(); // 周键 (格式: yyyy-Www) 用于快速查询
+
+  // 状态
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))(); // 是否激活
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {weekKey}, // 按周查询
+    {year}, // 按年份查询
+    {weekNumber}, // 按周数查询
+    {type}, // 按类型查询
+    {isActive}, // 过滤激活挑战
+  ];
+}
+
+/// 用户每周挑战进度表 - 记录用户完成每周挑战的进度
+@DataClassName('UserWeeklyChallengeProgress')
+class UserWeeklyChallengeProgresses extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 关联挑战
+  IntColumn get weeklyChallengeId => integer().references(WeeklyChallenges, #id)(); // 关联挑战ID
+
+  // 进度信息
+  IntColumn get currentCount => integer().withDefault(const Constant(0))(); // 当前进度
+  BoolColumn get isCompleted => boolean().withDefault(const Constant(false))(); // 是否完成
+  DateTimeColumn get completedAt => dateTime().nullable()(); // 完成时间
+
+  // 周信息
+  IntColumn get weekNumber => integer()(); // 周数
+  IntColumn get year => integer()(); // 年份
+  TextColumn get weekKey => text()(); // 周键
+
+  // 奖励领取状态
+  BoolColumn get rewardClaimed => boolean().withDefault(const Constant(false))(); // 是否已领取奖励
+  DateTimeColumn get rewardClaimedAt => dateTime().nullable()(); // 奖励领取时间
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {weeklyChallengeId}, // 按挑战ID查询
+    {weekKey}, // 按周查询
+    {year}, // 按年份查询
+    {weekNumber}, // 按周数查询
+    {isCompleted}, // 过滤已完成挑战
+    {rewardClaimed}, // 查询待领取奖励
+  ];
+}
+
+// ==================== 抽卡系统数据表 ====================
+
+/// 抽卡记录表 - 记录用户抽卡历史
+@DataClassName('GachaRecord')
+class GachaRecords extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 物品信息
+  TextColumn get itemType => text()(); // 物品类型: title/theme/icon/badge
+  TextColumn get itemName => text()(); // 物品名称
+  TextColumn get itemDescription => text().nullable()(); // 物品描述
+
+  // 稀有度
+  TextColumn get rarity => text()(); // 稀有度: common/rare/epic/legendary
+
+  // 时间信息
+  DateTimeColumn get drawnAt => dateTime().withDefault(currentDateAndTime)(); // 抽取时间
+
+  // 状态
+  BoolColumn get isNew => boolean().withDefault(const Constant(true))(); // 是否新获得
+
+  // 抽卡类型
+  TextColumn get drawType => text().withDefault(const Constant('free'))(); // 抽卡类型: free/paid
+
+  // 消耗的积分
+  IntColumn get pointsSpent => integer().nullable()(); // 消耗的积分（付费抽卡）
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {drawnAt}, // 按抽取时间查询（历史记录）
+    {rarity}, // 按稀有度查询
+    {itemType}, // 按物品类型查询
+    {isNew}, // 查询新获得物品
+  ];
+}
+
+/// 用户抽卡状态表 - 记录用户的抽卡次数、保底等信息
+@DataClassName('UserGachaStatus')
+class UserGachaStatuses extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 用户关联（未来支持多用户）
+  IntColumn get userProfileId => integer().references(GamificationUserProfiles, #id).nullable()();
+
+  // 抽卡统计
+  IntColumn get totalDraws => integer().withDefault(const Constant(0))(); // 总抽卡次数
+  IntColumn get freeDrawsToday => integer().withDefault(const Constant(0))(); // 今日免费抽卡次数
+  DateTimeColumn get lastFreeDrawDate => dateTime().nullable()(); // 上次免费抽卡日期
+
+  // 保底计数
+  IntColumn get pityCount => integer().withDefault(const Constant(0))(); // 当前保底计数
+  DateTimeColumn get lastPityResetAt => dateTime().nullable()(); // 上次保底重置时间
+
+  // 物品收集
+  TextColumn get collectedItems => text().withDefault(const Constant('[]'))(); // 已收集物品（JSON数组）
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {userProfileId}, // 按用户查询
+    {lastFreeDrawDate}, // 按日期查询免费次数
+  ];
+}
+
+// ==================== 积分商店数据表 ====================
+
+/// 商店物品表 - 存储可购买的物品
+@DataClassName('ShopItem')
+class ShopItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 物品基本信息
+  TextColumn get name => text()(); // 物品名称
+  TextColumn get description => text().nullable()(); // 物品描述
+  IntColumn get cost => integer()(); // 积分价格
+
+  // 物品类型和值
+  TextColumn get type => text()(); // 物品类型: theme/title/icon/badge
+  TextColumn get value => text()(); // 物品值（可能是颜色代码、图标名称等）
+
+  // 状态
+  BoolColumn get isAvailable => boolean().withDefault(const Constant(true))(); // 是否可用
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {type}, // 按类型查询
+    {isAvailable}, // 过滤可用物品
+    {cost}, // 按价格查询
+  ];
+}
+
+/// 用户购买记录表 - 记录用户的购买历史
+@DataClassName('ShopPurchase')
+class ShopPurchases extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 关联
+  IntColumn get shopItemId => integer().references(ShopItems, #id)(); // 关联商品ID
+  IntColumn get userProfileId => integer().references(GamificationUserProfiles, #id).nullable()(); // 用户ID
+
+  // 购买信息
+  IntColumn get pointsSpent => integer()(); // 消耗的积分
+  DateTimeColumn get purchasedAt => dateTime().withDefault(currentDateAndTime)(); // 购买时间
+
+  // 状态
+  BoolColumn get isUsed => boolean().withDefault(const Constant(false))(); // 是否已使用（对于一次性物品）
+  DateTimeColumn get usedAt => dateTime().nullable()(); // 使用时间
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {shopItemId}, // 按商品查询
+    {userProfileId}, // 按用户查询
+    {purchasedAt}, // 按购买时间查询
+  ];
+}
+
 // ==================== 数据库类 ====================
 
 /// 应用数据库
@@ -549,13 +1090,147 @@ class HeartRateSessions extends Table {
     HeartRateRecords,
     HeartRateZones,
     HeartRateSessions,
+    // GPS追踪表
+    GpsRoutes,
+    // 游戏化系统表
+    GamificationUserProfiles,
+    Achievements,
+    UserAchievements,
+    DailyStreaks,
+    // 情绪分析表
+    EmotionRecords,
+    // 位置提醒表
+    Geofences,
+    LocationEvents,
+    // 挑战系统表
+    DailyChallenges,
+    UserChallengeProgresses,
+    WeeklyChallenges,
+    UserWeeklyChallengeProgresses,
+    // 抽卡系统表
+    GachaRecords,
+    UserGachaStatuses,
+    // 积分商店表
+    ShopItems,
+    ShopPurchases,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 12;
+
+  // ==================== 挑战系统 DAO 方法 ====================
+
+  /// 根据日期键获取每日挑战
+  Future<List<DailyChallenge>> getDailyChallengesByDateKey(String dateKey) {
+    return (select(dailyChallenges)
+          ..where((tbl) => tbl.dateKey.equals(dateKey))
+          ..where((tbl) => tbl.isActive.equals(true))
+        ).get();
+  }
+
+  /// 根据日期范围获取每日挑战
+  Future<List<DailyChallenge>> getDailyChallengesByDateRange(DateTime start, DateTime end) {
+    return (select(dailyChallenges)
+          ..where((tbl) => tbl.date.isBiggerOrEqualValue(start))
+          ..where((tbl) => tbl.date.isSmallerThanValue(end))
+          ..where((tbl) => tbl.isActive.equals(true))
+        ).get();
+  }
+
+  /// 根据ID获取每日挑战
+  Future<DailyChallenge?> getDailyChallengeById(int id) {
+    return (select(dailyChallenges)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  }
+
+  /// 根据挑战ID和日期获取用户挑战进度
+  Future<UserChallengeProgress?> getUserChallengeProgressByChallengeAndDate(
+    int challengeId,
+    DateTime date,
+  ) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    return (select(userChallengeProgresses)
+          ..where((tbl) => tbl.challengeId.equals(challengeId))
+          ..where((tbl) => tbl.date.isBiggerOrEqualValue(startOfDay))
+          ..where((tbl) => tbl.date.isSmallerThanValue(endOfDay))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
+        .getSingleOrNull();
+  }
+
+  /// 更新用户挑战进度
+  Future<int> updateUserChallengeProgress(
+    UserChallengeProgressesCompanion progress,
+  ) async {
+    return (update(userChallengeProgresses)..where((tbl) => tbl.id.equals(progress.id.value!)))
+        .write(progress);
+  }
+
+  /// 根据周键获取每周挑战
+  Future<List<WeeklyChallenge>> getWeeklyChallengesByWeekKey(String weekKey) {
+    return (select(weeklyChallenges)
+          ..where((tbl) => tbl.weekKey.equals(weekKey))
+          ..where((tbl) => tbl.isActive.equals(true))
+        ).get();
+  }
+
+  /// 根据ID获取每周挑战
+  Future<WeeklyChallenge?> getWeeklyChallengeById(int id) {
+    return (select(weeklyChallenges)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  }
+
+  /// 根据周键获取用户每周挑战进度
+  Future<UserWeeklyChallengeProgress?> getUserWeeklyChallengeProgressByWeekKey(String weekKey) {
+    return (select(userWeeklyChallengeProgresses)
+          ..where((tbl) => tbl.weekKey.equals(weekKey))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
+        .getSingleOrNull();
+  }
+
+  /// 根据挑战ID获取用户每周挑战进度
+  Future<UserWeeklyChallengeProgress?> getUserWeeklyChallengeProgressByChallengeId(int challengeId) {
+    return (select(userWeeklyChallengeProgresses)
+          ..where((tbl) => tbl.weeklyChallengeId.equals(challengeId))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
+        .getSingleOrNull();
+  }
+
+  /// 更新用户每周挑战进度
+  Future<int> updateUserWeeklyChallengeProgress(
+    UserWeeklyChallengeProgressesCompanion progress,
+  ) async {
+    return (update(userWeeklyChallengeProgresses)..where((tbl) => tbl.id.equals(progress.id.value!)))
+        .write(progress);
+  }
+
+  // ==================== 抽卡系统 DAO 方法 ====================
+
+  /// 获取最近的抽卡记录
+  Future<List<GachaRecord>> getRecentGachaRecords(int limit) {
+    return (select(gachaRecords)
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.drawnAt)])
+          ..limit(limit))
+        .get();
+  }
+
+  /// 获取所有用户抽卡状态
+  Future<List<UserGachaStatus>> getAllUserGachaStatuses() {
+    return (select(userGachaStatuses)).get();
+  }
+
+  /// 根据ID获取用户抽卡状态
+  Future<UserGachaStatus?> getUserGachaStatusById(int id) {
+    return (select(userGachaStatuses)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  }
+
+  /// 更新用户抽卡状态
+  Future<int> updateUserGachaStatus(UserGachaStatusesCompanion status) async {
+    return (update(userGachaStatuses)..where((tbl) => tbl.id.equals(status.id.value!)))
+        .write(status);
+  }
 
   @override
   MigrationStrategy get migration {
@@ -588,6 +1263,45 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(heartRateRecords);
           await m.createTable(heartRateZones);
           await m.createTable(heartRateSessions);
+        }
+        // 版本5 -> 版本6：添加笔记增强功能字段
+        if (from == 5 && to == 6) {
+          await m.addColumn(notes, notes.images);
+          await m.addColumn(notes, notes.deletedAt);
+        }
+        // 版本6 -> 版本7：添加游戏化系统表
+        if (from == 6 && to == 7) {
+          await m.createTable(gamificationUserProfiles);
+          await m.createTable(achievements);
+          await m.createTable(userAchievements);
+          await m.createTable(dailyStreaks);
+        }
+        // 版本7 -> 版本8：添加GPS追踪表
+        if (from == 7 && to == 8) {
+          await m.createTable(gpsRoutes);
+        }
+        // 版本8 -> 版本9：添加情绪分析表
+        if (from == 8 && to == 9) {
+          await m.createTable(emotionRecords);
+        }
+        // 版本9 -> 版本10：添加位置提醒表
+        if (from == 9 && to == 10) {
+          await m.createTable(geofences);
+          await m.createTable(locationEvents);
+        }
+        // 版本10 -> 版本11：添加挑战系统和抽卡系统表
+        if (from == 10 && to == 11) {
+          await m.createTable(dailyChallenges);
+          await m.createTable(userChallengeProgresses);
+          await m.createTable(weeklyChallenges);
+          await m.createTable(userWeeklyChallengeProgresses);
+          await m.createTable(gachaRecords);
+          await m.createTable(userGachaStatuses);
+        }
+        // 版本11 -> 版本12：添加积分商店表
+        if (from == 11 && to == 12) {
+          await m.createTable(shopItems);
+          await m.createTable(shopPurchases);
         }
       },
     );
@@ -1007,4 +1721,163 @@ enum HeartRateSessionStatus {
       orElse: () => HeartRateSessionStatus.active,
     );
   }
+}
+
+/// 成就条件类型枚举
+enum AchievementConditionType {
+  workoutCount('运动次数', 'workout_count'),
+  streakDays('连续打卡天数', 'streak_days'),
+  totalMinutes('总运动时长', 'total_minutes'),
+  noteCount('笔记数量', 'note_count'),
+  planCount('计划数量', 'plan_count'),
+  level('等级', 'level'),
+  totalPoints('总积分', 'total_points'),
+  completedPlans('完成计划数', 'completed_plans'),
+  totalWorkouts('总运动次数', 'total_workouts');
+
+  final String displayName;
+  final String value;
+
+  const AchievementConditionType(this.displayName, this.value);
+
+  static AchievementConditionType fromString(String value) {
+    return AchievementConditionType.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => AchievementConditionType.workoutCount,
+    );
+  }
+}
+
+// ==================== 位置提醒功能枚举 ====================
+
+/// 地理围栏触发类型
+enum GeofenceTriggerType {
+  enter('进入时', 'enter'),
+  exit('离开时', 'exit'),
+  both('进入和离开', 'both');
+
+  final String displayName;
+  final String value;
+
+  const GeofenceTriggerType(this.displayName, this.value);
+
+  static GeofenceTriggerType fromString(String value) {
+    return GeofenceTriggerType.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => GeofenceTriggerType.enter,
+    );
+  }
+}
+
+/// 位置事件类型
+enum LocationEventType {
+  entered('进入', 'entered'),
+  exited('离开', 'exited');
+
+  final String displayName;
+  final String value;
+
+  const LocationEventType(this.displayName, this.value);
+
+  static LocationEventType fromString(String value) {
+    return LocationEventType.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => LocationEventType.entered,
+    );
+  }
+}
+
+/// 地理围栏配置
+class GeofenceConfig {
+  // 默认围栏半径（米）
+  static const double defaultRadius = 100.0;
+
+  // 最小半径
+  static const double minRadius = 50.0;
+
+  // 最大半径
+  static const double maxRadius = 1000.0;
+
+  // 位置更新间隔（秒）
+  static const int locationUpdateInterval = 30;
+
+  // 位置更新距离阈值（米）
+  static const double locationUpdateDistance = 50.0;
+}
+
+/// 常用地点预设
+class CommonLocation {
+  final String name;
+  final String icon;
+  final int iconCode;
+  final int colorHex;
+
+  const CommonLocation({
+    required this.name,
+    required this.icon,
+    required this.iconCode,
+    required this.colorHex,
+  });
+
+  /// 转换为Map
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'icon': icon,
+      'iconCode': iconCode,
+      'colorHex': colorHex,
+    };
+  }
+
+  /// 常用地点列表
+  static const List<CommonLocation> locations = [
+    CommonLocation(
+      name: '家',
+      icon: 'home',
+      iconCode: 0xE88A, // Icons.home.codePoint
+      colorHex: 0xFF4CAF50,
+    ),
+    CommonLocation(
+      name: '公司',
+      icon: 'business',
+      iconCode: 0xE0AF, // Icons.business.codePoint
+      colorHex: 0xFF2196F3,
+    ),
+    CommonLocation(
+      name: '健身房',
+      icon: 'fitness_center',
+      iconCode: 0xE539, // Icons.fitness_center.codePoint
+      colorHex: 0xFFFF9800,
+    ),
+    CommonLocation(
+      name: '公园',
+      icon: 'park',
+      iconCode: 0xEBB5, // Icons.park.codePoint
+      colorHex: 0xFF4CAF50,
+    ),
+    CommonLocation(
+      name: '学校',
+      icon: 'school',
+      iconCode: 0xE80C, // Icons.school.codePoint
+      colorHex: 0xFF9C27B0,
+    ),
+    CommonLocation(
+      name: '超市',
+      icon: 'shopping_cart',
+      iconCode: 0xE8CC, // Icons.shopping_cart.codePoint
+      colorHex: 0xFFFF5722,
+    ),
+    CommonLocation(
+      name: '餐厅',
+      icon: 'restaurant',
+      iconCode: 0xE561, // Icons.restaurant.codePoint
+      colorHex: 0xFFE91E63,
+    ),
+    CommonLocation(
+      name: '其他',
+      icon: 'place',
+      iconCode: 0xE55F, // Icons.place.codePoint
+      colorHex: 0xFF607D8B,
+    ),
+  ];
 }

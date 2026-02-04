@@ -12,9 +12,11 @@ import 'package:thick_notepad/features/workout/presentation/pages/workout_edit_p
 import 'package:thick_notepad/features/workout/presentation/pages/workout_stats_page.dart';
 import 'package:thick_notepad/features/workout/presentation/pages/workout_detail_page.dart';
 import 'package:thick_notepad/features/workout/presentation/pages/gps_tracking_page.dart';
+import 'package:thick_notepad/features/workout/presentation/pages/gps_route_detail_page.dart';
 import 'package:thick_notepad/features/plans/presentation/pages/plans_page.dart';
 import 'package:thick_notepad/features/plans/presentation/pages/plan_edit_page.dart';
 import 'package:thick_notepad/features/plans/presentation/pages/plan_detail_page.dart';
+import 'package:thick_notepad/features/plans/presentation/pages/plan_calendar_page.dart';
 import 'package:thick_notepad/features/coach/presentation/pages/user_profile_setup_page.dart';
 import 'package:thick_notepad/features/coach/presentation/pages/coach_plan_generation_page.dart';
 import 'package:thick_notepad/features/coach/presentation/pages/workout_plan_display_page.dart';
@@ -22,9 +24,19 @@ import 'package:thick_notepad/features/coach/presentation/pages/diet_plan_displa
 import 'package:thick_notepad/features/coach/presentation/pages/feedback_page.dart';
 import 'package:thick_notepad/features/coach/presentation/pages/plan_iteration_page.dart';
 import 'package:thick_notepad/features/heart_rate/presentation/pages/heart_rate_monitor_page.dart';
+import 'package:thick_notepad/features/heart_rate/presentation/pages/heart_rate_settings_page.dart';
+import 'package:thick_notepad/features/emotion/presentation/pages/emotion_trend_page.dart';
+import 'package:thick_notepad/features/speech/presentation/pages/voice_assistant_page.dart';
+import 'package:thick_notepad/features/weather/presentation/pages/weather_settings_page.dart';
 import 'package:thick_notepad/shared/pages/settings_page.dart';
 import 'package:thick_notepad/shared/pages/theme_selection_page.dart';
 import 'package:thick_notepad/shared/pages/ai_settings_page.dart';
+import 'package:thick_notepad/features/location/presentation/pages/location_settings_page.dart';
+import 'package:thick_notepad/features/location/presentation/pages/geofences_page.dart';
+import 'package:thick_notepad/features/challenge/presentation/pages/challenges_page.dart';
+import 'package:thick_notepad/features/gacha/presentation/pages/gacha_page.dart';
+import 'package:thick_notepad/features/gamification/presentation/pages/achievements_page.dart';
+import 'package:thick_notepad/features/gamification/presentation/pages/shop_page.dart';
 
 // ==================== 路由路径定义 ====================
 
@@ -41,19 +53,31 @@ class AppRoutes {
   static const String workoutEdit = '/workout/new';
   static const String workoutStats = '/workout/stats';  // 运动统计
   static const String workoutGpsTracking = '/workout/gps';  // GPS追踪
+  static const String workoutGpsRouteDetail = '/workout/gps/route';  // GPS路线详情
   static const String plans = '/plans';
   static const String planDetail = '/plans/:id';
   static const String planEdit = '/plans/new';
+  static const String planCalendar = '/plans/calendar';  // 日历视图
   static const String heartRateMonitor = '/heart-rate';  // 心率监测
+  static const String heartRateSettings = '/heart-rate/settings';  // 心率设置
+  static const String emotionTrend = '/emotion/trend';  // 情绪趋势
+  static const String voiceAssistant = '/voice-assistant';  // 语音助手
   static const String settings = '/settings';
   static const String themeSelection = '/settings/theme';  // 完整路径，用于外部跳转
   static const String aiSettings = '/settings/ai';  // AI 设置页面
+  static const String weatherSettings = '/settings/weather';  // 天气设置页面
   static const String userProfileSetup = '/coach/profile/setup';  // 用户画像采集
   static const String coachPlanGeneration = '/coach/generation/:profileId';  // 计划生成
   static const String workoutPlanDisplay = '/coach/workout/:planId';  // 训练计划展示
   static const String dietPlanDisplay = '/coach/diet/:planId';  // 饮食计划展示
   static const String feedback = '/coach/feedback';  // 用户反馈页面
   static const String planIteration = '/coach/iteration';  // 计划迭代页面
+  static const String locationSettings = '/location/settings';  // 位置设置页面
+  static const String locationGeofences = '/location/geofences';  // 地理围栏管理页面
+  static const String challenges = '/challenges';  // 挑战页面
+  static const String gacha = '/gacha';  // 抽卡页面
+  static const String achievements = '/achievements';  // 成就页面
+  static const String shop = '/shop';  // 积分商店
 }
 
 // ==================== 路由配置 ====================
@@ -127,6 +151,19 @@ final appRouter = GoRouter(
           },
         ),
         GoRoute(
+          path: AppRoutes.workoutGpsRouteDetail,
+          pageBuilder: (context, state) {
+            final routeId = int.tryParse(state.uri.queryParameters['routeId'] ?? '') ?? 0;
+            final workoutId = state.uri.queryParameters['workoutId'] != null
+                ? int.tryParse(state.uri.queryParameters['workoutId']!)
+                : null;
+            return _FadeTransition(child: GpsRouteDetailPage(
+              routeId: routeId,
+              workoutId: workoutId,
+            ));
+          },
+        ),
+        GoRoute(
           path: AppRoutes.workoutEdit,
           pageBuilder: (context, state) => _FadeTransition(child: const WorkoutEditPage()),
         ),
@@ -138,7 +175,7 @@ final appRouter = GoRouter(
           },
         ),
 
-        // 计划模块 - new 必须在 :id 之前
+        // 计划模块 - new 和 calendar 必须在 :id 之前
         GoRoute(
           path: AppRoutes.plans,
           pageBuilder: (context, state) => const NoTransitionPage(child: PlansView()),
@@ -146,6 +183,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.planEdit,
           pageBuilder: (context, state) => _FadeTransition(child: const PlanEditPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.planCalendar,
+          pageBuilder: (context, state) => const NoTransitionPage(child: PlanCalendarView()),
         ),
         GoRoute(
           path: AppRoutes.planDetail,
@@ -172,7 +213,23 @@ final appRouter = GoRouter(
           path: 'ai',  // 相对路径，完整路径为 /settings/ai
           pageBuilder: (context, state) => _FadeTransition(child: const AISettingsPage()),
         ),
+        // 天气设置子路由
+        GoRoute(
+          path: 'weather',  // 相对路径，完整路径为 /settings/weather
+          pageBuilder: (context, state) => _FadeTransition(child: const WeatherSettingsPage()),
+        ),
+        // 位置设置子路由
+        GoRoute(
+          path: 'location',  // 相对路径，完整路径为 /settings/location
+          pageBuilder: (context, state) => _FadeTransition(child: const LocationSettingsPage()),
+        ),
       ],
+    ),
+
+    // 位置功能页面（独立路由）
+    GoRoute(
+      path: AppRoutes.locationGeofences,
+      pageBuilder: (context, state) => _FadeTransition(child: const GeofencesPage()),
     ),
 
     // AI教练功能页面（独立路由，不显示底部导航）
@@ -244,6 +301,49 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.heartRateMonitor,
       pageBuilder: (context, state) => _FadeTransition(child: const HeartRateMonitorPage()),
+      routes: [
+        // 心率设置子路由
+        GoRoute(
+          path: 'settings',
+          pageBuilder: (context, state) => _FadeTransition(child: const HeartRateSettingsPage()),
+        ),
+      ],
+    ),
+
+    // 情绪趋势页面（独立路由，不显示底部导航）
+    GoRoute(
+      path: AppRoutes.emotionTrend,
+      pageBuilder: (context, state) => _FadeTransition(child: const EmotionTrendPage()),
+    ),
+
+    // 语音助手页面（独立路由，不显示底部导航）
+    GoRoute(
+      path: AppRoutes.voiceAssistant,
+      pageBuilder: (context, state) => _FadeTransition(child: const VoiceAssistantPage()),
+    ),
+
+    // 游戏化成就页面（独立路由，不显示底部导航）
+    GoRoute(
+      path: AppRoutes.achievements,
+      pageBuilder: (context, state) => _FadeTransition(child: const AchievementsPage()),
+    ),
+
+    // 积分商店页面（独立路由，不显示底部导航）
+    GoRoute(
+      path: AppRoutes.shop,
+      pageBuilder: (context, state) => _FadeTransition(child: const ShopPage()),
+    ),
+
+    // 挑战页面（独立路由，不显示底部导航）
+    GoRoute(
+      path: AppRoutes.challenges,
+      pageBuilder: (context, state) => _FadeTransition(child: const ChallengesPage()),
+    ),
+
+    // 抽卡页面（独立路由，不显示底部导航）
+    GoRoute(
+      path: AppRoutes.gacha,
+      pageBuilder: (context, state) => _FadeTransition(child: const GachaPage()),
     ),
   ],
 );

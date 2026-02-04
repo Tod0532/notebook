@@ -43,21 +43,41 @@ final allTagsProvider = FutureProvider.autoDispose<List<String>>((ref) async {
   return await repository.getAllTags();
 });
 
+/// 回收站笔记 Provider
+final deletedNotesProvider = FutureProvider.autoDispose<List<Note>>((ref) async {
+  final repository = ref.watch(noteRepositoryProvider);
+  return await repository.getDeletedNotes();
+});
+
+/// 文件夹列表 Provider
+final allFoldersProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  final repository = ref.watch(noteRepositoryProvider);
+  return await repository.getAllFolders();
+});
+
+/// 按文件夹筛选的笔记 Provider 族
+final notesByFolderProvider = FutureProvider.autoDispose.family<List<Note>, String>((ref, folder) async {
+  final repository = ref.watch(noteRepositoryProvider);
+  return await repository.getNotesByFolder(folder);
+});
+
 // ==================== 笔记操作 Providers ====================
 
 /// 创建笔记状态
-class CreateNoteState extends StateNotifier<AsyncValue<void>> {
+class CreateNoteState extends StateNotifier<AsyncValue<int?>> {
   CreateNoteState(this.repository) : super(const AsyncValue.data(null));
 
   final NoteRepository repository;
 
-  Future<void> create(NotesCompanion note) async {
+  Future<int?> create(NotesCompanion note) async {
     state = const AsyncValue.loading();
     try {
-      await repository.createNote(note);
-      state = const AsyncValue.data(null);
+      final id = await repository.createNote(note);
+      state = AsyncValue.data(id);
+      return id;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      return null;
     }
   }
 }
@@ -97,6 +117,26 @@ class UpdateNoteState extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await repository.deleteNote(id);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> restore(int id) async {
+    state = const AsyncValue.loading();
+    try {
+      await repository.restoreNote(id);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> permanentlyDelete(int id) async {
+    state = const AsyncValue.loading();
+    try {
+      await repository.permanentlyDeleteNote(id);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
