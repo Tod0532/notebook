@@ -54,17 +54,41 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
   @override
   Widget build(BuildContext context) {
     final assistantState = ref.watch(voiceAssistantProvider);
-    final initState = ref.watch(speechRecognitionInitProvider);
+    final recognitionInitState = ref.watch(speechRecognitionInitProvider);
+    final synthesisInitState = ref.watch(speechSynthesisInitProvider);
+
+    // 并行检查两个服务的初始化状态
+    final initStates = [recognitionInitState, synthesisInitState];
+    final hasError = initStates.any((state) => state.hasError);
+    final isLoading = initStates.any((state) => state.isLoading);
+
+    if (hasError) {
+      // 获取第一个错误信息
+      final errorState = initStates.firstWhere((state) => state.hasError);
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: _buildAppBar(context),
+        body: SafeArea(
+          child: _buildErrorView(errorState.error.toString()),
+        ),
+      );
+    }
+
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: _buildAppBar(context),
+        body: SafeArea(
+          child: _buildLoadingView(),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context),
       body: SafeArea(
-        child: initState.when(
-          loading: () => _buildLoadingView(),
-          error: (error, stack) => _buildErrorView(error.toString()),
-          data: (_) => _buildMainContent(assistantState),
-        ),
+        child: _buildMainContent(assistantState),
       ),
     );
   }
@@ -155,7 +179,11 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
           ),
           const SizedBox(height: AppSpacing.xl),
           ElevatedButton.icon(
-            onPressed: () => ref.refresh(speechRecognitionInitProvider),
+            onPressed: () {
+              // 同时刷新两个服务的初始化
+              ref.invalidate(speechRecognitionInitProvider);
+              ref.invalidate(speechSynthesisInitProvider);
+            },
             icon: const Icon(Icons.refresh),
             label: const Text('重试'),
             style: ElevatedButton.styleFrom(

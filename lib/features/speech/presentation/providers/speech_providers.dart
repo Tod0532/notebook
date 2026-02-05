@@ -1,31 +1,30 @@
 /// 语音模块 Providers
+/// 提供语音识别、语音合成、意图解析服务的状态管理
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:thick_notepad/core/config/providers.dart';
+import 'package:thick_notepad/services/speech/intent_parser.dart';
 import 'package:thick_notepad/services/speech/speech_recognition_service.dart';
 import 'package:thick_notepad/services/speech/speech_synthesis_service.dart';
-import 'package:thick_notepad/services/speech/intent_parser.dart';
-import 'package:thick_notepad/core/config/providers.dart';
 
 // ==================== 语音识别服务 Providers ====================
 
-/// 语音识别服务 Provider（单例）
-final speechRecognitionServiceProvider = Provider<SpeechRecognitionService>((ref) {
-  return SpeechRecognitionService();
-});
-
 /// 语音识别初始化 Provider
+/// 在页面中使用此 Provider 确保服务已初始化
 final speechRecognitionInitProvider = FutureProvider<void>((ref) async {
   final service = ref.watch(speechRecognitionServiceProvider);
   await service.initialize();
 });
 
 /// 语音识别状态 Provider
+/// 提供语音识别的实时状态流
 final speechRecognitionStateProvider = StreamProvider<SpeechRecognitionState>((ref) {
   final service = ref.watch(speechRecognitionServiceProvider);
   return service.stateStream;
 });
 
 /// 语音识别结果 Provider
+/// 提供语音识别的实时结果流
 final speechRecognitionResultProvider = StreamProvider<VoiceRecognitionResult>((ref) {
   final service = ref.watch(speechRecognitionServiceProvider);
   return service.resultStream;
@@ -33,28 +32,30 @@ final speechRecognitionResultProvider = StreamProvider<VoiceRecognitionResult>((
 
 // ==================== 语音合成服务 Providers ====================
 
-/// 语音合成服务 Provider（单例）
-final speechSynthesisServiceProvider = Provider<SpeechSynthesisService>((ref) {
-  return SpeechSynthesisService();
-});
-
 /// 语音合成初始化 Provider
+/// 在页面中使用此 Provider 确保服务已初始化
 final speechSynthesisInitProvider = FutureProvider<void>((ref) async {
   final service = ref.watch(speechSynthesisServiceProvider);
   await service.initialize();
 });
 
 /// 语音合成状态 Provider
+/// 提供语音合成的实时状态流
 final speechSynthesisStateProvider = StreamProvider<SpeechSynthesisState>((ref) {
   final service = ref.watch(speechSynthesisServiceProvider);
   return service.stateStream;
 });
 
-// ==================== 意图解析服务 Provider ====================
+// ==================== 语音模块统一初始化 Provider ====================
 
-/// 意图解析服务 Provider（单例）
-final intentParserProvider = Provider<IntentParser>((ref) {
-  return IntentParser();
+/// 语音模块统一初始化 Provider
+/// 同时初始化语音识别和语音合成服务
+final speechModuleInitProvider = FutureProvider<void>((ref) async {
+  // 并行初始化两个服务以提高性能
+  await Future.wait([
+    ref.watch(speechRecognitionInitProvider.future),
+    ref.watch(speechSynthesisInitProvider.future),
+  ]);
 });
 
 // ==================== 语音助手状态 Providers ====================

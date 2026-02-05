@@ -798,7 +798,7 @@ MVP (120h)
 | 抽卡系统 | 80% | 框架完成，需概率算法和物品池 |
 | 情绪分析 | 75% | 数据层完成，算法需完善 |
 | 天气适配 | 95% | API集成完成，地理编码+缓存完善 |
-| 语音功能 | 65% | UI完成，服务层未实现 |
+| 语音功能 | 95% | 服务层已完整实现，UI集成完善 |
 
 ### 代码质量评估
 
@@ -819,9 +819,11 @@ MVP (120h)
    - 提醒功能代码完整，但底部导航没有入口
    - 预计修复时间：1小时
 
-2. **语音功能服务层未实现**
-   - UI已完成，但核心识别/合成服务缺失
-   - 预计完成时间：12小时
+2. **语音功能服务层已完成** ✅
+   - 语音识别服务（支持普通话、粤语、英语）
+   - 语音合成服务（TTS文本转语音）
+   - 意图解析服务（5种意图类型）
+   - UI与Provider集成完善
 
 3. **天气API集成完成** ✅
    - 已集成 Open-Meteo 免费天气API
@@ -841,10 +843,75 @@ MVP (120h)
    - 实现奖励发放逻辑
    - 预计完成时间：4小时
 
-6. **计划模块模板库**
+6. **计划模块模板库** ✅ 已完成
    - 预设计划模板
    - 模板选择UI
-   - 预计完成时间：8小时
+   - 完成时间：2026-02-05
+
+### 新增功能详情（2026-02-05）
+
+**计划模块模板库功能**：
+
+#### 创建的文件
+
+1. **模板数据模型** (`lib/features/plans/data/models/plan_template.dart`)
+   - `PlanTemplate` 类：模板数据模型
+   - `TemplateTask` 类：模板任务模型
+   - `PlanTemplateCategory` 枚举：学习/健身/工作/生活
+   - `TemplateDifficulty` 枚举：简单/中等/困难
+
+2. **模板库服务** (`lib/features/plans/data/services/plan_template_service.dart`)
+   - `getAllTemplates()` - 获取所有模板
+   - `getTemplatesByCategory()` - 按分类筛选
+   - `getTemplatesByDifficulty()` - 按难度筛选
+   - `searchTemplates()` - 搜索模板
+   - `getTemplateById()` - 根据ID获取
+   - `getRecommendedTemplates()` - 获取推荐模板
+   - `createPlanFromTemplate()` - 从模板创建计划
+   - `createTasksFromTemplate()` - 从模板创建任务
+
+3. **模板选择页面** (`lib/features/plans/data/services/plan_template_service.dart`)
+   - 搜索栏
+   - 分类筛选（学习/健身/工作/生活）
+   - 难度筛选（简单/中等/困难）
+   - 模板卡片展示
+   - 一键创建计划
+
+4. **Provider 更新** (`lib/features/plans/presentation/providers/plan_providers.dart`)
+   - `allTemplatesProvider`
+   - `recommendedTemplatesProvider`
+   - `templatesByCategoryProvider`
+   - `searchTemplatesProvider`
+   - `templateByIdProvider`
+   - `createPlanFromTemplateProvider`
+
+#### 预设模板列表
+
+**学习类 (3个)**：
+- 考试复习计划（30天）- 8个阶段任务
+- 技能学习计划（21天）- 5个阶段任务
+- 英语学习计划（90天）- 7个阶段任务
+
+**健身类 (3个)**：
+- 减脂计划（30天）- 7个阶段任务
+- 增肌计划（60天）- 6个阶段任务
+- 习惯养成计划（21天）- 5个阶段任务
+
+**工作类 (3个)**：
+- 项目开发计划（14天）- 6个阶段任务
+- 季度目标计划（90天）- 6个阶段任务
+- 周工作计划（7天）- 5个阶段任务
+
+**生活类 (3个)**：
+- 早睡早起计划（14天）- 6个阶段任务
+- 阅读计划（30天）- 7个阶段任务
+- 存钱计划（90天）- 9个阶段任务
+
+#### 集成位置
+
+1. **计划列表页空状态** - 显示"使用模板快速创建"按钮
+2. **创建计划底部表单** - 显示模板选择入口
+3. **计划编辑页** - 显示模板选择卡片
 
 #### 🟢 优先级低（可选）
 
@@ -971,6 +1038,89 @@ a564657 fix: 修复13个严重问题
 | Android版本 | 15 (API 35) |
 | 渲染引擎 | Impeller (Vulkan) |
 | 状态 | ✅ 安装成功，应用正常运行 |
+
+---
+
+## 语音功能服务层完善（2026-02-05）
+
+### 任务概述
+完善语音模块服务层，修复 Provider 重复定义问题，实现语音识别、语音合成、意图解析的完整集成。
+
+### 已实现功能
+
+#### 1. 语音识别服务 (`speech_recognition_service.dart`)
+- 单例模式实现，线程安全
+- 支持**普通话、粤语、英语**三种语言
+- 完整的状态管理（idle、initializing、listening、notListening、unavailable、error）
+- 麦克风权限检查
+- 语音识别控制（开始、停止、取消）
+- 会话管理与完整文本记录
+- 实时结果流 Stream
+
+#### 2. 语音合成服务 (`speech_synthesis_service.dart`)
+- 单例模式实现，线程安全
+- 完整的状态管理
+- 语速、音量、音调、语言设置
+- 预设语音反馈（listeningStart、listeningStop、confirmation、error等）
+- 播放队列支持
+- 所有 TTS 回调处理（开始、完成、错误、取消、暂停、继续）
+
+#### 3. 意图解析服务 (`intent_parser.dart`)
+- 单例模式实现
+- 5种意图类型：创建笔记、运动打卡、查询进度、创建提醒、快速记事
+- 9种运动类型识别（跑步、步行、骑行、游泳、健身、瑜伽等）
+- 智能数据提取（距离、时长、卡路里、时间）
+- 批量解析支持
+
+### 修复的问题
+
+#### 问题1：Provider 重复定义
+- **问题**：在 `lib/core/config/providers.dart` 和 `lib/features/speech/presentation/providers/speech_providers.dart` 中存在重复的 Provider 定义
+- **修复**：保留全局 Providers 中的服务定义，在 speech_providers.dart 中只定义初始化和状态相关的 Providers
+- **影响**：消除了运行时 Provider 冲突风险
+
+#### 问题2：语音合成初始化未被监听
+- **问题**：`voice_assistant_page.dart` 只监听语音识别初始化，未监听语音合成初始化
+- **修复**：同时监听两个服务的初始化状态，并行处理错误和加载状态
+- **影响**：确保两个服务都正确初始化后才能使用
+
+### 修改文件
+
+| 文件 | 修改内容 |
+|------|----------|
+| `lib/features/speech/presentation/providers/speech_providers.dart` | 移除重复的服务 Provider，新增统一初始化 Provider |
+| `lib/features/speech/presentation/pages/voice_assistant_page.dart` | 同时监听两个服务初始化状态，改进错误处理 |
+
+### 服务架构
+
+```
+VoiceAssistantPage (UI)
+    ↓
+VoiceAssistantNotifier (状态管理)
+    ↓
+├── SpeechRecognitionService (语音识别)
+│   ├── speech_to_text 包
+│   ├── 支持3种语言
+│   └── 返回 VoiceRecognitionResult
+├── SpeechSynthesisService (语音合成)
+│   ├── flutter_tts 包
+│   ├── 预设语音反馈
+│   └── 播放队列支持
+└── IntentParser (意图解析)
+    ├── 关键词匹配
+    ├── 数据提取（距离、时长、时间）
+    └── 返回 VoiceIntent
+```
+
+### 依赖包（已配置）
+
+```yaml
+# pubspec.yaml
+dependencies:
+  speech_to_text: ^7.3.0      # 语音识别
+  flutter_tts: ^3.8.3          # 语音合成
+  permission_handler: ^11.3.0   # 权限管理
+```
 
 ---
 

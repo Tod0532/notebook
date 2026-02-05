@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/core/utils/provider_invalidator.dart';
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/features/plans/data/models/plan_template.dart';
+import 'package:thick_notepad/features/plans/data/services/plan_template_service.dart';
 
 // ==================== 计划列表 Providers ====================
 
@@ -129,3 +131,53 @@ class UpdateTaskNotifier {
     ProviderInvalidator.invalidateAfterTaskRef(ref);
   }
 }
+
+// ==================== 计划模板 Providers ====================
+
+/// 所有模板 Provider
+final allTemplatesProvider = Provider<List<PlanTemplate>>((ref) {
+  return PlanTemplateService.getAllTemplates();
+});
+
+/// 推荐模板 Provider
+final recommendedTemplatesProvider = Provider<List<PlanTemplate>>((ref) {
+  return PlanTemplateService.getRecommendedTemplates();
+});
+
+/// 按分类筛选模板 Provider 族
+final templatesByCategoryProvider = Provider.family<List<PlanTemplate>, PlanTemplateCategory>((ref, category) {
+  return PlanTemplateService.getTemplatesByCategory(category);
+});
+
+/// 搜索模板 Provider 族
+final searchTemplatesProvider = Provider.family<List<PlanTemplate>, String>((ref, query) {
+  return PlanTemplateService.searchTemplates(query);
+});
+
+/// 根据ID获取模板 Provider 族
+final templateByIdProvider = Provider.family<PlanTemplate?, String>((ref, id) {
+  return PlanTemplateService.getTemplateById(id);
+});
+
+/// 从模板创建计划 Provider
+final createPlanFromTemplateProvider = Provider.family<Future<int>, PlanTemplate>((ref, template) async {
+  final repo = ref.read(planRepositoryProvider);
+
+  // 从模板创建计划
+  final planData = PlanTemplateService.createPlanFromTemplate(template);
+  final planId = await repo.createPlan(planData);
+
+  // 创建模板任务
+  final tasksData = PlanTemplateService.createTasksFromTemplate(template, planId);
+  for (final task in tasksData) {
+    await repo.createTask(task);
+  }
+
+  // 更新计划进度
+  await repo.updatePlanProgress(planId);
+
+  // 使相关缓存失效
+  ProviderInvalidator.invalidateAfterPlanRef(ref);
+
+  return planId;
+});

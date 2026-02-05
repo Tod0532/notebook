@@ -9,6 +9,7 @@ import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/plans/presentation/providers/plan_providers.dart';
+import 'package:thick_notepad/features/plans/presentation/pages/plan_template_select_page.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:thick_notepad/shared/widgets/progress_components.dart';
 import 'package:thick_notepad/services/database/database.dart';
@@ -460,16 +461,35 @@ class _EmptyState extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.add),
-            label: const Text('创建计划'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+          // 使用模板创建按钮
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PlanTemplateSelectPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.dashboard_customize),
+              label: const Text('使用模板快速创建'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.add),
+            label: const Text('手动创建计划'),
           ),
         ],
       ),
@@ -565,6 +585,92 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 模板选择入口
+          InkWell(
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PlanTemplateSelectPage(),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withOpacity(0.1),
+                    AppColors.accent.withOpacity(0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.dashboard_customize,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '使用模板快速创建',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '从预设模板中选择，一键创建计划',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 分割线
+          Row(
+            children: [
+              Expanded(child: Divider(color: AppColors.dividerColor)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  '或手动创建',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                ),
+              ),
+              Expanded(child: Divider(color: AppColors.dividerColor)),
             ],
           ),
           const SizedBox(height: 16),
