@@ -1,6 +1,6 @@
 /// 语音助手页面 - 提供语音交互界面
 /// 包含语音输入按钮、实时显示识别结果、意图确认等功能
-/// 增强版：添加详细诊断和locale切换功能
+/// 简化版：移除复杂诊断功能
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +11,7 @@ import 'package:thick_notepad/features/speech/presentation/providers/speech_prov
 import 'package:thick_notepad/services/speech/speech_recognition_service.dart'
     show
         SpeechRecognitionService,
-        SpeechDiagnostics,
-        SpeechLanguage,
-        NetworkDetector,
-        NetworkStatus;
+        SpeechLanguage;
 import 'package:thick_notepad/services/speech/intent_parser.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:thick_notepad/core/config/providers.dart';
@@ -31,10 +28,6 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _pulseAnimation;
-
-  // 诊断数据缓存
-  SpeechDiagnostics? _diagnostics;
-  bool _isRunningDiagnostics = false;
 
   @override
   void initState() {
@@ -110,43 +103,21 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
     );
   }
 
-  /// 显示详细诊断信息
+  /// 显示简化的诊断信息
   Future<void> _showDiagnostics() async {
-    setState(() {
-      _isRunningDiagnostics = true;
-    });
+    final service = ref.read(speechRecognitionServiceProvider);
+    final synthesisService = ref.read(speechSynthesisServiceProvider);
+    final micStatus = await Permission.microphone.status;
 
-    try {
-      final service = ref.read(speechRecognitionServiceProvider);
-      final synthesisService = ref.read(speechSynthesisServiceProvider);
-
-      // 运行完整诊断
-      final diagnostics = await service.runDiagnostics();
-      _diagnostics = diagnostics;
-
-      final micStatus = await Permission.microphone.status;
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => _DiagnosticsDialog(
-            diagnostics: diagnostics,
-            micStatus: micStatus,
-            synthesisInitialized: synthesisService.isInitialized,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('运行诊断失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('诊断失败: $e')),
-        );
-      }
-    } finally {
-      setState(() {
-        _isRunningDiagnostics = false;
-      });
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => _SimpleDiagnosticsDialog(
+          service: service,
+          synthesisInitialized: synthesisService.isInitialized,
+          micStatus: micStatus,
+        ),
+      );
     }
   }
 
@@ -218,17 +189,8 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
       actions: [
         // 诊断按钮
         IconButton(
-          icon: _isRunningDiagnostics
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.textPrimary,
-                  ),
-                )
-              : const Icon(Icons.bug_report_outlined, color: AppColors.textPrimary),
-          onPressed: _isRunningDiagnostics ? null : _showDiagnostics,
+          icon: const Icon(Icons.bug_report_outlined, color: AppColors.textPrimary),
+          onPressed: _showDiagnostics,
           tooltip: '诊断',
         ),
         // 设置按钮
@@ -314,8 +276,8 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
           const SizedBox(height: AppSpacing.md),
           TextButton.icon(
             onPressed: _showDiagnostics,
-            icon: const Icon(Icons.bug_report_outlined),
-            label: const Text('运行诊断'),
+            icon: const Icon(Icons.info_outline),
+            label: const Text('查看状态'),
           ),
         ],
       ),
@@ -514,7 +476,6 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
           _buildDebugRow('服务已初始化', recognitionService.isInitialized ? '是' : '否'),
           _buildDebugRow('服务可用', recognitionService.isAvailable ? '是' : '否'),
           _buildDebugRow('当前语言', recognitionService.currentLanguage.name),
-          _buildDebugRow('使用locale', recognitionService.activeLocale ?? '未设置'),
           _buildDebugRow('识别状态', recognitionService.currentState.name),
           if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
             _buildDebugRow('错误信息', state.errorMessage!, isError: true),
@@ -795,65 +756,22 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
     );
   }
 
-  /// 切换监听状态 - 增强版，添加网络检测提示
+  /// 切换监听状态
   void _toggleListening(VoiceAssistantState state) async {
     debugPrint('VoiceAssistantPage: ========== 切换监听状态 ==========');
     debugPrint('VoiceAssistantPage: 当前状态 isListening: ${state.isListening}');
 
     final notifier = ref.read(voiceAssistantProvider.notifier);
-    final recognitionService = ref.read(speechRecognitionServiceProvider);
 
     if (state.isListening) {
       debugPrint('VoiceAssistantPage: 停止监听...');
       await notifier.stopListening();
     } else {
       debugPrint('VoiceAssistantPage: 开始监听...');
-
-      // 检查网络状态并提示用户
-      final hasNetwork = await NetworkDetector.hasNetworkConnection();
-      if (!hasNetwork && mounted) {
-        _showNetworkWarningDialog();
-      }
-
       await notifier.startListening();
     }
 
     debugPrint('VoiceAssistantPage: ========== 切换完成 ==========');
-  }
-
-  /// 显示网络警告对话框
-  void _showNetworkWarningDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: const [
-            Icon(Icons.wifi_off, color: AppColors.warning),
-            SizedBox(width: 8),
-            Text('网络不可用'),
-          ],
-        ),
-        content: const Text(
-          '检测到网络连接不可用。语音识别功能可能受限，建议连接网络后使用。是否继续尝试？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // 继续尝试，不阻止用户操作
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: const Text('继续尝试'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 执行意图
@@ -896,64 +814,53 @@ class _QuickCommand {
   });
 }
 
-// ==================== 诊断对话框 ====================
+// ==================== 简化的诊断对话框 ====================
 
-class _DiagnosticsDialog extends StatelessWidget {
-  final SpeechDiagnostics diagnostics;
-  final PermissionStatus micStatus;
+class _SimpleDiagnosticsDialog extends StatelessWidget {
+  final SpeechRecognitionService service;
   final bool synthesisInitialized;
+  final PermissionStatus micStatus;
 
-  const _DiagnosticsDialog({
-    required this.diagnostics,
-    required this.micStatus,
+  const _SimpleDiagnosticsDialog({
+    required this.service,
     required this.synthesisInitialized,
+    required this.micStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isMicGranted = micStatus.isGranted;
+    final isSttInitialized = service.isInitialized;
+    final isSttAvailable = service.isAvailable;
+    final isListening = service.isListening;
+    final currentLanguage = service.currentLanguage;
+
     return AlertDialog(
-      title: const Text('诊断信息'),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSection('基础状态', [
-              _buildRow('麦克风权限', micStatus.isGranted ? '已授予' : '未授予 (${micStatus.name})', micStatus.isGranted),
-              _buildRow('语音识别初始化', diagnostics.speechToTextAvailable ? '成功' : '失败', diagnostics.speechToTextAvailable),
-              _buildRow('Google服务', diagnostics.googleServicesAvailable ? '可用' : '不可用', diagnostics.googleServicesAvailable),
-              _buildRow('网络状态', _getNetworkStatusText(diagnostics.networkStatus), diagnostics.isNetworkAvailable),
-              _buildRow('语音合成', synthesisInitialized ? '已初始化' : '未初始化', synthesisInitialized),
-            ]),
-            const Divider(),
-            _buildSection('语言配置', [
-              _buildRow('活跃locale', diagnostics.activeLocale ?? '未设置', true),
-              _buildRow('支持locale数量', '${diagnostics.availableLocales.length} 种', true),
-              if (diagnostics.availableLocales.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                const Text('常用locale:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                ...diagnostics.availableLocales.take(10).map((locale) => Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 2),
-                  child: Text('• $locale', style: const TextStyle(fontSize: 11)),
-                )),
-                if (diagnostics.availableLocales.length > 10)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 2),
-                    child: Text('... 还有 ${diagnostics.availableLocales.length - 10} 种', style: const TextStyle(fontSize: 11)),
-                  ),
-              ],
-            ]),
-            if (diagnostics.warnings.isNotEmpty) ...[
-              const Divider(),
-              _buildSection('警告', diagnostics.warnings.map((w) => _buildRow(w, '', false)).toList()),
-            ],
-            if (diagnostics.suggestions.isNotEmpty) ...[
-              const Divider(),
-              _buildSection('建议', diagnostics.suggestions.map((s) => _buildRow(s, '', true)).toList()),
-            ],
-          ],
-        ),
+      title: const Text('语音服务状态'),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildRow('麦克风权限', isMicGranted ? '已授予' : '未授予', isMicGranted),
+          _buildRow('语音识别服务', isSttAvailable ? '可用' : '不可用', isSttAvailable),
+          _buildRow('服务已初始化', isSttInitialized ? '是' : '否', isSttInitialized),
+          _buildRow('当前正在监听', isListening ? '是' : '否', isListening),
+          _buildRow('当前语言', currentLanguage.name, true),
+          _buildRow('语音合成', synthesisInitialized ? '已初始化' : '未初始化', synthesisInitialized),
+          const Divider(height: 24),
+          const Text(
+            '提示',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '语音识别需要网络连接才能正常工作。如果遇到问题，请确保：\n'
+            '1. 已授予麦克风权限\n'
+            '2. 网络连接正常\n'
+            '3. 设备支持语音识别',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -971,64 +878,36 @@ class _DiagnosticsDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(String title, List<Widget> children) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          ...children,
-        ],
-      ),
-    );
-  }
-
   Widget _buildRow(String label, String value, bool isOk) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
+            style: const TextStyle(
+              fontSize: 13,
               color: AppColors.textSecondary,
             ),
           ),
-          if (value.isNotEmpty) ...[
-            const Spacer(),
-            Icon(
-              isOk ? Icons.check_circle : Icons.error,
-              size: 16,
+          const Spacer(),
+          Icon(
+            isOk ? Icons.check_circle : Icons.error,
+            size: 18,
+            color: isOk ? Colors.green : AppColors.error,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               color: isOk ? Colors.green : AppColors.error,
             ),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isOk ? Colors.green : AppColors.error,
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );
-  }
-
-  /// 获取网络状态文本
-  String _getNetworkStatusText(NetworkStatus status) {
-    switch (status) {
-      case NetworkStatus.available:
-        return '可用';
-      case NetworkStatus.unavailable:
-        return '不可用';
-      case NetworkStatus.limited:
-        return '受限';
-    }
   }
 }
 
