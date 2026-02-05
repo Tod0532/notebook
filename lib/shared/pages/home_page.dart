@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
+import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/workout/presentation/providers/workout_providers.dart';
 import 'package:thick_notepad/features/plans/presentation/providers/plan_providers.dart';
 import 'package:thick_notepad/shared/widgets/recent_activities.dart';
@@ -294,40 +295,7 @@ class DashboardView extends ConsumerWidget {
 
   /// AI 教练入口卡片
   Widget _buildAIGreeting(BuildContext context) {
-    return ModernCard(
-      onTap: () => context.push(AppRoutes.userProfileSetup),
-      padding: const EdgeInsets.all(16),
-      backgroundColor: AppColors.secondary.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(20),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: AppColors.secondaryGradient,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.fitness_center, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('AI 教练', style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700, color: AppColors.secondary)),
-                const SizedBox(height: 2),
-                Text('创建专属训练和饮食计划', style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary, fontSize: 12)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
-        ],
-      ),
-    );
+    return const _AICoachEntryCard();
   }
 
   /// 语音助手入口卡片
@@ -1284,3 +1252,107 @@ class _GradientStatCard extends StatelessWidget {
     );
   }
 }
+
+
+// ==================== AI教练入口卡片 ====================
+
+/// AI教练入口卡片 - 支持智能跳转
+class _AICoachEntryCard extends ConsumerWidget {
+  const _AICoachEntryCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => _handleTap(context, ref),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.secondary.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: AppColors.secondaryGradient,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.fitness_center, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AI 教练', style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700, color: AppColors.secondary)),
+                  const SizedBox(height: 2),
+                  Text('创建专属训练和饮食计划', style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary, fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 处理点击 - 智能跳转
+  Future<void> _handleTap(BuildContext context, WidgetRef ref) async {
+    // 显示加载提示
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Text('检查中...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      // 检查是否有最新的用户画像
+      final repo = ref.read(userProfileRepositoryProvider);
+      final profile = await repo.getLatestProfile();
+
+      if (profile == null) {
+        // 没有画像，跳转到创建页面
+        if (context.mounted) {
+          context.push(AppRoutes.userProfileSetup);
+        }
+        return;
+      }
+
+      // 有画像，检查是否有训练计划
+      final workoutPlans = await ref.read(workoutPlanRepositoryProvider).getActivePlans();
+      if (workoutPlans.isNotEmpty) {
+        // 有活跃的训练计划，跳转到第一个计划展示页
+        if (context.mounted) {
+          context.push(AppRoutes.workoutPlanDisplay
+              .replaceAll(':planId', workoutPlans.first.id.toString()));
+        }
+        return;
+      }
+
+      // 有画像但没有计划，跳转到计划生成页面
+      if (context.mounted) {
+        context.push(AppRoutes.coachPlanGeneration
+            .replaceAll(':profileId', profile.id.toString()));
+      }
+    } catch (e) {
+      // 出错时，跳转到创建页面
+      if (context.mounted) {
+        context.push(AppRoutes.userProfileSetup);
+      }
+    }
+  }
+}
+

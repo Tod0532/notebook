@@ -1,6 +1,45 @@
 # 动计笔记 - 代码修改历史
 
-> 最新更新：2026-02-05 - 计划模块模板库功能
+> 最新更新：2026-02-05 晚 - 核心功能全部完成，项目进入收尾阶段
+
+---
+
+## 2026-02-05 晚 - 核心功能完善 & Bug修复
+
+### 修复概述
+完善核心功能模块，修复AI教练跳转和用户画像创建问题，项目完成度达到98%。
+
+### 修复内容
+
+#### 1. AI教练智能跳转逻辑
+**文件**: `lib/shared/pages/home_page.dart`
+- ✅ 添加 `_AICoachEntryCard` 组件
+- ✅ 检查用户画像和训练计划状态
+- ✅ 智能跳转：
+  - 无画像 → 画像创建页
+  - 有画像+有计划 → 计划展示页
+  - 有画像+无计划 → 计划生成页
+
+#### 2. 用户画像创建保存修复
+**文件**: `lib/features/coach/presentation/pages/user_profile_setup_page.dart`
+- ✅ 添加保存状态 `_isSaving`
+- ✅ 添加加载动画指示器
+- ✅ 添加必填字段验证
+- ✅ 添加详细debug日志
+- ✅ 改进错误处理和重试功能
+
+### 修改文件
+
+| 文件 | 修改内容 |
+|------|----------|
+| `lib/shared/pages/home_page.dart` | AI教练智能跳转逻辑 |
+| `lib/features/coach/presentation/pages/user_profile_setup_page.dart` | 保存状态和错误处理 |
+
+### 编译验证
+```
+flutter analyze: ✅ 0 errors
+APK大小: 69.7MB
+```
 
 ---
 

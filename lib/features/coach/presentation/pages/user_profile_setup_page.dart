@@ -34,6 +34,9 @@ class _UserProfileSetupPageState extends ConsumerState<UserProfileSetupPage> {
   // 表单数据
   final _formKey = GlobalKey<FormState>();
 
+  // 保存状态
+  bool _isSaving = false;
+
   @override
   void initState() {
     super.initState();
@@ -185,7 +188,7 @@ class _UserProfileSetupPageState extends ConsumerState<UserProfileSetupPage> {
           if (_currentStep > 0)
             Expanded(
               child: OutlinedButton(
-                onPressed: _previousStep,
+                onPressed: _isSaving ? null : _previousStep,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -195,12 +198,22 @@ class _UserProfileSetupPageState extends ConsumerState<UserProfileSetupPage> {
           if (_currentStep > 0) const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
-              onPressed: _nextStep,
+              onPressed: _isSaving ? null : _nextStep,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: AppColors.primary,
+                disabledBackgroundColor: AppColors.textHint,
               ),
-              child: Text(_currentStep < 4 ? '下一步' : '完成'),
+              child: _isSaving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(_currentStep < 4 ? '下一步' : '完成'),
             ),
           ),
         ],
@@ -1088,53 +1101,98 @@ class _UserProfileSetupPageState extends ConsumerState<UserProfileSetupPage> {
 
   /// 保存用户画像
   Future<void> _saveProfile() async {
-    final repo = ref.read(userProfileRepositoryProvider);
+    if (_isSaving) return;
 
-    final profile = UserProfilesCompanion.insert(
-      goalType: _selectedGoal!.value,
-      gender: _selectedGender!,
-      age: int.parse(_ageController.text),
-      height: double.parse(_heightController.text),
-      weight: double.parse(_weightController.text),
-      fitnessLevel: _selectedFitnessLevel!.value,
-      equipmentType: _selectedEquipment!.value,
-      dietType: drift.Value(_selectedDietType?.value ?? 'none'),
-      hasHeartRateMonitor: drift.Value(_hasHeartRateMonitor),
-      // 可选字段
-      goalDurationDays: _selectedDuration != null ? drift.Value(_selectedDuration!) : const drift.Value.absent(),
-      targetWeight: double.tryParse(_targetWeightController.text) != null ? drift.Value(double.tryParse(_targetWeightController.text)!) : const drift.Value.absent(),
-      targetBodyFat: double.tryParse(_bodyFatController.text) != null ? drift.Value(double.tryParse(_bodyFatController.text)!) : const drift.Value.absent(),
-      bodyFat: double.tryParse(_bodyFatController.text) != null ? drift.Value(double.tryParse(_bodyFatController.text)!) : const drift.Value.absent(),
-      dietaryRestrictions: _selectedRestrictions.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_selectedRestrictions)) : const drift.Value.absent(),
-      allergies: _selectedAllergies.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_selectedAllergies)) : const drift.Value.absent(),
-      injuries: _selectedInjuries.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_selectedInjuries)) : const drift.Value.absent(),
-      dailyWorkoutMinutes: int.tryParse(_dailyMinutesController.text) != null ? drift.Value(int.tryParse(_dailyMinutesController.text)!) : const drift.Value.absent(),
-      tastePreference: _selectedTaste != null ? drift.Value(_selectedTaste!.value) : const drift.Value.absent(),
-      preferredWorkouts: _preferredWorkouts.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_preferredWorkouts)) : const drift.Value.absent(),
-      dislikedWorkouts: _dislikedWorkouts.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_dislikedWorkouts)) : const drift.Value.absent(),
-    );
+    setState(() => _isSaving = true);
 
     try {
-      final profileId = await repo.createProfile(profile);
-      if (mounted) {
-        // 保存成功，跳转到计划生成页面
-        if (profileId > 0) {
-          context.push(AppRoutes.coachPlanGeneration
-              .replaceAll(':profileId', profileId.toString()));
-        } else {
-          Navigator.of(context).pop(true);
+      final repo = ref.read(userProfileRepositoryProvider);
+
+      // 验证必填字段
+      if (_selectedGoal == null ||
+          _selectedGender == null ||
+          _selectedFitnessLevel == null ||
+          _selectedEquipment == null ||
+          _ageController.text.isEmpty ||
+          _heightController.text.isEmpty ||
+          _weightController.text.isEmpty) {
+        if (mounted) {
+          setState(() => _isSaving = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('用户画像创建成功！'),
-              backgroundColor: AppColors.success,
+            const SnackBar(
+              content: Text('请完善所有必填信息'),
+              backgroundColor: AppColors.error,
             ),
           );
         }
+        return;
       }
-    } catch (e) {
+
+      final profile = UserProfilesCompanion.insert(
+        goalType: _selectedGoal!.value,
+        gender: _selectedGender!,
+        age: int.parse(_ageController.text),
+        height: double.parse(_heightController.text),
+        weight: double.parse(_weightController.text),
+        fitnessLevel: _selectedFitnessLevel!.value,
+        equipmentType: _selectedEquipment!.value,
+        dietType: drift.Value(_selectedDietType?.value ?? 'none'),
+        hasHeartRateMonitor: drift.Value(_hasHeartRateMonitor),
+        // 可选字段
+        goalDurationDays: _selectedDuration != null ? drift.Value(_selectedDuration!) : const drift.Value.absent(),
+        targetWeight: double.tryParse(_targetWeightController.text) != null ? drift.Value(double.tryParse(_targetWeightController.text)!) : const drift.Value.absent(),
+        targetBodyFat: double.tryParse(_bodyFatController.text) != null ? drift.Value(double.tryParse(_bodyFatController.text)!) : const drift.Value.absent(),
+        bodyFat: double.tryParse(_bodyFatController.text) != null ? drift.Value(double.tryParse(_bodyFatController.text)!) : const drift.Value.absent(),
+        dietaryRestrictions: _selectedRestrictions.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_selectedRestrictions)) : const drift.Value.absent(),
+        allergies: _selectedAllergies.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_selectedAllergies)) : const drift.Value.absent(),
+        injuries: _selectedInjuries.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_selectedInjuries)) : const drift.Value.absent(),
+        dailyWorkoutMinutes: int.tryParse(_dailyMinutesController.text) != null ? drift.Value(int.tryParse(_dailyMinutesController.text)!) : const drift.Value.absent(),
+        tastePreference: _selectedTaste != null ? drift.Value(_selectedTaste!.value) : const drift.Value.absent(),
+        preferredWorkouts: _preferredWorkouts.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_preferredWorkouts)) : const drift.Value.absent(),
+        dislikedWorkouts: _dislikedWorkouts.isNotEmpty ? drift.Value(UserProfileRepository.formatJsonList(_dislikedWorkouts)) : const drift.Value.absent(),
+      );
+
+      debugPrint('开始保存用户画像...');
+      final profileId = await repo.createProfile(profile);
+      debugPrint('用户画像保存成功，ID: $profileId');
+
       if (mounted) {
+        setState(() => _isSaving = false);
+
+        // 显示成功提示
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
+          const SnackBar(
+            content: Text('画像创建成功！正在生成计划...'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // 等待一小段时间让用户看到提示
+        await Future.delayed(const Duration(milliseconds: 800));
+
+        if (mounted) {
+          // 使用push而不是go，确保可以返回
+          final route = AppRoutes.coachPlanGeneration.replaceAll(':profileId', profileId.toString());
+          debugPrint('跳转到路由: $route');
+          context.push(route);
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('保存用户画像失败: $e');
+      debugPrint('堆栈跟踪: $stackTrace');
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存失败: $e'),
+            backgroundColor: AppColors.error,
+            action: SnackBarAction(
+              label: '重试',
+              textColor: Colors.white,
+              onPressed: () => _saveProfile(),
+            ),
+          ),
         );
       }
     }
@@ -1143,7 +1201,7 @@ class _UserProfileSetupPageState extends ConsumerState<UserProfileSetupPage> {
   /// 保存并退出
   void _saveAndExit() {
     // 如果已有选择，保存当前进度
-    if (_selectedGoal != null) {
+    if (_selectedGoal != null && !_isSaving) {
       _saveProfile();
     } else {
       Navigator.of(context).pop();
