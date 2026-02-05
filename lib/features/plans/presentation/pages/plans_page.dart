@@ -560,12 +560,12 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        top: AppSpacing.lg,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Column(
@@ -587,7 +587,7 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           // 模板选择入口
           InkWell(
             onTap: () {
@@ -600,7 +600,7 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
               );
             },
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -616,10 +616,10 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.smRadius,
                     ),
                     child: Icon(
                       Icons.dashboard_customize,
@@ -656,7 +656,7 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           // 分割线
           Row(
             children: [
@@ -682,7 +682,7 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
               prefixIcon: Icon(Icons.flag_outlined),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           TextField(
             controller: _descriptionController,
             decoration: const InputDecoration(
@@ -690,18 +690,18 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
               prefixIcon: Icon(Icons.description_outlined),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _buildCategorySelector(context),
           _buildDateSelector(context),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _createPlan,
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.mdRadius,
                 ),
               ),
               child: const Text('创建计划'),
@@ -714,19 +714,19 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
 
   Widget _buildCategorySelector(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadius.smRadius,
           ),
           child: const Icon(Icons.category_outlined, color: AppColors.primary),
         ),
@@ -748,18 +748,18 @@ class _CreatePlanSheetState extends ConsumerState<_CreatePlanSheet> {
 
   Widget _buildDateSelector(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
             color: AppColors.secondary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadius.smRadius,
           ),
           child: const Icon(Icons.event_outlined, color: AppColors.secondary),
         ),

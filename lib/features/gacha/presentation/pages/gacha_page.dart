@@ -36,8 +36,8 @@ class _GachaPageState extends ConsumerState<GachaPage>
   @override
   Widget build(BuildContext context) {
     final drawResultAsync = ref.watch(gachaNotifierProvider);
-    final freeDrawsAsync = ref.watch(remainingFreeDrawsProvider);
-    final pityCountdownAsync = ref.watch(pityCountdownProvider);
+    final freeDraws = ref.watch(remainingFreeDrawsProvider);
+    final pityCountdown = ref.watch(pityCountdownProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +58,7 @@ class _GachaPageState extends ConsumerState<GachaPage>
         controller: _tabController,
         children: [
           // 抽卡页
-          _buildDrawTab(drawResultAsync, freeDrawsAsync, pityCountdownAsync),
+          _buildDrawTab(drawResultAsync, freeDraws, pityCountdown),
           // 历史页
           _buildHistoryTab(),
           // 收集页
@@ -71,8 +71,8 @@ class _GachaPageState extends ConsumerState<GachaPage>
   /// 构建抽卡页
   Widget _buildDrawTab(
     AsyncValue<GachaDrawResult?> drawResultAsync,
-    AsyncValue<int> freeDrawsAsync,
-    AsyncValue<int> pityCountdownAsync,
+    int freeDraws,
+    int pityCountdown,
   ) {
     return Stack(
       children: [
@@ -86,10 +86,10 @@ class _GachaPageState extends ConsumerState<GachaPage>
             children: [
               const SizedBox(height: AppSpacing.xxl),
               // 抽卡按钮区域
-              _buildDrawButtons(drawResultAsync, freeDrawsAsync, pityCountdownAsync),
+              _buildDrawButtons(drawResultAsync, freeDraws, pityCountdown),
               const SizedBox(height: AppSpacing.xxl),
               // 保底信息
-              _buildPityInfo(pityCountdownAsync),
+              _buildPityInfo(pityCountdown),
               const SizedBox(height: AppSpacing.xl),
               // 概率说明
               _buildProbabilityInfo(),
@@ -120,8 +120,8 @@ class _GachaPageState extends ConsumerState<GachaPage>
   /// 构建抽卡按钮区域
   Widget _buildDrawButtons(
     AsyncValue<GachaDrawResult?> drawResultAsync,
-    AsyncValue<int> freeDrawsAsync,
-    AsyncValue<int> pityCountdownAsync,
+    int freeDraws,
+    int pityCountdown,
   ) {
     return Column(
       children: [
@@ -130,7 +130,7 @@ class _GachaPageState extends ConsumerState<GachaPage>
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(AppRadius.xl),
+            borderRadius: AppRadius.xxlRadius,
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.3),
@@ -170,7 +170,7 @@ class _GachaPageState extends ConsumerState<GachaPage>
           children: [
             // 免费抽卡按钮
             Expanded(
-              child: _buildFreeDrawButton(drawResultAsync, freeDrawsAsync),
+              child: _buildFreeDrawButton(drawResultAsync, freeDraws),
             ),
             const SizedBox(width: AppSpacing.md),
             // 十连抽按钮
@@ -186,54 +186,47 @@ class _GachaPageState extends ConsumerState<GachaPage>
   /// 免费抽卡按钮
   Widget _buildFreeDrawButton(
     AsyncValue<GachaDrawResult?> drawResultAsync,
-    AsyncValue<int> freeDrawsAsync,
+    int freeDraws,
   ) {
     final isLoading = drawResultAsync.isLoading;
+    final canDrawFree = freeDraws > 0;
 
-    return freeDrawsAsync.when(
-      data: (freeDraws) {
-        final canDrawFree = freeDraws > 0;
-
-        return ElevatedButton(
-          onPressed: isLoading || !canDrawFree
-              ? null
-              : () {
-                  ref.read(gachaNotifierProvider.notifier).drawSingle(useFreeDraw: true);
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: canDrawFree ? AppColors.primary : AppColors.dividerColor,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.dividerColor,
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+    return ElevatedButton(
+      onPressed: isLoading || !canDrawFree
+          ? null
+          : () {
+              ref.read(gachaNotifierProvider.notifier).drawSingle(useFreeDraw: true);
+            },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: canDrawFree ? AppColors.primary : AppColors.dividerColor,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: AppColors.dividerColor,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.lgRadius,
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.stars_rounded, size: 24),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            canDrawFree ? '免费抽取' : '次数用完',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
             ),
           ),
-          child: Column(
-            children: [
-              const Icon(Icons.stars_rounded, size: 24),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                canDrawFree ? '免费抽取' : '次数用完',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+          if (canDrawFree)
+            Text(
+              '剩余 $freeDraws 次',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xCCFFFFFF), // 白色 80% 不透明度
               ),
-              if (canDrawFree)
-                Text(
-                  '剩余 $freeDraws 次',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xCCFFFFFF), // 白色 80% 不透明度
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+            ),
+        ],
+      ),
     );
   }
 
@@ -279,7 +272,7 @@ class _GachaPageState extends ConsumerState<GachaPage>
   }
 
   /// 构建保底信息
-  Widget _buildPityInfo(AsyncValue<int> pityCountdownAsync) {
+  Widget _buildPityInfo(int pityCountdown) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -291,27 +284,11 @@ class _GachaPageState extends ConsumerState<GachaPage>
           const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.textHint),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: pityCountdownAsync.when(
-              data: (countdown) {
-                return Text(
-                  '再抽 $countdown 次必出稀有以上物品',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                );
-              },
-              loading: () => Text(
-                '加载中...',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
-              error: (_, __) => Text(
-                '保底计算中...',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
+            child: Text(
+              '再抽 $pityCountdown 次必出稀有以上物品',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
             ),
           ),
         ],

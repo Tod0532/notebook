@@ -15,40 +15,108 @@ final gachaServiceProvider = Provider<GachaService>((ref) {
 
 // ==================== 抽卡状态 Providers ====================
 
-/// 剩余免费抽卡次数 Provider
-final remainingFreeDrawsProvider = FutureProvider.autoDispose<int>((ref) async {
+/// 抽卡数据缓存 Provider - 聚合所有抽卡相关数据
+/// 使用单一Provider减少请求次数，子Provider使用select派生
+final gachaCacheProvider = FutureProvider.autoDispose<GachaCache>((ref) async {
   final service = ref.watch(gachaServiceProvider);
-  return await service.getRemainingFreeDraws();
+
+  // 并行获取所有数据以提高性能
+  final results = await Future.wait([
+    service.getRemainingFreeDraws(),
+    service.getPityCount(),
+    service.getPityCountdown(),
+    service.getDrawHistory(),
+    service.getCollectedItems(),
+    service.getStatistics(),
+  ]);
+
+  return GachaCache(
+    remainingFreeDraws: results[0] as int,
+    pityCount: results[1] as int,
+    pityCountdown: results[2] as int,
+    history: results[3] as List<GachaRecord>,
+    collectedItems: results[4] as List<GachaItem>,
+    statistics: results[5] as Map<String, dynamic>,
+  );
+});
+
+/// 抽卡数据缓存模型
+class GachaCache {
+  final int remainingFreeDraws;
+  final int pityCount;
+  final int pityCountdown;
+  final List<GachaRecord> history;
+  final List<GachaItem> collectedItems;
+  final Map<String, dynamic> statistics;
+
+  const GachaCache({
+    required this.remainingFreeDraws,
+    required this.pityCount,
+    required this.pityCountdown,
+    required this.history,
+    required this.collectedItems,
+    required this.statistics,
+  });
+}
+
+/// 剩余免费抽卡次数 Provider
+/// 使用 select 只监听 remainingFreeDraws 字段
+final remainingFreeDrawsProvider = Provider.autoDispose<int>((ref) {
+  return ref.watch(gachaCacheProvider).when(
+    data: (cache) => cache.remainingFreeDraws,
+    loading: () => 0,
+    error: (_, __) => 0,
+  );
 });
 
 /// 保底计数 Provider
-final pityCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  final service = ref.watch(gachaServiceProvider);
-  return await service.getPityCount();
+/// 使用 select 只监听 pityCount 字段
+final pityCountProvider = Provider.autoDispose<int>((ref) {
+  return ref.watch(gachaCacheProvider).when(
+    data: (cache) => cache.pityCount,
+    loading: () => 0,
+    error: (_, __) => 0,
+  );
 });
 
 /// 距离保底的抽数 Provider
-final pityCountdownProvider = FutureProvider.autoDispose<int>((ref) async {
-  final service = ref.watch(gachaServiceProvider);
-  return await service.getPityCountdown();
+/// 使用 select 只监听 pityCountdown 字段
+final pityCountdownProvider = Provider.autoDispose<int>((ref) {
+  return ref.watch(gachaCacheProvider).when(
+    data: (cache) => cache.pityCountdown,
+    loading: () => 0,
+    error: (_, __) => 0,
+  );
 });
 
 /// 抽卡历史 Provider
-final gachaHistoryProvider = FutureProvider.autoDispose<List<GachaRecord>>((ref) async {
-  final service = ref.watch(gachaServiceProvider);
-  return await service.getDrawHistory();
+/// 监听 gachaCacheProvider 的 history 字段
+final gachaHistoryProvider = Provider.autoDispose<AsyncValue<List<GachaRecord>>>((ref) {
+  return ref.watch(gachaCacheProvider).when(
+    data: (cache) => AsyncValue.data(cache.history),
+    loading: () => const AsyncValue.loading(),
+    error: (e, s) => AsyncValue.error(e, s),
+  );
 });
 
 /// 已收集物品 Provider
-final collectedItemsProvider = FutureProvider.autoDispose<List<GachaItem>>((ref) async {
-  final service = ref.watch(gachaServiceProvider);
-  return await service.getCollectedItems();
+/// 监听 gachaCacheProvider 的 collectedItems 字段
+final collectedItemsProvider = Provider.autoDispose<AsyncValue<List<GachaItem>>>((ref) {
+  return ref.watch(gachaCacheProvider).when(
+    data: (cache) => AsyncValue.data(cache.collectedItems),
+    loading: () => const AsyncValue.loading(),
+    error: (e, s) => AsyncValue.error(e, s),
+  );
 });
 
 /// 抽卡统计 Provider
-final gachaStatisticsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final service = ref.watch(gachaServiceProvider);
-  return await service.getStatistics();
+/// 使用 select 只监听 statistics 字段
+final gachaStatisticsProvider = Provider.autoDispose<Map<String, dynamic>>((ref) {
+  return ref.watch(gachaCacheProvider).when(
+    data: (cache) => cache.statistics,
+    loading: () => {},
+    error: (_, __) => {},
+  );
 });
 
 // ==================== 抽卡操作 StateNotifier ====================
@@ -89,11 +157,8 @@ class GachaNotifier extends StateNotifier<AsyncValue<GachaDrawResult?>> {
         bestRarity: bestRarity,
       ));
 
-      // 刷新相关状态
-      ref.invalidate(remainingFreeDrawsProvider);
-      ref.invalidate(pityCountProvider);
-      ref.invalidate(gachaHistoryProvider);
-      ref.invalidate(collectedItemsProvider);
+      // 只刷新单一缓存Provider，减少invalidate次数
+      ref.invalidate(gachaCacheProvider);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -126,10 +191,8 @@ class GachaNotifier extends StateNotifier<AsyncValue<GachaDrawResult?>> {
         bestRarity: bestRarity,
       ));
 
-      // 刷新相关状态
-      ref.invalidate(pityCountProvider);
-      ref.invalidate(gachaHistoryProvider);
-      ref.invalidate(collectedItemsProvider);
+      // 只刷新单一缓存Provider，减少invalidate次数
+      ref.invalidate(gachaCacheProvider);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

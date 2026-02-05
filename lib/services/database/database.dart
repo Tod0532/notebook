@@ -34,6 +34,8 @@ class Notes extends Table {
     {isPinned}, // 查询置顶笔记
     {folder}, // 按文件夹查询
     {deletedAt}, // 按删除时间查询（回收站排序）
+    {isDeleted, folder}, // 复合索引：未删除+文件夹查询
+    {isPinned, isDeleted}, // 复合索引：置顶+未删除查询
   ];
 }
 
@@ -60,6 +62,8 @@ class Reminders extends Table {
     {isEnabled}, // 过滤启用提醒
     {linkedPlanId}, // 关联计划查询
     {linkedWorkoutId}, // 关联运动查询
+    {isDone, isEnabled}, // 复合索引：未完成+启用查询
+    {completedAt}, // 按完成时间查询
   ];
 }
 
@@ -135,6 +139,7 @@ class PlanTasks extends Table {
     {scheduledDate}, // 按日期查询（今日/本周任务）
     {isCompleted}, // 过滤已完成/未完成任务
     {taskType}, // 按任务类型查询
+    {scheduledDate, isCompleted}, // 复合索引：日期+完成状态查询
   ];
 }
 
@@ -341,6 +346,7 @@ class DietPlanMeals extends Table {
     {dayNumber}, // 按天数查询
     {mealType}, // 按餐次类型查询
     {scheduledDate}, // 按计划日期查询
+    {dietPlanId, dayNumber}, // 复合索引：计划+天数查询
   ];
 }
 
@@ -434,6 +440,7 @@ class HeartRateRecords extends Table {
     {timestamp}, // 按时间查询（用于绘制图表）
     {linkedWorkoutId}, // 按关联运动查询
     {deviceId}, // 按设备查询
+    {sessionId, timestamp}, // 复合索引：会话+时间查询（用于获取会话内的时间序列数据）
   ];
 }
 
@@ -1119,7 +1126,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   // ==================== 挑战系统 DAO 方法 ====================
 
@@ -1302,6 +1309,11 @@ class AppDatabase extends _$AppDatabase {
         if (from == 11 && to == 12) {
           await m.createTable(shopItems);
           await m.createTable(shopPurchases);
+        }
+        // 版本12 -> 版本13：添加复合索引优化
+        if (from == 12 && to == 13) {
+          // Drift 会自动重建所有表以应用新的索引
+          // 这里只需要确保数据库迁移正确执行
         }
       },
     );

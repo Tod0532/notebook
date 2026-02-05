@@ -160,11 +160,23 @@ class WorkoutPlanRepository {
   /// 删除训练计划
   Future<int> deletePlan(int id) async {
     try {
-      // 删除计划及其关联的所有数据
+      // 批量删除计划及其关联的所有数据（优化性能）
       final days = await getPlanDays(id);
-      for (final day in days) {
-        await deletePlanDay(day.id);
+      final dayIds = days.map((d) => d.id).toList();
+
+      // 批量删除训练动作
+      if (dayIds.isNotEmpty) {
+        await (_db.delete(_db.workoutPlanExercises)
+          ..where((tbl) => tbl.workoutPlanDayId.isIn(dayIds)))
+          .go();
       }
+
+      // 批量删除训练日程
+      await (_db.delete(_db.workoutPlanDays)
+        ..where((tbl) => tbl.workoutPlanId.equals(id)))
+        .go();
+
+      // 删除计划
       return await (_db.delete(_db.workoutPlans)..where((tbl) => tbl.id.equals(id))).go();
     } catch (e, st) {
       debugPrint('删除训练计划失败: $e');
@@ -267,11 +279,11 @@ class WorkoutPlanRepository {
   /// 删除训练日程
   Future<int> deletePlanDay(int id) async {
     try {
-      // 删除日程及其关联的所有动作
-      final exercises = await getDayExercises(id);
-      for (final exercise in exercises) {
-        await deleteExercise(exercise.id);
-      }
+      // 批量删除日程及其关联的所有动作（优化性能）
+      await (_db.delete(_db.workoutPlanExercises)
+        ..where((tbl) => tbl.workoutPlanDayId.equals(id)))
+        .go();
+
       return await (_db.delete(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(id))).go();
     } catch (e, st) {
       debugPrint('删除训练日程失败: $e');
@@ -383,15 +395,33 @@ class WorkoutPlanRepository {
       if (plan == null) return null;
 
       final days = await getPlanDays(planId);
-      final daysWithExercises = <WorkoutPlanDayWithExercises>[];
-
-      for (final day in days) {
-        final exercises = await getDayExercises(day.id);
-        daysWithExercises.add(WorkoutPlanDayWithExercises(
-          day: day,
-          exercises: exercises,
-        ));
+      if (days.isEmpty) {
+        return WorkoutPlanWithDetails(
+          plan: plan,
+          days: [],
+        );
       }
+
+      // 批量获取所有日程的训练动作（优化N+1查询）
+      final dayIds = days.map((d) => d.id).toList();
+      final allExercises = await (_db.select(_db.workoutPlanExercises)
+        ..where((tbl) => tbl.workoutPlanDayId.isIn(dayIds))
+        ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.exerciseOrder)]))
+        .get();
+
+      // 按日程ID分组
+      final exercisesByDay = <int, List<WorkoutPlanExercise>>{};
+      for (final exercise in allExercises) {
+        exercisesByDay.putIfAbsent(exercise.workoutPlanDayId, () => []).add(exercise);
+      }
+
+      // 组装结果
+      final daysWithExercises = days.map((day) {
+        return WorkoutPlanDayWithExercises(
+          day: day,
+          exercises: exercisesByDay[day.id] ?? [],
+        );
+      }).toList();
 
       return WorkoutPlanWithDetails(
         plan: plan,

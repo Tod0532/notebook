@@ -51,3 +51,10 @@ debug/
 
 # Claude Code local config (keep private)
 .claude/settings.local.json
+
+# Environment variables and secrets (keep private)
+.env
+.env.local
+.env.*.local
+secrets.dart
+*.env

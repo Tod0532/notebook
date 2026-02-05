@@ -286,3 +286,41 @@ final voiceAssistantProvider = StateNotifierProvider<VoiceAssistantNotifier, Voi
     intentParser,
   );
 });
+
+// ==================== 语音助手派生 Providers ====================
+/// 使用 select 优化，避免整个 VoiceAssistantState 变化时所有监听者重建
+
+/// 是否正在监听 Provider - 只监听 isListening 字段
+final isListeningProvider = Provider<bool>((ref) {
+  return ref.watch(
+    voiceAssistantProvider.select((state) => state.isListening),
+  );
+});
+
+/// 是否正在说话 Provider - 只监听 isSpeaking 字段
+final isSpeakingProvider = Provider<bool>((ref) {
+  return ref.watch(
+    voiceAssistantProvider.select((state) => state.isSpeaking),
+  );
+});
+
+/// 最后识别文本 Provider - 只监听 lastRecognizedText 字段
+final lastRecognizedTextProvider = Provider<String>((ref) {
+  return ref.watch(
+    voiceAssistantProvider.select((state) => state.lastRecognizedText),
+  );
+});
+
+/// 最后意图 Provider - 只监听 lastIntent 字段
+final lastIntentProvider = Provider<VoiceIntent?>((ref) {
+  return ref.watch(
+    voiceAssistantProvider.select((state) => state.lastIntent),
+  );
+});
+
+/// 语音助手错误信息 Provider - 只监听 errorMessage 字段
+final voiceAssistantErrorProvider = Provider<String?>((ref) {
+  return ref.watch(
+    voiceAssistantProvider.select((state) => state.errorMessage),
+  );
+});

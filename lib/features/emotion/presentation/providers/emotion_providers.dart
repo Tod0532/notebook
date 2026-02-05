@@ -160,24 +160,34 @@ final emotionDashboardProvider = FutureProvider.autoDispose<EmotionDashboardData
 // ==================== 快速访问 Providers ====================
 
 /// 当前主要情绪 Provider（基于最近的记录）
+/// 使用 select 只监听 latestRecord 字段，避免其他 dashboard 数据变化时重建
 final currentEmotionProvider = Provider.autoDispose<EmotionType?>((ref) {
-  final dashboard = ref.watch(emotionDashboardProvider);
-  return dashboard.value?.latestRecord != null
-      ? EmotionType.fromString(dashboard.value!.latestRecord!.emotionType)
+  final latestRecord = ref.watch(
+    emotionDashboardProvider.select(
+      (async) => async.value?.latestRecord,
+    ),
+  );
+
+  return latestRecord != null
+      ? EmotionType.fromString(latestRecord.emotionType)
       : null;
 });
 
 /// 今日情绪摘要 Provider
+/// 使用 select 只监听 latestRecord 字段
 final todayEmotionSummaryProvider = Provider.autoDispose<String>((ref) {
-  final dashboard = ref.watch(emotionDashboardProvider);
-  final data = dashboard.value;
+  final latestRecord = ref.watch(
+    emotionDashboardProvider.select(
+      (async) => async.value?.latestRecord,
+    ),
+  );
 
-  if (data == null || data.latestRecord == null) {
+  if (latestRecord == null) {
     return '暂无情绪数据';
   }
 
-  final emotion = EmotionType.fromString(data.latestRecord!.emotionType);
-  final confidence = (data.latestRecord!.confidence * 100).toStringAsFixed(0);
+  final emotion = EmotionType.fromString(latestRecord.emotionType);
+  final confidence = (latestRecord.confidence * 100).toStringAsFixed(0);
   final suggestion = EmotionAnalyzer.getSuggestion(emotion);
 
   return '当前情绪：${emotion.displayName}（置信度 $confidence%）\n$suggestion';

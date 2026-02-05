@@ -179,28 +179,43 @@ final weatherStateProvider = StateNotifierProvider<WeatherNotifier, WeatherState
 });
 
 /// 当前天气数据 Provider
+/// 使用 select 只监听 weather 字段，避免其他字段变化时重建
 final currentWeatherProvider = Provider<WeatherData?>((ref) {
-  return ref.watch(weatherStateProvider).weather;
+  return ref.watch(
+    weatherStateProvider.select((state) => state.weather),
+  );
 });
 
 /// 是否正在加载 Provider
+/// 使用 select 只监听 isLoading 字段
 final weatherLoadingProvider = Provider<bool>((ref) {
-  return ref.watch(weatherStateProvider).isLoading;
+  return ref.watch(
+    weatherStateProvider.select((state) => state.isLoading),
+  );
 });
 
 /// 天气错误信息 Provider
+/// 使用 select 只监听 error 字段
 final weatherErrorProvider = Provider<String?>((ref) {
-  return ref.watch(weatherStateProvider).error;
+  return ref.watch(
+    weatherStateProvider.select((state) => state.error),
+  );
 });
 
 /// 天气功能是否启用 Provider
+/// 使用 select 只监听 isEnabled 字段
 final weatherEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(weatherStateProvider).isEnabled;
+  return ref.watch(
+    weatherStateProvider.select((state) => state.isEnabled),
+  );
 });
 
 /// 是否有天气数据 Provider
+/// 使用 select 只监听 hasData 计算属性（内部依赖 weather）
 final hasWeatherDataProvider = Provider<bool>((ref) {
-  return ref.watch(weatherStateProvider).hasData;
+  return ref.watch(
+    weatherStateProvider.select((state) => state.hasData),
+  );
 });
 
 // ==================== 天气功能设置 Provider ====================
@@ -286,10 +301,15 @@ final weatherSettingsProvider =
 });
 
 // ==================== 天气推荐 Provider ====================
+/// 所有推荐Provider都直接使用 select 监听 weatherStateProvider 的 weather 字段
+/// 避免通过 currentWeatherProvider 的间接监听，减少一层依赖
 
 /// 运动推荐 Provider
+/// 使用 select 直接监听 weather 字段，避免中间层重建
 final workoutRecommendationProvider = Provider<List<String>>((ref) {
-  final weather = ref.watch(currentWeatherProvider);
+  final weather = ref.watch(
+    weatherStateProvider.select((state) => state.weather),
+  );
 
   if (weather == null) {
     return [];
@@ -299,8 +319,11 @@ final workoutRecommendationProvider = Provider<List<String>>((ref) {
 });
 
 /// 运动建议 Provider
+/// 使用 select 直接监听 weather 字段
 final workoutAdviceProvider = Provider<String>((ref) {
-  final weather = ref.watch(currentWeatherProvider);
+  final weather = ref.watch(
+    weatherStateProvider.select((state) => state.weather),
+  );
 
   if (weather == null) {
     return '暂无天气数据';
@@ -310,8 +333,11 @@ final workoutAdviceProvider = Provider<String>((ref) {
 });
 
 /// 天气描述 Provider
+/// 使用 select 直接监听 weather 字段
 final weatherDescriptionProvider = Provider<String>((ref) {
-  final weather = ref.watch(currentWeatherProvider);
+  final weather = ref.watch(
+    weatherStateProvider.select((state) => state.weather),
+  );
 
   if (weather == null) {
     return '暂无天气数据';
@@ -321,8 +347,11 @@ final weatherDescriptionProvider = Provider<String>((ref) {
 });
 
 /// 是否适合户外运动 Provider
+/// 使用 select 直接监听 weather 字段
 final isSuitableForOutdoorProvider = Provider<bool>((ref) {
-  final weather = ref.watch(currentWeatherProvider);
+  final weather = ref.watch(
+    weatherStateProvider.select((state) => state.weather),
+  );
 
   if (weather == null) {
     return true; // 默认适合

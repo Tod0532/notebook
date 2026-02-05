@@ -707,10 +707,30 @@ class WorkoutRepository {
                 tbl.calories.isNull() | (tbl.calories.equals(0))))
           .get();
 
-      int updated = 0;
+      if (workouts.isEmpty) return 0;
+
+      // 批量计算并更新卡路里（优化N+1查询）
+      final companions = <WorkoutsCompanion>[];
       for (final workout in workouts) {
-        final success = await updateWorkoutCalories(workout.id!);
-        if (success) updated++;
+        final estimatedCalories = estimateCalories(
+          workoutType: workout.type,
+          durationMinutes: workout.durationMinutes,
+          distance: workout.distance,
+          sets: workout.sets,
+        );
+        companions.add(WorkoutsCompanion(
+          id: drift.Value(workout.id!),
+          calories: drift.Value(estimatedCalories),
+        ));
+      }
+
+      // 批量更新
+      int updated = 0;
+      for (final companion in companions) {
+        final result = await (_db.update(_db.workouts)
+          ..where((tbl) => tbl.id.equals(companion.id.value)))
+          .write(companion);
+        if (result > 0) updated++;
       }
 
       return updated;

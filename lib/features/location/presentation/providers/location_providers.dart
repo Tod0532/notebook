@@ -187,6 +187,44 @@ final geofenceListProvider =
   return GeofenceListNotifier(repository);
 });
 
+// ==================== 地理围栏列表派生 Providers ====================
+/// 使用 select 优化，避免整个 GeofenceListState 变化时所有监听者重建
+
+/// 启用的围栏列表 Provider - 只在 geofences 变化时过滤
+final enabledGeofencesProvider = Provider<List<Geofence>>((ref) {
+  return ref.watch(
+    geofenceListProvider.select((state) => state.enabledGeofences),
+  );
+});
+
+/// 禁用的围栏列表 Provider - 只在 geofences 变化时过滤
+final disabledGeofencesProvider = Provider<List<Geofence>>((ref) {
+  return ref.watch(
+    geofenceListProvider.select((state) => state.disabledGeofences),
+  );
+});
+
+/// 围栏列表加载状态 Provider - 只监听 isLoading
+final geofenceListLoadingProvider = Provider<bool>((ref) {
+  return ref.watch(
+    geofenceListProvider.select((state) => state.isLoading),
+  );
+});
+
+/// 围栏列表错误信息 Provider - 只监听 errorMessage
+final geofenceListErrorProvider = Provider<String?>((ref) {
+  return ref.watch(
+    geofenceListProvider.select((state) => state.errorMessage),
+  );
+});
+
+/// 围栏统计 Provider - 只监听 statistics
+final geofenceStatisticsProvider = Provider<GeofenceStatistics?>((ref) {
+  return ref.watch(
+    geofenceListProvider.select((state) => state.statistics),
+  );
+});
+
 // ==================== 地理围栏服务状态 ====================
 
 /// 地理围栏监控状态
@@ -299,6 +337,37 @@ final geofenceMonitoringProvider =
     StateNotifierProvider<GeofenceMonitoringNotifier, GeofenceMonitoringState>((ref) {
   final service = ref.watch(geofenceServiceProvider);
   return GeofenceMonitoringNotifier(service);
+});
+
+// ==================== 地理围栏监控派生 Providers ====================
+/// 使用 select 优化，避免整个 GeofenceMonitoringState 变化时所有监听者重建
+
+/// 是否正在监控 Provider - 只监听 isMonitoring 字段
+final isMonitoringGeofencesProvider = Provider<bool>((ref) {
+  return ref.watch(
+    geofenceMonitoringProvider.select((state) => state.isMonitoring),
+  );
+});
+
+/// 地理围栏服务状态 Provider - 只监听 serviceState 字段
+final geofenceServiceStateProvider = Provider<GeofenceServiceState>((ref) {
+  return ref.watch(
+    geofenceMonitoringProvider.select((state) => state.serviceState),
+  );
+});
+
+/// 最近围栏事件 Provider - 只监听 recentEvents 字段
+final recentGeofenceEventsProvider = Provider<List<GeofenceEvent>>((ref) {
+  return ref.watch(
+    geofenceMonitoringProvider.select((state) => state.recentEvents),
+  );
+});
+
+/// 地理围栏监控错误信息 Provider - 只监听 errorMessage 字段
+final geofenceMonitoringErrorProvider = Provider<String?>((ref) {
+  return ref.watch(
+    geofenceMonitoringProvider.select((state) => state.errorMessage),
+  );
 });
 
 // ==================== 地理围栏服务 Provider ====================

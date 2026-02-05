@@ -146,7 +146,7 @@ class GradientCard extends StatelessWidget {
         boxShadow: effectiveShadows,
         border: border,
       ),
-      padding: padding ?? const EdgeInsets.all(16),
+      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
       child: child,
     );
 
@@ -228,7 +228,7 @@ class GlassCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: effectiveBlur, sigmaY: effectiveBlur),
           child: Container(
-            padding: padding ?? const EdgeInsets.all(16),
+            padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
             child: child,
           ),
         ),
@@ -324,7 +324,7 @@ class _ModernCardState extends State<ModernCard>
         border: widget.border ??
             Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5), width: 1),
       ),
-      padding: widget.padding ?? const EdgeInsets.all(16),
+      padding: widget.padding ?? const EdgeInsets.all(AppSpacing.lg),
       child: widget.child,
     );
 
@@ -398,7 +398,7 @@ class FloatingCard extends StatelessWidget {
         borderRadius: effectiveBorderRadius,
         boxShadow: AppShadows.medium,
       ),
-      padding: padding ?? const EdgeInsets.all(20),
+      padding: padding ?? const EdgeInsets.all(AppSpacing.xl),
       child: child,
     );
 
@@ -468,7 +468,7 @@ class IconCard extends StatelessWidget {
               size: 24,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           if (value != null)
             Text(
               value!,
@@ -532,7 +532,7 @@ class StatCard extends StatelessWidget {
               size: 24,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,7 +635,7 @@ class _ShimmerCardState extends State<ShimmerCard>
             ),
           ),
           child: Container(
-            padding: widget.padding ?? const EdgeInsets.all(16),
+            padding: widget.padding ?? const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
               borderRadius: effectiveBorderRadius,
               gradient: LinearGradient(
@@ -697,7 +697,7 @@ class SettingsCard extends StatelessWidget {
               size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

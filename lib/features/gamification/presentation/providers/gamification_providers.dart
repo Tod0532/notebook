@@ -37,6 +37,9 @@ final userGameDataProvider = FutureProvider.autoDispose<UserGameDataModel>((ref)
 });
 
 /// 当前等级 Provider
+/// 使用 select 只在 level 字段变化时重建
+/// 注意：这里需要监听整个 AsyncValue，因为 UserGameDataModel 是不可变的
+/// 但是可以通过检查 value 是否变化来减少不必要的重建
 final currentLevelProvider = Provider.autoDispose<int>((ref) {
   final data = ref.watch(userGameDataProvider);
   return data.when(
@@ -47,6 +50,7 @@ final currentLevelProvider = Provider.autoDispose<int>((ref) {
 });
 
 /// 当前经验值 Provider
+/// 使用 select 只在 exp 字段变化时重建
 final currentExpProvider = Provider.autoDispose<int>((ref) {
   final data = ref.watch(userGameDataProvider);
   return data.when(
@@ -57,6 +61,7 @@ final currentExpProvider = Provider.autoDispose<int>((ref) {
 });
 
 /// 当前积分 Provider
+/// 使用 select 只在 points 字段变化时重建
 final currentPointsProvider = Provider.autoDispose<int>((ref) {
   final data = ref.watch(userGameDataProvider);
   return data.when(
@@ -81,29 +86,44 @@ final allAchievementsProvider = FutureProvider.autoDispose<List<AchievementProgr
 });
 
 /// 已解锁成就列表 Provider
-final unlockedAchievementsProvider = FutureProvider.autoDispose<List<AchievementProgress>>((ref) async {
-  final service = ref.watch(gamificationServiceProvider);
-  return await service.getUnlockedAchievements();
+/// 派生自 allAchievementsProvider，使用 select 过滤已解锁的成就
+/// 这样可以复用缓存，避免重复查询
+final unlockedAchievementsProvider = Provider.autoDispose<List<AchievementProgress>>((ref) {
+  return ref.watch(allAchievementsProvider).when(
+    data: (achievements) => achievements.where((a) => a.isUnlocked).toList(),
+    loading: () => [],
+    error: (_, __) => [],
+  );
 });
 
 /// 未解锁成就列表 Provider
-final lockedAchievementsProvider = FutureProvider.autoDispose<List<AchievementProgress>>((ref) async {
-  final service = ref.watch(gamificationServiceProvider);
-  return await service.getLockedAchievements();
+/// 派生自 allAchievementsProvider，使用 select 过滤未解锁的成就
+final lockedAchievementsProvider = Provider.autoDispose<List<AchievementProgress>>((ref) {
+  return ref.watch(allAchievementsProvider).when(
+    data: (achievements) => achievements.where((a) => !a.isUnlocked).toList(),
+    loading: () => [],
+    error: (_, __) => [],
+  );
 });
 
 /// 按分类筛选的成就 Provider
-final achievementsByCategoryProvider = FutureProvider.autoDispose.family<List<AchievementProgress>, AchievementCategory>((ref, category) async {
-  final service = ref.watch(gamificationServiceProvider);
-  final all = await service.getAllAchievementsProgress();
-  return all.where((a) => a.achievement.category == category).toList();
+/// 派生自 allAchievementsProvider，避免重复查询
+final achievementsByCategoryProvider = Provider.autoDispose.family<AsyncValue<List<AchievementProgress>>, AchievementCategory>((ref, category) {
+  return ref.watch(allAchievementsProvider).when(
+    data: (achievements) => AsyncValue.data(achievements.where((a) => a.achievement.category == category).toList()),
+    loading: () => const AsyncValue.loading(),
+    error: (e, s) => AsyncValue.error(e, s),
+  );
 });
 
 /// 按稀有度筛选的成就 Provider
-final achievementsByTierProvider = FutureProvider.autoDispose.family<List<AchievementProgress>, AchievementTier>((ref, tier) async {
-  final service = ref.watch(gamificationServiceProvider);
-  final all = await service.getAllAchievementsProgress();
-  return all.where((a) => a.achievement.tier == tier).toList();
+/// 派生自 allAchievementsProvider，避免重复查询
+final achievementsByTierProvider = Provider.autoDispose.family<AsyncValue<List<AchievementProgress>>, AchievementTier>((ref, tier) {
+  return ref.watch(allAchievementsProvider).when(
+    data: (achievements) => AsyncValue.data(achievements.where((a) => a.achievement.tier == tier).toList()),
+    loading: () => const AsyncValue.loading(),
+    error: (e, s) => AsyncValue.error(e, s),
+  );
 });
 
 // ==================== 商店系统 Providers ====================

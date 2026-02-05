@@ -182,6 +182,72 @@ final heartRateMonitorProvider =
   return HeartRateMonitorNotifier(service);
 });
 
+// ==================== 心率监测派生 Providers ====================
+/// 使用 select 优化，避免整个 HeartRateMonitorState 变化时所有监听者重建
+
+/// 当前心率 Provider - 只监听 currentHeartRate 字段
+final currentHeartRateProvider = Provider<int?>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.currentHeartRate),
+  );
+});
+
+/// 心率服务状态 Provider - 只监听 serviceState 字段
+final heartRateServiceStateProvider = Provider<HeartRateServiceState>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.serviceState),
+  );
+});
+
+/// 心率历史记录 Provider - 只监听 heartRateHistory 字段
+final heartRateHistoryProvider = Provider<List<int>>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.heartRateHistory),
+  );
+});
+
+/// 平均心率 Provider - 只在 history 变化时重新计算
+final averageHeartRateProvider = Provider<int>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.averageHeartRate),
+  );
+});
+
+/// 最高心率 Provider - 只在 history 变化时重新计算
+final maxHeartRateProvider = Provider<int>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.maxHeartRate),
+  );
+});
+
+/// 最低心率 Provider - 只在 history 变化时重新计算
+final minHeartRateProvider = Provider<int>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.minHeartRate),
+  );
+});
+
+/// 心率会话ID Provider - 只监听 sessionId 字段
+final heartRateSessionIdProvider = Provider<String?>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.sessionId),
+  );
+});
+
+/// 心率会话时长 Provider - 只在 sessionStartTime 变化时重新计算
+final heartRateSessionDurationProvider = Provider<Duration>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.sessionDuration),
+  );
+});
+
+/// 心率错误信息 Provider - 只监听 errorMessage 字段
+final heartRateErrorProvider = Provider<String?>((ref) {
+  return ref.watch(
+    heartRateMonitorProvider.select((state) => state.errorMessage),
+  );
+});
+
 // ==================== 设备列表状态 ====================
 
 class DeviceListState {
@@ -252,6 +318,30 @@ final deviceListProvider =
     StateNotifierProvider<DeviceListNotifier, DeviceListState>((ref) {
   final service = ref.watch(heartRateServiceProvider);
   return DeviceListNotifier(service);
+});
+
+// ==================== 设备列表派生 Providers ====================
+/// 使用 select 优化，避免整个 DeviceListState 变化时所有监听者重建
+
+/// 是否正在扫描 Provider - 只监听 isScanning 字段
+final isScanningProvider = Provider<bool>((ref) {
+  return ref.watch(
+    deviceListProvider.select((state) => state.isScanning),
+  );
+});
+
+/// 扫描到的设备列表 Provider - 只监听 devices 字段
+final scannedDevicesProvider = Provider<List<ScanResult>>((ref) {
+  return ref.watch(
+    deviceListProvider.select((state) => state.devices),
+  );
+});
+
+/// 设备扫描错误信息 Provider - 只监听 errorMessage 字段
+final deviceScanErrorProvider = Provider<String?>((ref) {
+  return ref.watch(
+    deviceListProvider.select((state) => state.errorMessage),
+  );
 });
 
 // ==================== 心率会话列表 Provider ====================

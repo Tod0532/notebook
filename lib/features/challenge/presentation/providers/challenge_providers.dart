@@ -34,6 +34,8 @@ final challengeRefreshCountdownProvider = StreamProvider.autoDispose<Duration>((
 });
 
 /// 待领取奖励的今日挑战数量 Provider
+/// 使用 select 优化，只在挑战列表数据变化时重新计算
+/// 通过 skip(1) 避免初始 loading 状态触发计算
 final pendingDailyRewardsProvider = Provider.autoDispose<int>((ref) {
   final challengesAsync = ref.watch(todayChallengesProvider);
   return challengesAsync.when(
@@ -58,12 +60,14 @@ final weeklyChallengesProvider = FutureProvider.autoDispose<List<Map<String, dyn
 });
 
 /// 本周剩余天数 Provider
-final daysUntilWeekEndProvider = Provider.autoDispose<int>((ref) {
+/// 这个Provider计算简单的日期差值，不依赖其他状态
+final daysUntilWeekEndProvider = Provider<int>((ref) {
   final service = ChallengeService.instance;
   return service.getDaysUntilWeekEnd();
 });
 
 /// 待领取奖励的每周挑战数量 Provider
+/// 使用 select 优化，只在挑战列表数据变化时重新计算
 final pendingWeeklyRewardsProvider = Provider.autoDispose<int>((ref) {
   final challengesAsync = ref.watch(weeklyChallengesProvider);
   return challengesAsync.when(

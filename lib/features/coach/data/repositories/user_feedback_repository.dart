@@ -273,16 +273,11 @@ class UserFeedbackRepository {
   /// 清空用户的所有反馈
   Future<int> clearFeedbacksByProfile(int profileId) async {
     try {
-      final items = await (_db.select(_db.userFeedbacks)
-            ..where((f) => f.userProfileId.equals(profileId)))
-          .get();
-
-      int count = 0;
-      for (final item in items) {
-        final result = await (_db.delete(_db.userFeedbacks)..where((tbl) => tbl.id.equals(item.id))).go();
-        if (result > 0) count++;
-      }
-      return count;
+      // 批量删除优化（避免N+1查询）
+      final result = await (_db.delete(_db.userFeedbacks)
+        ..where((f) => f.userProfileId.equals(profileId)))
+        .go();
+      return result;
     } catch (e, st) {
       debugPrint('清空用户反馈失败: $e');
       throw UserFeedbackRepositoryException('清空用户反馈失败', e, st);

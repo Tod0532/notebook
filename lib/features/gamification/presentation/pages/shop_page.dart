@@ -83,7 +83,7 @@ class _ShopPageState extends ConsumerState<ShopPage>
                   height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.mdRadius,
                   ),
                   child: const Icon(
                     Icons.arrow_back_ios_new,
@@ -216,7 +216,7 @@ class _ShopPageState extends ConsumerState<ShopPage>
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
           color: AppColors.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.mdRadius,
         ),
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.textSecondary,
@@ -420,7 +420,7 @@ class ShopItemCard extends ConsumerWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     gradient: _getItemGradient(item.type),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: AppRadius.lgRadius,
                   ),
                   child: Icon(
                     _getItemIcon(item.type),
@@ -506,11 +506,11 @@ class ShopItemCard extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xxl),
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: AppRadius.xxlRadius,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -540,10 +540,10 @@ class ShopItemCard extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xs),
               // 类型标签
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                 decoration: BoxDecoration(
                   color: _getItemColor(item.type).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.smRadius,
                 ),
                 child: Text(
                   item.type.displayName,
@@ -593,7 +593,7 @@ class ShopItemCard extends ConsumerWidget {
                     disabledBackgroundColor: AppColors.surfaceVariant,
                     padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: AppRadius.mdRadius,
                     ),
                   ),
                   child: Text(

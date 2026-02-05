@@ -14,8 +14,9 @@ class DeepSeekService {
   static const _apiKeyKey = 'deepseek_api_key';
   static const _apiBaseUrl = 'https://api.deepseek.com/v1';
 
-  // 移除默认 API Key，要求用户自己配置
-  // static const String _defaultApiKey = 'sk-c854090502824575a257bc6da42f485f';
+  // 默认 API Key 已移除，要求用户自己配置
+  // 请在 AI 设置页面配置您的 DeepSeek API Key
+  // 获取 API Key：访问 https://platform.deepseek.com/ 注册账号
 
   final Dio _dio = Dio(BaseOptions(
     baseUrl: _apiBaseUrl,

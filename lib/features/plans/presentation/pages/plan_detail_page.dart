@@ -57,7 +57,7 @@ class _PlanDetailPageState extends ConsumerState<PlanDetailPage> {
                       );
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSpacing.lg),
                       itemCount: tasks.length,
                       itemBuilder: (context, index) {
                         return _TaskTile(
@@ -90,7 +90,7 @@ class _PlanDetailPageState extends ConsumerState<PlanDetailPage> {
     final daysLeft = plan.targetDate.difference(DateTime.now()).inDays;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
         border: Border(
@@ -131,7 +131,7 @@ class _PlanDetailPageState extends ConsumerState<PlanDetailPage> {
                         minHeight: 8,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       '${plan.completedTasks}/${plan.totalTasks} 已完成',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -141,7 +141,7 @@ class _PlanDetailPageState extends ConsumerState<PlanDetailPage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.lg),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -150,7 +150,7 @@ class _PlanDetailPageState extends ConsumerState<PlanDetailPage> {
                     size: 18,
                     color: daysLeft < 0 ? AppColors.error : AppColors.primary,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     daysLeft < 0 ? '已超期' : '还剩${daysLeft}天',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -165,16 +165,16 @@ class _PlanDetailPageState extends ConsumerState<PlanDetailPage> {
           if (plan.streakDays > 0) ...[
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               decoration: BoxDecoration(
                 color: AppColors.warning.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppRadius.lgRadius,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.local_fire_department, size: 16, color: AppColors.warning),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.sm),
                   Text(
                     '已连续坚持 ${plan.streakDays} 天',
                     style: const TextStyle(
@@ -278,14 +278,14 @@ class _TaskTile extends StatelessWidget {
     final isPast = task.scheduledDate.isBefore(DateTime(now.year, now.month, now.day));
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
         color: task.isCompleted ? AppColors.surfaceVariant : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
         border: Border.all(color: AppColors.surfaceVariant),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
         leading: GestureDetector(
           onTap: onToggle,
           child: Container(
@@ -318,7 +318,7 @@ class _TaskTile extends StatelessWidget {
               size: 12,
               color: isPast ? AppColors.error : AppColors.primary,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xs),
             Text(
               isToday
                   ? '今天'
@@ -355,7 +355,7 @@ class _EmptyTasksState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xxl),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -366,7 +366,7 @@ class _EmptyTasksState extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xxl),
           Text(
             '还没有任务',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -408,12 +408,12 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        top: AppSpacing.lg,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Column(
@@ -435,7 +435,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextField(
             controller: _titleController,
             autofocus: true,
@@ -444,21 +444,21 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
               prefixIcon: Icon(Icons.edit),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _buildDateSelector(context),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _buildTaskTypeSelector(context),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _buildReminderSection(context),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _saveTask,
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.mdRadius,
                 ),
               ),
               child: const Text('添加任务'),
@@ -471,10 +471,10 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
 
   Widget _buildDateSelector(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
@@ -494,10 +494,10 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
 
   Widget _buildTaskTypeSelector(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
@@ -520,12 +520,12 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
 
   Widget _buildReminderSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: _enableReminder
             ? AppColors.warning.withOpacity(0.1)
             : AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: Column(
         children: [
@@ -538,7 +538,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
             activeColor: AppColors.warning,
           ),
           if (_enableReminder) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.access_time, size: 20),

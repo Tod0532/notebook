@@ -181,7 +181,7 @@ flutter analyze
 
 - ✅ 修复首页布局错误（Expanded → Flexible，添加 IntrinsicHeight）
 - ✅ 修复 withValues 兼容性问题 → withOpacity
-- ✅ 设置默认 DeepSeek API key (sk-c854090502824575a257bc6da42f485f)
+- ✅ 设置默认 DeepSeek API key（已移至环境变量，避免硬编码）
 - ✅ 应用成功安装到手机并运行
 - ✅ AI教练入口已添加到设置页面和首页
 

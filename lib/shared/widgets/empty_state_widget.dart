@@ -107,7 +107,7 @@ class EmptyStateWidget extends StatelessWidget {
       padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
         color: isCompact ? null : AppColors.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(isCompact ? 12 : 16),
+        borderRadius: BorderRadius.circular(isCompact ? AppRadius.md : AppRadius.lg),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -124,8 +124,8 @@ class EmptyStateWidget extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-          if (!isCompact) const SizedBox(height: 20),
-          if (isCompact) const SizedBox(height: 12),
+          if (!isCompact) const SizedBox(height: AppSpacing.xl),
+          if (isCompact) const SizedBox(height: AppSpacing.md),
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -135,7 +135,7 @@ class EmptyStateWidget extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           if (description != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               description!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -145,15 +145,15 @@ class EmptyStateWidget extends StatelessWidget {
             ),
           ],
           if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
             ElevatedButton.icon(
               onPressed: onAction,
               icon: const Icon(Icons.add),
               label: Text(actionLabel!),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadius.xlRadius,
                 ),
               ),
             ),
@@ -184,10 +184,10 @@ class OnboardingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.08),  // 简化：使用纯色替代微弱渐变
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.xlRadius,
         border: Border.all(
           color: AppColors.primary.withValues(alpha: 0.15),
           width: 1,
@@ -199,14 +199,14 @@ class OnboardingCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.mdRadius,
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 24),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,7 +230,7 @@ class OnboardingCard extends StatelessWidget {
             ],
           ),
           if (steps.isNotEmpty) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
             ...steps.asMap().entries.map((entry) {
               final index = entry.key;
               final step = entry.value;
@@ -241,15 +241,15 @@ class OnboardingCard extends StatelessWidget {
             }),
           ],
           if (onGetStarted != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: onGetStarted,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.mdRadius,
                   ),
                 ),
                 child: const Text('开始使用'),
@@ -274,7 +274,7 @@ class _OnboardingStepItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -296,7 +296,7 @@ class _OnboardingStepItem extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,7 +308,7 @@ class _OnboardingStepItem extends StatelessWidget {
                   ),
                 ),
                 if (step.description != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     step.description!,
                     style: TextStyle(

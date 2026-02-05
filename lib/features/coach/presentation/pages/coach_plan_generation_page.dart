@@ -76,7 +76,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
   Widget _buildProgressView() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xxxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -94,7 +94,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxxl),
             // 状态文字
             Text(
               _statusMessage,
@@ -113,7 +113,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
                     width: 200,
                     child: LinearProgressIndicator(),
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: AppSpacing.lg),
                   Text(
                     'AI正在为您生成个性化计划...',
                     style: TextStyle(color: AppColors.textSecondary),
@@ -160,7 +160,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
   Widget _buildErrorView() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xxxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -177,7 +177,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
                 color: Colors.orange,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             Text(
               'AI连接遇到问题',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -191,12 +191,12 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
               style: TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               '同样能帮您达成健身目标',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxxl),
             // 使用默认计划按钮 - 更突出
             SizedBox(
               width: 240,
@@ -234,7 +234,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xxxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -251,7 +251,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             Text(
               '计划生成完成！',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -265,7 +265,7 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
               style: TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxxl),
             // 查看训练计划按钮
             if (workoutPlanId != null)
               SizedBox(

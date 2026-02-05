@@ -129,11 +129,23 @@ class DietPlanRepository {
   /// 删除饮食计划
   Future<int> deletePlan(int id) async {
     try {
-      // 删除计划及其关联的所有数据
+      // 批量删除计划及其关联的所有数据（优化性能）
       final meals = await getPlanMeals(id);
-      for (final meal in meals) {
-        await deleteMeal(meal.id);
+      final mealIds = meals.map((m) => m.id).toList();
+
+      // 批量删除食材
+      if (mealIds.isNotEmpty) {
+        await (_db.delete(_db.mealItems)
+          ..where((tbl) => tbl.dietPlanMealId.isIn(mealIds)))
+          .go();
       }
+
+      // 批量删除餐次
+      await (_db.delete(_db.dietPlanMeals)
+        ..where((tbl) => tbl.dietPlanId.equals(id)))
+        .go();
+
+      // 删除计划
       return await (_db.delete(_db.dietPlans)..where((tbl) => tbl.id.equals(id))).go();
     } catch (e, st) {
       debugPrint('删除饮食计划失败: $e');
@@ -252,11 +264,11 @@ class DietPlanRepository {
   /// 删除餐次
   Future<int> deleteMeal(int id) async {
     try {
-      // 删除餐次及其关联的所有食材
-      final items = await getMealItems(id);
-      for (final item in items) {
-        await deleteItem(item.id);
-      }
+      // 批量删除餐次及其关联的所有食材（优化性能）
+      await (_db.delete(_db.mealItems)
+        ..where((tbl) => tbl.dietPlanMealId.equals(id)))
+        .go();
+
       return await (_db.delete(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(id))).go();
     } catch (e, st) {
       debugPrint('删除餐次失败: $e');
@@ -340,15 +352,33 @@ class DietPlanRepository {
       if (plan == null) return null;
 
       final meals = await getPlanMeals(planId);
-      final mealsWithItems = <DietPlanMealWithItems>[];
-
-      for (final meal in meals) {
-        final items = await getMealItems(meal.id);
-        mealsWithItems.add(DietPlanMealWithItems(
-          meal: meal,
-          items: items,
-        ));
+      if (meals.isEmpty) {
+        return DietPlanWithDetails(
+          plan: plan,
+          meals: [],
+        );
       }
+
+      // 批量获取所有餐次的食材（优化N+1查询）
+      final mealIds = meals.map((m) => m.id).toList();
+      final allItems = await (_db.select(_db.mealItems)
+        ..where((tbl) => tbl.dietPlanMealId.isIn(mealIds))
+        ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.itemOrder)]))
+        .get();
+
+      // 按餐次ID分组
+      final itemsByMeal = <int, List<MealItem>>{};
+      for (final item in allItems) {
+        itemsByMeal.putIfAbsent(item.dietPlanMealId, () => []).add(item);
+      }
+
+      // 组装结果
+      final mealsWithItems = meals.map((meal) {
+        return DietPlanMealWithItems(
+          meal: meal,
+          items: itemsByMeal[meal.id] ?? [],
+        );
+      }).toList();
 
       return DietPlanWithDetails(
         plan: plan,
@@ -364,17 +394,28 @@ class DietPlanRepository {
   Future<List<DietPlanMealWithItems>> getDayWithItems(int planId, int dayNumber) async {
     try {
       final meals = await getMealsByDay(planId, dayNumber);
-      final mealsWithItems = <DietPlanMealWithItems>[];
+      if (meals.isEmpty) return [];
 
-      for (final meal in meals) {
-        final items = await getMealItems(meal.id);
-        mealsWithItems.add(DietPlanMealWithItems(
-          meal: meal,
-          items: items,
-        ));
+      // 批量获取所有餐次的食材（优化N+1查询）
+      final mealIds = meals.map((m) => m.id).toList();
+      final allItems = await (_db.select(_db.mealItems)
+        ..where((tbl) => tbl.dietPlanMealId.isIn(mealIds))
+        ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.itemOrder)]))
+        .get();
+
+      // 按餐次ID分组
+      final itemsByMeal = <int, List<MealItem>>{};
+      for (final item in allItems) {
+        itemsByMeal.putIfAbsent(item.dietPlanMealId, () => []).add(item);
       }
 
-      return mealsWithItems;
+      // 组装结果
+      return meals.map((meal) {
+        return DietPlanMealWithItems(
+          meal: meal,
+          items: itemsByMeal[meal.id] ?? [],
+        );
+      }).toList();
     } catch (e, st) {
       debugPrint('获取天数饮食详情失败: $e');
       throw DietPlanRepositoryException('获取天数饮食详情失败', e, st);
@@ -393,26 +434,31 @@ class DietPlanRepository {
       final meals = await getPlanMeals(planId);
       final weekMeals = meals.where((m) => m.dayNumber >= startDay && m.dayNumber <= endDay).toList();
 
+      if (weekMeals.isEmpty) return [];
+
+      // 批量获取所有餐次的食材（优化N+1查询）
+      final mealIds = weekMeals.map((m) => m.id).toList();
+      final allItems = await (_db.select(_db.mealItems)
+        ..where((tbl) => tbl.dietPlanMealId.isIn(mealIds)))
+        .get();
+
       final shoppingList = <String, ShoppingItem>{};
 
-      for (final meal in weekMeals) {
-        final items = await getMealItems(meal.id);
-        for (final item in items) {
-          final key = item.foodName;
-          if (shoppingList.containsKey(key)) {
-            final existing = shoppingList[key]!;
-            shoppingList[key] = ShoppingItem(
-              foodName: item.foodName,
-              amount: _combineAmounts(existing.amount, item.amount),
-              weightGrams: (existing.weightGrams ?? 0) + (item.weightGrams ?? 0),
-            );
-          } else {
-            shoppingList[key] = ShoppingItem(
-              foodName: item.foodName,
-              amount: item.amount,
-              weightGrams: item.weightGrams,
-            );
-          }
+      for (final item in allItems) {
+        final key = item.foodName;
+        if (shoppingList.containsKey(key)) {
+          final existing = shoppingList[key]!;
+          shoppingList[key] = ShoppingItem(
+            foodName: item.foodName,
+            amount: _combineAmounts(existing.amount, item.amount),
+            weightGrams: (existing.weightGrams ?? 0) + (item.weightGrams ?? 0),
+          );
+        } else {
+          shoppingList[key] = ShoppingItem(
+            foodName: item.foodName,
+            amount: item.amount,
+            weightGrams: item.weightGrams,
+          );
         }
       }
 

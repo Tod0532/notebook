@@ -113,17 +113,17 @@ class WorkoutDetailPage extends ConsumerWidget {
     );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 运动类型卡片
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xxl),
             decoration: BoxDecoration(
               gradient: AppColors.secondaryGradient,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadius.xxlRadius,
               boxShadow: [
                 BoxShadow(
                   color: AppColors.secondary.withOpacity(0.3),
@@ -139,7 +139,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                   size: 48,
                   color: Colors.white,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 Text(
                   typeEnum.displayName,
                   style: const TextStyle(
@@ -149,7 +149,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                   ),
                 ),
                 if (workout.customTypeName != null && workout.customTypeName!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     workout.customTypeName!,
                     style: TextStyle(
@@ -162,7 +162,7 @@ class WorkoutDetailPage extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xxl),
 
           // 数据卡片
           Row(
@@ -175,7 +175,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                   color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _InfoCard(
                   icon: Icons.calendar_today_outlined,
@@ -187,7 +187,7 @@ class WorkoutDetailPage extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
 
           Row(
             children: [
@@ -199,7 +199,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                   color: AppColors.warning,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _InfoCard(
                   icon: Icons.sentiment_satisfied_outlined,
@@ -213,7 +213,7 @@ class WorkoutDetailPage extends ConsumerWidget {
 
           // 详细数据
           if (workout.sets != null && workout.sets! > 0) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             _DetailSection(
               title: '力量数据',
               child: Row(
@@ -243,7 +243,7 @@ class WorkoutDetailPage extends ConsumerWidget {
 
           // 备注
           if (workout.notes != null && workout.notes!.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             _DetailSection(
               title: '备注',
               child: Text(
@@ -255,13 +255,13 @@ class WorkoutDetailPage extends ConsumerWidget {
 
           // 关联计划
           if (workout.linkedPlanId != null) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             _DetailSection(
               title: '关联计划',
               child: Row(
                 children: [
                   const Icon(Icons.link, color: AppColors.primary),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Text(
                     '计划 ID: ${workout.linkedPlanId}',
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -273,13 +273,13 @@ class WorkoutDetailPage extends ConsumerWidget {
 
           // 关联笔记
           if (workout.linkedNoteId != null) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             _DetailSection(
               title: '运动小结',
               child: Row(
                 children: [
                   const Icon(Icons.note_outlined, color: AppColors.secondary),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Text(
                     '笔记 ID: ${workout.linkedNoteId}',
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -289,7 +289,7 @@ class WorkoutDetailPage extends ConsumerWidget {
             ),
           ],
 
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.xxxl),
         ],
       ),
     );
@@ -356,15 +356,15 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.lgRadius,
       ),
       child: Column(
         children: [
           Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             label,
             style: TextStyle(
@@ -372,7 +372,7 @@ class _InfoCard extends StatelessWidget {
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             value,
             style: TextStyle(
@@ -405,13 +405,13 @@ class _DetailSection extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadius.mdRadius,
           ),
           child: child,
         ),
