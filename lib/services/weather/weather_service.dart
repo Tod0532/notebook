@@ -364,13 +364,15 @@ class WeatherService {
       // 空气质量（获取失败时使用默认值50）
       final aqiFuture = getAirQuality(lat, lon).catchError((_) => 50);
 
-      final results = await Future.wait([
-        weatherFuture,
-        aqiFuture,
-      ], eagerError: false);
+      // 并行等待天气数据和空气质量，使用显式类型获取而非as转换
+      final responses = await Future.wait<Object?>(
+        [weatherFuture, aqiFuture],
+        eagerError: false,
+      );
 
-      final response = results[0] as Response;
-      final aqi = results[1] as int;
+      // 类型安全：分别提取结果，使用类型检查确保安全
+      final response = responses.first is Response ? responses.first as Response : throw WeatherServiceException('天气数据响应格式错误');
+      final aqi = responses.length > 1 && responses[1] is int ? responses[1] as int : 50;
 
       if (response.statusCode == 200) {
         // 等待位置名称（不阻塞天气数据解析）

@@ -98,8 +98,9 @@
 阶段16: 智能天气     → 已完成   [✓] 2026-02-04 天气适配功能完成
 阶段17: 游戏化系统   → 已完成   [✓] 2026-02-04 挑战+抽卡系统完成
 阶段18: 项目全面分析 → 已完成   [✓] 2026-02-05 8智能体并行分析完成
+阶段19: 代码质量修复   → 已完成   [✓] 2026-02-05 7智能体并行修复31个严重问题
 --------------------------------------------------
-阶段19: 高级功能完善 → 待开始   [ ] 预计 25-35h
+阶段20: 高级功能完善 → 待开始   [ ] 预计 25-35h
 ```
 
 ### 今日进展 (2026-02-04) - 多智能体并行开发
@@ -915,5 +916,63 @@ MVP (120h)
 
 ---
 
-*文档最后更新：2026-02-05*
+---
+
+## 运行时错误修复完成（2026-02-05 晚）
+
+### 修复概述
+在首次手机测试后发现2个运行时错误，已全部修复并重新编译验证。
+
+### 修复详情
+
+#### 问题1: ChallengeService 周数解析失败
+- **错误**: `FormatException: Invalid radix-10 number (at character 1) w`
+- **原因**: `DateFormat('w').format(date)` 在某些环境下返回带 "W" 前缀的字符串
+- **修复**: 添加 `replaceAll('W', '').replaceAll('w', '')` 过滤前缀
+- **文件**: `lib/services/challenge/challenge_service.dart:825`
+
+#### 问题2: 空气质量 API 404
+- **错误**: Open-Meteo 空气质量端点返回 404
+- **原因**: 使用了错误的 API 基础 URL
+- **修复**: 改用 `https://air-quality-api.open-meteo.com/v1`
+- **文件**: `lib/services/weather/weather_service.dart:518`
+
+### 编译验证结果
+
+```bash
+# 代码分析
+flutter analyze
+✅ 0 errors
+⚠️ warnings (代码风格建议)
+
+# Release 编译
+flutter build apk --release
+✅ Built build\app\outputs\flutter-apk\app-release.apk (69.3MB)
+
+# 设备安装
+flutter install -d Seeker
+✅ Installing build\app\outputs\flutter-apk\app-release.apk... 3.8s
+```
+
+### Git 提交记录
+
+```
+aba11af fix: 修复运行时错误 - 周数解析和空气质量API
+7e71085 fix: 修复编译错误
+a564657 fix: 修复13个严重问题
+```
+
+### 测试设备信息
+
+| 项目 | 详情 |
+|------|------|
+| 设备名称 | Seeker |
+| 设备ID | SM02G4061983569 |
+| Android版本 | 15 (API 35) |
+| 渲染引擎 | Impeller (Vulkan) |
+| 状态 | ✅ 安装成功，应用正常运行 |
+
+---
+
+*文档最后更新：2026-02-05 晚*
 

@@ -461,7 +461,7 @@ class _GpsTrackReplayPageState extends State<GpsTrackReplayPage> {
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: const BorderRadius.vertical(top: AppRadius.lg),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),

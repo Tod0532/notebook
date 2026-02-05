@@ -1,7 +1,27 @@
 /// AI训练计划仓库 - 封装训练计划相关的数据库操作
+/// 包含统一的异常处理
 
+import 'package:flutter/foundation.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:drift/drift.dart' as drift;
+
+/// 训练计划仓库异常类
+class WorkoutPlanRepositoryException implements Exception {
+  final String message;
+  final dynamic originalError;
+  final StackTrace? stackTrace;
+
+  WorkoutPlanRepositoryException(
+    this.message, [
+    this.originalError,
+    this.stackTrace,
+  ]);
+
+  @override
+  String toString() {
+    return 'WorkoutPlanRepositoryException: $message';
+  }
+}
 
 class WorkoutPlanRepository {
   final AppDatabase _db;
@@ -10,237 +30,377 @@ class WorkoutPlanRepository {
 
   /// 获取所有训练计划
   Future<List<WorkoutPlan>> getAllPlans() async {
-    return await (_db.select(_db.workoutPlans)
-          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.workoutPlans)
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取所有训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('获取所有训练计划失败', e, st);
+    }
   }
 
   /// 获取进行中的训练计划
   Future<List<WorkoutPlan>> getActivePlans() async {
-    return await (_db.select(_db.workoutPlans)
-          ..where((tbl) => tbl.status.equals('active'))
-          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.workoutPlans)
+            ..where((tbl) => tbl.status.equals('active'))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取进行中训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('获取进行中训练计划失败', e, st);
+    }
   }
 
   /// 根据用户画像获取训练计划
   Future<List<WorkoutPlan>> getPlansByProfileId(int profileId) async {
-    return await (_db.select(_db.workoutPlans)
-          ..where((tbl) => tbl.userProfileId.equals(profileId))
-          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.workoutPlans)
+            ..where((tbl) => tbl.userProfileId.equals(profileId))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取用户画像训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('获取用户画像训练计划失败', e, st);
+    }
   }
 
   /// 根据ID获取训练计划
   Future<WorkoutPlan?> getPlanById(int id) async {
-    return await (_db.select(_db.workoutPlans)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    try {
+      return await (_db.select(_db.workoutPlans)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    } catch (e, st) {
+      debugPrint('获取训练计划详情失败: $e');
+      throw WorkoutPlanRepositoryException('获取训练计划详情失败', e, st);
+    }
   }
 
   /// 创建训练计划
   Future<int> createPlan(WorkoutPlansCompanion plan) async {
-    return await _db.into(_db.workoutPlans).insert(plan);
+    try {
+      return await _db.into(_db.workoutPlans).insert(plan);
+    } catch (e, st) {
+      debugPrint('创建训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('创建训练计划失败', e, st);
+    }
   }
 
   /// 更新训练计划
   Future<bool> updatePlan(WorkoutPlan plan) async {
-    return await _db.update(_db.workoutPlans).replace(plan);
+    try {
+      return await _db.update(_db.workoutPlans).replace(plan);
+    } catch (e, st) {
+      debugPrint('更新训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('更新训练计划失败', e, st);
+    }
   }
 
   /// 更新训练计划进度
   Future<void> updatePlanProgress(int planId, int completedWorkouts) async {
-    await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
-      WorkoutPlansCompanion(
-        completedWorkouts: drift.Value(completedWorkouts),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
+        WorkoutPlansCompanion(
+          completedWorkouts: drift.Value(completedWorkouts),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('更新训练计划进度失败: $e');
+      throw WorkoutPlanRepositoryException('更新训练计划进度失败', e, st);
+    }
   }
 
   /// 完成训练计划
   Future<void> completePlan(int planId) async {
-    await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
-      WorkoutPlansCompanion(
-        status: const drift.Value('completed'),
-        actualEndDate: drift.Value(DateTime.now()),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
+        WorkoutPlansCompanion(
+          status: const drift.Value('completed'),
+          actualEndDate: drift.Value(DateTime.now()),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('完成训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('完成训练计划失败', e, st);
+    }
   }
 
   /// 暂停/恢复训练计划
   Future<void> togglePausePlan(int planId, bool pause) async {
-    await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
-      WorkoutPlansCompanion(
-        status: drift.Value(pause ? 'paused' : 'active'),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
+        WorkoutPlansCompanion(
+          status: drift.Value(pause ? 'paused' : 'active'),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('切换训练计划暂停状态失败: $e');
+      throw WorkoutPlanRepositoryException('切换训练计划暂停状态失败', e, st);
+    }
   }
 
   /// 更新训练计划状态
   Future<void> updatePlanStatus(int planId, String status) async {
-    await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
-      WorkoutPlansCompanion(
-        status: drift.Value(status),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlans)..where((tbl) => tbl.id.equals(planId))).write(
+        WorkoutPlansCompanion(
+          status: drift.Value(status),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('更新训练计划状态失败: $e');
+      throw WorkoutPlanRepositoryException('更新训练计划状态失败', e, st);
+    }
   }
 
   /// 删除训练计划
   Future<int> deletePlan(int id) async {
-    // 删除计划及其关联的所有数据
-    final days = await getPlanDays(id);
-    for (final day in days) {
-      await deletePlanDay(day.id);
+    try {
+      // 删除计划及其关联的所有数据
+      final days = await getPlanDays(id);
+      for (final day in days) {
+        await deletePlanDay(day.id);
+      }
+      return await (_db.delete(_db.workoutPlans)..where((tbl) => tbl.id.equals(id))).go();
+    } catch (e, st) {
+      debugPrint('删除训练计划失败: $e');
+      throw WorkoutPlanRepositoryException('删除训练计划失败', e, st);
     }
-    return await (_db.delete(_db.workoutPlans)..where((tbl) => tbl.id.equals(id))).go();
   }
 
   // ==================== 训练日程相关 ====================
 
   /// 获取训练计划的所有日程
   Future<List<WorkoutPlanDay>> getPlanDays(int planId) async {
-    return await (_db.select(_db.workoutPlanDays)
-          ..where((tbl) => tbl.workoutPlanId.equals(planId))
-          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.dayNumber)]))
-        .get();
+    try {
+      return await (_db.select(_db.workoutPlanDays)
+            ..where((tbl) => tbl.workoutPlanId.equals(planId))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.dayNumber)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取训练日程失败: $e');
+      throw WorkoutPlanRepositoryException('获取训练日程失败', e, st);
+    }
   }
 
   /// 获取指定日期的日程
   Future<List<WorkoutPlanDay>> getDaysByDate(DateTime date) async {
-    final start = DateTime(date.year, date.month, date.day);
-    final end = start.add(const Duration(days: 1));
+    try {
+      final start = DateTime(date.year, date.month, date.day);
+      final end = start.add(const Duration(days: 1));
 
-    return await (_db.select(_db.workoutPlanDays)
-          ..where((tbl) =>
-              tbl.scheduledDate.isBiggerThanValue(start.subtract(const Duration(milliseconds: 1))) &
-              tbl.scheduledDate.isSmallerThanValue(end))
-          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.dayNumber)]))
-        .get();
+      return await (_db.select(_db.workoutPlanDays)
+            ..where((tbl) =>
+                tbl.scheduledDate.isBiggerThanValue(start.subtract(const Duration(milliseconds: 1))) &
+                tbl.scheduledDate.isSmallerThanValue(end))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.dayNumber)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取日期日程失败: $e');
+      throw WorkoutPlanRepositoryException('获取日期日程失败', e, st);
+    }
   }
 
   /// 根据ID获取日程
   Future<WorkoutPlanDay?> getDayById(int id) async {
-    return await (_db.select(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    try {
+      return await (_db.select(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    } catch (e, st) {
+      debugPrint('获取日程详情失败: $e');
+      throw WorkoutPlanRepositoryException('获取日程详情失败', e, st);
+    }
   }
 
   /// 创建训练日程
   Future<int> createDay(WorkoutPlanDaysCompanion day) async {
-    return await _db.into(_db.workoutPlanDays).insert(day);
+    try {
+      return await _db.into(_db.workoutPlanDays).insert(day);
+    } catch (e, st) {
+      debugPrint('创建训练日程失败: $e');
+      throw WorkoutPlanRepositoryException('创建训练日程失败', e, st);
+    }
   }
 
   /// 批量创建训练日程
   Future<void> createDays(List<WorkoutPlanDaysCompanion> days) async {
-    await _db.batch((batch) {
-      for (final day in days) {
-        batch.insert(_db.workoutPlanDays, day);
-      }
-    });
+    try {
+      await _db.batch((batch) {
+        for (final day in days) {
+          batch.insert(_db.workoutPlanDays, day);
+        }
+      });
+    } catch (e, st) {
+      debugPrint('批量创建训练日程失败: $e');
+      throw WorkoutPlanRepositoryException('批量创建训练日程失败', e, st);
+    }
   }
 
   /// 更新训练日程
   Future<bool> updateDay(WorkoutPlanDay day) async {
-    return await _db.update(_db.workoutPlanDays).replace(day);
+    try {
+      return await _db.update(_db.workoutPlanDays).replace(day);
+    } catch (e, st) {
+      debugPrint('更新训练日程失败: $e');
+      throw WorkoutPlanRepositoryException('更新训练日程失败', e, st);
+    }
   }
 
   /// 完成训练日程
   Future<void> completeDay(int dayId) async {
-    await (_db.update(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(dayId))).write(
-      WorkoutPlanDaysCompanion(
-        isCompleted: const drift.Value(true),
-        completedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(dayId))).write(
+        WorkoutPlanDaysCompanion(
+          isCompleted: const drift.Value(true),
+          completedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('完成训练日程失败: $e');
+      throw WorkoutPlanRepositoryException('完成训练日程失败', e, st);
+    }
   }
 
   /// 删除训练日程
   Future<int> deletePlanDay(int id) async {
-    // 删除日程及其关联的所有动作
-    final exercises = await getDayExercises(id);
-    for (final exercise in exercises) {
-      await deleteExercise(exercise.id);
+    try {
+      // 删除日程及其关联的所有动作
+      final exercises = await getDayExercises(id);
+      for (final exercise in exercises) {
+        await deleteExercise(exercise.id);
+      }
+      return await (_db.delete(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(id))).go();
+    } catch (e, st) {
+      debugPrint('删除训练日程失败: $e');
+      throw WorkoutPlanRepositoryException('删除训练日程失败', e, st);
     }
-    return await (_db.delete(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(id))).go();
   }
 
   // ==================== 训练动作相关 ====================
 
   /// 获取训练日程的所有动作
   Future<List<WorkoutPlanExercise>> getDayExercises(int dayId) async {
-    return await (_db.select(_db.workoutPlanExercises)
-          ..where((tbl) => tbl.workoutPlanDayId.equals(dayId))
-          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.exerciseOrder)]))
-        .get();
+    try {
+      return await (_db.select(_db.workoutPlanExercises)
+            ..where((tbl) => tbl.workoutPlanDayId.equals(dayId))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.exerciseOrder)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('获取训练动作失败', e, st);
+    }
   }
 
   /// 根据ID获取动作
   Future<WorkoutPlanExercise?> getExerciseById(int id) async {
-    return await (_db.select(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    try {
+      return await (_db.select(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    } catch (e, st) {
+      debugPrint('获取动作详情失败: $e');
+      throw WorkoutPlanRepositoryException('获取动作详情失败', e, st);
+    }
   }
 
   /// 创建训练动作
   Future<int> createExercise(WorkoutPlanExercisesCompanion exercise) async {
-    return await _db.into(_db.workoutPlanExercises).insert(exercise);
+    try {
+      return await _db.into(_db.workoutPlanExercises).insert(exercise);
+    } catch (e, st) {
+      debugPrint('创建训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('创建训练动作失败', e, st);
+    }
   }
 
   /// 批量创建训练动作
   Future<void> createExercises(List<WorkoutPlanExercisesCompanion> exercises) async {
-    await _db.batch((batch) {
-      for (final exercise in exercises) {
-        batch.insert(_db.workoutPlanExercises, exercise);
-      }
-    });
+    try {
+      await _db.batch((batch) {
+        for (final exercise in exercises) {
+          batch.insert(_db.workoutPlanExercises, exercise);
+        }
+      });
+    } catch (e, st) {
+      debugPrint('批量创建训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('批量创建训练动作失败', e, st);
+    }
   }
 
   /// 更新训练动作
   Future<bool> updateExercise(WorkoutPlanExercise exercise) async {
-    return await _db.update(_db.workoutPlanExercises).replace(exercise);
+    try {
+      return await _db.update(_db.workoutPlanExercises).replace(exercise);
+    } catch (e, st) {
+      debugPrint('更新训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('更新训练动作失败', e, st);
+    }
   }
 
   /// 完成训练动作
   Future<void> completeExercise(int exerciseId) async {
-    await (_db.update(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(exerciseId))).write(
-      WorkoutPlanExercisesCompanion(
-        isCompleted: const drift.Value(true),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(exerciseId))).write(
+        WorkoutPlanExercisesCompanion(
+          isCompleted: const drift.Value(true),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('完成训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('完成训练动作失败', e, st);
+    }
   }
 
   /// 替换训练动作
   Future<void> replaceExercise(int exerciseId, String newExercise) async {
-    await (_db.update(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(exerciseId))).write(
-      WorkoutPlanExercisesCompanion(
-        exerciseName: drift.Value(newExercise),
-      ),
-    );
+    try {
+      await (_db.update(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(exerciseId))).write(
+        WorkoutPlanExercisesCompanion(
+          exerciseName: drift.Value(newExercise),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('替换训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('替换训练动作失败', e, st);
+    }
   }
 
   /// 删除训练动作
   Future<int> deleteExercise(int id) async {
-    return await (_db.delete(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(id))).go();
+    try {
+      return await (_db.delete(_db.workoutPlanExercises)..where((tbl) => tbl.id.equals(id))).go();
+    } catch (e, st) {
+      debugPrint('删除训练动作失败: $e');
+      throw WorkoutPlanRepositoryException('删除训练动作失败', e, st);
+    }
   }
 
   /// 获取完整的训练计划（含日程和动作）
   Future<WorkoutPlanWithDetails?> getPlanWithDetails(int planId) async {
-    final plan = await getPlanById(planId);
-    if (plan == null) return null;
+    try {
+      final plan = await getPlanById(planId);
+      if (plan == null) return null;
 
-    final days = await getPlanDays(planId);
-    final daysWithExercises = <WorkoutPlanDayWithExercises>[];
+      final days = await getPlanDays(planId);
+      final daysWithExercises = <WorkoutPlanDayWithExercises>[];
 
-    for (final day in days) {
-      final exercises = await getDayExercises(day.id);
-      daysWithExercises.add(WorkoutPlanDayWithExercises(
-        day: day,
-        exercises: exercises,
-      ));
+      for (final day in days) {
+        final exercises = await getDayExercises(day.id);
+        daysWithExercises.add(WorkoutPlanDayWithExercises(
+          day: day,
+          exercises: exercises,
+        ));
+      }
+
+      return WorkoutPlanWithDetails(
+        plan: plan,
+        days: daysWithExercises,
+      );
+    } catch (e, st) {
+      debugPrint('获取训练计划详情失败: $e');
+      throw WorkoutPlanRepositoryException('获取训练计划详情失败', e, st);
     }
-
-    return WorkoutPlanWithDetails(
-      plan: plan,
-      days: daysWithExercises,
-    );
   }
 }
 

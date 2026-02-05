@@ -1,8 +1,28 @@
 // 用户反馈仓库
 // 处理用户对动作/食材的反馈数据存储和查询
+// 包含统一的异常处理
 
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:thick_notepad/services/database/database.dart';
+
+/// 用户反馈仓库异常类
+class UserFeedbackRepositoryException implements Exception {
+  final String message;
+  final dynamic originalError;
+  final StackTrace? stackTrace;
+
+  UserFeedbackRepositoryException(
+    this.message, [
+    this.originalError,
+    this.stackTrace,
+  ]);
+
+  @override
+  String toString() {
+    return 'UserFeedbackRepositoryException: $message';
+  }
+}
 
 /// 反馈类型枚举
 enum FeedbackType {
@@ -83,40 +103,60 @@ class UserFeedbackRepository {
     int? userProfileId,
     String? notes,
   }) async {
-    final entity = UserFeedbacksCompanion.insert(
-      feedbackType: feedbackType.value,
-      itemId: itemId,
-      itemType: itemType,
-      reason: reason,
-      originalName: originalName,
-      replacementName: drift.Value(replacementName),
-      userProfileId: drift.Value(userProfileId),
-      notes: drift.Value(notes),
-    );
-    return await _db.into(_db.userFeedbacks).insert(entity);
+    try {
+      final entity = UserFeedbacksCompanion.insert(
+        feedbackType: feedbackType.value,
+        itemId: itemId,
+        itemType: itemType,
+        reason: reason,
+        originalName: originalName,
+        replacementName: drift.Value(replacementName),
+        userProfileId: drift.Value(userProfileId),
+        notes: drift.Value(notes),
+      );
+      return await _db.into(_db.userFeedbacks).insert(entity);
+    } catch (e, st) {
+      debugPrint('创建用户反馈失败: $e');
+      throw UserFeedbackRepositoryException('创建用户反馈失败', e, st);
+    }
   }
 
   /// 获取所有反馈
   Future<List<UserFeedback>> getAllFeedbacks() async {
-    return await (_db.select(_db.userFeedbacks)
-          ..orderBy([(f) => drift.OrderingTerm.asc(f.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.userFeedbacks)
+            ..orderBy([(f) => drift.OrderingTerm.asc(f.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取所有反馈失败: $e');
+      throw UserFeedbackRepositoryException('获取所有反馈失败', e, st);
+    }
   }
 
   /// 按用户画像获取反馈
   Future<List<UserFeedback>> getFeedbacksByProfile(int profileId) async {
-    return await (_db.select(_db.userFeedbacks)
-          ..where((f) => f.userProfileId.equals(profileId))
-          ..orderBy([(f) => drift.OrderingTerm.asc(f.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.userFeedbacks)
+            ..where((f) => f.userProfileId.equals(profileId))
+            ..orderBy([(f) => drift.OrderingTerm.asc(f.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取用户画像反馈失败: $e');
+      throw UserFeedbackRepositoryException('获取用户画像反馈失败', e, st);
+    }
   }
 
   /// 按反馈类型获取
   Future<List<UserFeedback>> getFeedbacksByType(FeedbackType type) async {
-    return await (_db.select(_db.userFeedbacks)
-          ..where((f) => f.feedbackType.equals(type.value))
-          ..orderBy([(f) => drift.OrderingTerm.asc(f.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.userFeedbacks)
+            ..where((f) => f.feedbackType.equals(type.value))
+            ..orderBy([(f) => drift.OrderingTerm.asc(f.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('按类型获取反馈失败: $e');
+      throw UserFeedbackRepositoryException('按类型获取反馈失败', e, st);
+    }
   }
 
   /// 按原因统计反馈数量
@@ -124,22 +164,27 @@ class UserFeedbackRepository {
     FeedbackType? type,
     int? userProfileId,
   }) async {
-    final query = _db.select(_db.userFeedbacks);
+    try {
+      final query = _db.select(_db.userFeedbacks);
 
-    if (type != null) {
-      query.where((f) => f.feedbackType.equals(type.value));
-    }
-    if (userProfileId != null) {
-      query.where((f) => f.userProfileId.equals(userProfileId));
-    }
+      if (type != null) {
+        query.where((f) => f.feedbackType.equals(type.value));
+      }
+      if (userProfileId != null) {
+        query.where((f) => f.userProfileId.equals(userProfileId));
+      }
 
-    final feedbacks = await query.get();
+      final feedbacks = await query.get();
 
-    final Map<String, int> result = {};
-    for (final f in feedbacks) {
-      result[f.reason] = (result[f.reason] ?? 0) + 1;
+      final Map<String, int> result = {};
+      for (final f in feedbacks) {
+        result[f.reason] = (result[f.reason] ?? 0) + 1;
+      }
+      return result;
+    } catch (e, st) {
+      debugPrint('统计反馈原因失败: $e');
+      throw UserFeedbackRepositoryException('统计反馈原因失败', e, st);
     }
-    return result;
   }
 
   /// 获取最常被替换的项目（用于AI优化）
@@ -148,39 +193,44 @@ class UserFeedbackRepository {
     int? userProfileId,
     int limit = 10,
   }) async {
-    final query = _db.select(_db.userFeedbacks);
+    try {
+      final query = _db.select(_db.userFeedbacks);
 
-    if (type != null) {
-      query.where((f) => f.feedbackType.equals(type.value));
-    }
-    if (userProfileId != null) {
-      query.where((f) => f.userProfileId.equals(userProfileId));
-    }
-
-    final feedbacks = await query.get();
-
-    // 统计每个原始名称的反馈次数
-    final Map<String, Map<String, dynamic>> stats = {};
-    for (final f in feedbacks) {
-      final key = f.originalName;
-      if (!stats.containsKey(key)) {
-        stats[key] = {
-          'name': f.originalName,
-          'count': 0,
-          'reasons': <String>[],
-        };
+      if (type != null) {
+        query.where((f) => f.feedbackType.equals(type.value));
       }
-      stats[key]!['count'] = stats[key]!['count']! + 1;
-      if (!stats[key]!['reasons'].contains(f.reason)) {
-        stats[key]!['reasons'].add(f.reason);
+      if (userProfileId != null) {
+        query.where((f) => f.userProfileId.equals(userProfileId));
       }
+
+      final feedbacks = await query.get();
+
+      // 统计每个原始名称的反馈次数
+      final Map<String, Map<String, dynamic>> stats = {};
+      for (final f in feedbacks) {
+        final key = f.originalName;
+        if (!stats.containsKey(key)) {
+          stats[key] = {
+            'name': f.originalName,
+            'count': 0,
+            'reasons': <String>[],
+          };
+        }
+        stats[key]!['count'] = stats[key]!['count']! + 1;
+        if (!stats[key]!['reasons'].contains(f.reason)) {
+          stats[key]!['reasons'].add(f.reason);
+        }
+      }
+
+      // 按数量排序
+      final sorted = stats.values.toList()
+        ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+      return sorted.take(limit).toList();
+    } catch (e, st) {
+      debugPrint('获取最常替换项目失败: $e');
+      throw UserFeedbackRepositoryException('获取最常替换项目失败', e, st);
     }
-
-    // 按数量排序
-    final sorted = stats.values.toList()
-      ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
-
-    return sorted.take(limit).toList();
   }
 
   /// 获取最近的反馈
@@ -189,84 +239,104 @@ class UserFeedbackRepository {
     int? userProfileId,
     int limit = 20,
   }) async {
-    final query = _db.select(_db.userFeedbacks);
+    try {
+      final query = _db.select(_db.userFeedbacks);
 
-    if (type != null) {
-      query.where((f) => f.feedbackType.equals(type.value));
-    }
-    if (userProfileId != null) {
-      query.where((f) => f.userProfileId.equals(userProfileId));
-    }
+      if (type != null) {
+        query.where((f) => f.feedbackType.equals(type.value));
+      }
+      if (userProfileId != null) {
+        query.where((f) => f.userProfileId.equals(userProfileId));
+      }
 
-    return await (query
-          ..orderBy([(f) => drift.OrderingTerm.desc(f.createdAt)]))
-        .get()
-        .then((list) => list.take(limit).toList());
+      return await (query
+            ..orderBy([(f) => drift.OrderingTerm.desc(f.createdAt)]))
+          .get()
+          .then((list) => list.take(limit).toList());
+    } catch (e, st) {
+      debugPrint('获取最近反馈失败: $e');
+      throw UserFeedbackRepositoryException('获取最近反馈失败', e, st);
+    }
   }
 
   /// 删除反馈记录
   Future<bool> deleteFeedback(int id) async {
-    final result = await (_db.delete(_db.userFeedbacks)..where((tbl) => tbl.id.equals(id))).go();
-    return result > 0;
+    try {
+      final result = await (_db.delete(_db.userFeedbacks)..where((tbl) => tbl.id.equals(id))).go();
+      return result > 0;
+    } catch (e, st) {
+      debugPrint('删除反馈记录失败: $e');
+      throw UserFeedbackRepositoryException('删除反馈记录失败', e, st);
+    }
   }
 
   /// 清空用户的所有反馈
   Future<int> clearFeedbacksByProfile(int profileId) async {
-    final items = await (_db.select(_db.userFeedbacks)
-          ..where((f) => f.userProfileId.equals(profileId)))
-        .get();
+    try {
+      final items = await (_db.select(_db.userFeedbacks)
+            ..where((f) => f.userProfileId.equals(profileId)))
+          .get();
 
-    int count = 0;
-    for (final item in items) {
-      final result = await (_db.delete(_db.userFeedbacks)..where((tbl) => tbl.id.equals(item.id))).go();
-      if (result > 0) count++;
+      int count = 0;
+      for (final item in items) {
+        final result = await (_db.delete(_db.userFeedbacks)..where((tbl) => tbl.id.equals(item.id))).go();
+        if (result > 0) count++;
+      }
+      return count;
+    } catch (e, st) {
+      debugPrint('清空用户反馈失败: $e');
+      throw UserFeedbackRepositoryException('清空用户反馈失败', e, st);
     }
-    return count;
   }
 
   // ==================== 辅助方法 ====================
 
   /// 获取用户偏好摘要（用于AI生成计划）
   Future<Map<String, dynamic>> getUserPreferenceSummary(int userProfileId) async {
-    final feedbacks = await getFeedbacksByProfile(userProfileId);
+    try {
+      final feedbacks = await getFeedbacksByProfile(userProfileId);
 
-    final Set<String> dislikedExercises = {};
-    final Set<String> unavailableFoods = {};
-    final Set<String> dislikedFoods = {};
-    final Map<String, int> difficultyFeedback = {'too_hard': 0, 'too_easy': 0};
+      final Set<String> dislikedExercises = {};
+      final Set<String> unavailableFoods = {};
+      final Set<String> dislikedFoods = {};
+      final Map<String, int> difficultyFeedback = {'too_hard': 0, 'too_easy': 0};
 
-    for (final f in feedbacks) {
-      if (f.feedbackType == 'exercise') {
-        if (f.reason == 'dislike' || f.reason == 'injury') {
-          dislikedExercises.add(f.originalName);
-        }
-        if (f.reason == 'too_hard') {
-          difficultyFeedback['too_hard'] = difficultyFeedback['too_hard']! + 1;
-        }
-        if (f.reason == 'too_easy') {
-          difficultyFeedback['too_easy'] = difficultyFeedback['too_easy']! + 1;
-        }
-      } else if (f.feedbackType == 'food') {
-        if (f.reason == 'unavailable' || f.reason == 'too_expensive') {
-          unavailableFoods.add(f.originalName);
-        }
-        if (f.reason == 'dislike' || f.reason == 'allergy') {
-          dislikedFoods.add(f.originalName);
+      for (final f in feedbacks) {
+        if (f.feedbackType == 'exercise') {
+          if (f.reason == 'dislike' || f.reason == 'injury') {
+            dislikedExercises.add(f.originalName);
+          }
+          if (f.reason == 'too_hard') {
+            difficultyFeedback['too_hard'] = difficultyFeedback['too_hard']! + 1;
+          }
+          if (f.reason == 'too_easy') {
+            difficultyFeedback['too_easy'] = difficultyFeedback['too_easy']! + 1;
+          }
+        } else if (f.feedbackType == 'food') {
+          if (f.reason == 'unavailable' || f.reason == 'too_expensive') {
+            unavailableFoods.add(f.originalName);
+          }
+          if (f.reason == 'dislike' || f.reason == 'allergy') {
+            dislikedFoods.add(f.originalName);
+          }
         }
       }
-    }
 
-    return {
-      'disliked_exercises': dislikedExercises.toList(),
-      'unavailable_foods': unavailableFoods.toList(),
-      'disliked_foods': dislikedFoods.toList(),
-      'difficulty_preference': difficultyFeedback['too_hard']! > difficultyFeedback['too_easy']!
-          ? 'prefer_easier'
-          : difficultyFeedback['too_easy']! > difficultyFeedback['too_hard']!
-              ? 'prefer_harder'
-              : 'balanced',
-      'total_feedbacks': feedbacks.length,
-    };
+      return {
+        'disliked_exercises': dislikedExercises.toList(),
+        'unavailable_foods': unavailableFoods.toList(),
+        'disliked_foods': dislikedFoods.toList(),
+        'difficulty_preference': difficultyFeedback['too_hard']! > difficultyFeedback['too_easy']!
+            ? 'prefer_easier'
+            : difficultyFeedback['too_easy']! > difficultyFeedback['too_hard']!
+                ? 'prefer_harder'
+                : 'balanced',
+        'total_feedbacks': feedbacks.length,
+      };
+    } catch (e, st) {
+      debugPrint('获取用户偏好摘要失败: $e');
+      throw UserFeedbackRepositoryException('获取用户偏好摘要失败', e, st);
+    }
   }
 
   /// 检查某个项目是否曾被用户反馈过
@@ -275,16 +345,21 @@ class UserFeedbackRepository {
     FeedbackType? type,
     int? userProfileId,
   }) async {
-    final query = _db.select(_db.userFeedbacks)
-      ..where((f) => f.originalName.equals(itemName));
+    try {
+      final query = _db.select(_db.userFeedbacks)
+        ..where((f) => f.originalName.equals(itemName));
 
-    if (type != null) {
-      query.where((f) => f.feedbackType.equals(type.value));
-    }
-    if (userProfileId != null) {
-      query.where((f) => f.userProfileId.equals(userProfileId));
-    }
+      if (type != null) {
+        query.where((f) => f.feedbackType.equals(type.value));
+      }
+      if (userProfileId != null) {
+        query.where((f) => f.userProfileId.equals(userProfileId));
+      }
 
-    return await query.get().then((list) => list.isNotEmpty);
+      return await query.get().then((list) => list.isNotEmpty);
+    } catch (e, st) {
+      debugPrint('检查项目反馈失败: $e');
+      throw UserFeedbackRepositoryException('检查项目反馈失败', e, st);
+    }
   }
 }

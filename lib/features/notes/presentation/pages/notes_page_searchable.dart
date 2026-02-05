@@ -253,7 +253,7 @@ class _NotesViewSearchableState extends ConsumerState<NotesViewSearchable> {
                       final folder = allFolders[index - 1];
                       final isSelected = _selectedFolder == folder;
                       return _FolderFilterChip(
-                        label: folder,
+                        label: folder ?? '未命名',
                         isSelected: isSelected,
                         onTap: () {
                           setState(() => _selectedFolder = folder);
@@ -518,7 +518,7 @@ class _NoteCard extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                note.isPinned ? Icons.push_pin : Icons.push_pin_out,
+                note.isPinned ? Icons.push_pin : Icons.push_pin,
                 size: 16,
                 color: note.isPinned ? AppColors.primary : AppColors.textSecondary,
               ),

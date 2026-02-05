@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
+import 'package:thick_notepad/services/speech/intent_parser.dart';
 import 'package:thick_notepad/services/speech/speech_recognition_service.dart';
 
 /// 语音输入按钮样式

@@ -1,7 +1,27 @@
 /// AI饮食计划仓库 - 封装饮食计划相关的数据库操作
+/// 包含统一的异常处理
 
+import 'package:flutter/foundation.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:drift/drift.dart' as drift;
+
+/// 饮食计划仓库异常类
+class DietPlanRepositoryException implements Exception {
+  final String message;
+  final dynamic originalError;
+  final StackTrace? stackTrace;
+
+  DietPlanRepositoryException(
+    this.message, [
+    this.originalError,
+    this.stackTrace,
+  ]);
+
+  @override
+  String toString() {
+    return 'DietPlanRepositoryException: $message';
+  }
+}
 
 class DietPlanRepository {
   final AppDatabase _db;
@@ -10,263 +30,398 @@ class DietPlanRepository {
 
   /// 获取所有饮食计划
   Future<List<DietPlan>> getAllPlans() async {
-    return await (_db.select(_db.dietPlans)
-          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.dietPlans)
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取所有饮食计划失败: $e');
+      throw DietPlanRepositoryException('获取所有饮食计划失败', e, st);
+    }
   }
 
   /// 获取进行中的饮食计划
   Future<List<DietPlan>> getActivePlans() async {
-    return await (_db.select(_db.dietPlans)
-          ..where((tbl) => tbl.status.equals('active'))
-          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.dietPlans)
+            ..where((tbl) => tbl.status.equals('active'))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取进行中饮食计划失败: $e');
+      throw DietPlanRepositoryException('获取进行中饮食计划失败', e, st);
+    }
   }
 
   /// 根据用户画像获取饮食计划
   Future<List<DietPlan>> getPlansByProfileId(int profileId) async {
-    return await (_db.select(_db.dietPlans)
-          ..where((tbl) => tbl.userProfileId.equals(profileId))
-          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-        .get();
+    try {
+      return await (_db.select(_db.dietPlans)
+            ..where((tbl) => tbl.userProfileId.equals(profileId))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取用户画像饮食计划失败: $e');
+      throw DietPlanRepositoryException('获取用户画像饮食计划失败', e, st);
+    }
   }
 
   /// 根据ID获取饮食计划
   Future<DietPlan?> getPlanById(int id) async {
-    return await (_db.select(_db.dietPlans)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    try {
+      return await (_db.select(_db.dietPlans)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    } catch (e, st) {
+      debugPrint('获取饮食计划详情失败: $e');
+      throw DietPlanRepositoryException('获取饮食计划详情失败', e, st);
+    }
   }
 
   /// 创建饮食计划
   Future<int> createPlan(DietPlansCompanion plan) async {
-    return await _db.into(_db.dietPlans).insert(plan);
+    try {
+      return await _db.into(_db.dietPlans).insert(plan);
+    } catch (e, st) {
+      debugPrint('创建饮食计划失败: $e');
+      throw DietPlanRepositoryException('创建饮食计划失败', e, st);
+    }
   }
 
   /// 更新饮食计划
   Future<bool> updatePlan(DietPlan plan) async {
-    return await _db.update(_db.dietPlans).replace(plan);
+    try {
+      return await _db.update(_db.dietPlans).replace(plan);
+    } catch (e, st) {
+      debugPrint('更新饮食计划失败: $e');
+      throw DietPlanRepositoryException('更新饮食计划失败', e, st);
+    }
   }
 
   /// 完成饮食计划
   Future<void> completePlan(int planId) async {
-    await (_db.update(_db.dietPlans)..where((tbl) => tbl.id.equals(planId))).write(
-      DietPlansCompanion(
-        status: const drift.Value('completed'),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.dietPlans)..where((tbl) => tbl.id.equals(planId))).write(
+        DietPlansCompanion(
+          status: const drift.Value('completed'),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('完成饮食计划失败: $e');
+      throw DietPlanRepositoryException('完成饮食计划失败', e, st);
+    }
   }
 
   /// 暂停/恢复饮食计划
   Future<void> togglePausePlan(int planId, bool pause) async {
-    await (_db.update(_db.dietPlans)..where((tbl) => tbl.id.equals(planId))).write(
-      DietPlansCompanion(
-        status: drift.Value(pause ? 'paused' : 'active'),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.dietPlans)..where((tbl) => tbl.id.equals(planId))).write(
+        DietPlansCompanion(
+          status: drift.Value(pause ? 'paused' : 'active'),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('切换饮食计划暂停状态失败: $e');
+      throw DietPlanRepositoryException('切换饮食计划暂停状态失败', e, st);
+    }
   }
 
   /// 删除饮食计划
   Future<int> deletePlan(int id) async {
-    // 删除计划及其关联的所有数据
-    final meals = await getPlanMeals(id);
-    for (final meal in meals) {
-      await deleteMeal(meal.id);
+    try {
+      // 删除计划及其关联的所有数据
+      final meals = await getPlanMeals(id);
+      for (final meal in meals) {
+        await deleteMeal(meal.id);
+      }
+      return await (_db.delete(_db.dietPlans)..where((tbl) => tbl.id.equals(id))).go();
+    } catch (e, st) {
+      debugPrint('删除饮食计划失败: $e');
+      throw DietPlanRepositoryException('删除饮食计划失败', e, st);
     }
-    return await (_db.delete(_db.dietPlans)..where((tbl) => tbl.id.equals(id))).go();
   }
 
   // ==================== 餐次相关 ====================
 
   /// 获取饮食计划的所有餐次
   Future<List<DietPlanMeal>> getPlanMeals(int planId) async {
-    return await (_db.select(_db.dietPlanMeals)
-          ..where((tbl) => tbl.dietPlanId.equals(planId))
-          ..orderBy([
-            (tbl) => drift.OrderingTerm.asc(tbl.dayNumber),
-            (tbl) => drift.OrderingTerm.asc(tbl.mealType),
-          ]))
-        .get();
+    try {
+      return await (_db.select(_db.dietPlanMeals)
+            ..where((tbl) => tbl.dietPlanId.equals(planId))
+            ..orderBy([
+              (tbl) => drift.OrderingTerm.asc(tbl.dayNumber),
+              (tbl) => drift.OrderingTerm.asc(tbl.mealType),
+            ]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取计划餐次失败: $e');
+      throw DietPlanRepositoryException('获取计划餐次失败', e, st);
+    }
   }
 
   /// 获取指定日期的餐次
   Future<List<DietPlanMeal>> getMealsByDate(DateTime date) async {
-    final start = DateTime(date.year, date.month, date.day);
-    final end = start.add(const Duration(days: 1));
+    try {
+      final start = DateTime(date.year, date.month, date.day);
+      final end = start.add(const Duration(days: 1));
 
-    return await (_db.select(_db.dietPlanMeals)
-          ..where((tbl) =>
-              tbl.scheduledDate.isBiggerThanValue(start.subtract(const Duration(milliseconds: 1))) &
-              tbl.scheduledDate.isSmallerThanValue(end))
-          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.mealType)]))
-        .get();
+      return await (_db.select(_db.dietPlanMeals)
+            ..where((tbl) =>
+                tbl.scheduledDate.isBiggerThanValue(start.subtract(const Duration(milliseconds: 1))) &
+                tbl.scheduledDate.isSmallerThanValue(end))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.mealType)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取日期餐次失败: $e');
+      throw DietPlanRepositoryException('获取日期餐次失败', e, st);
+    }
   }
 
   /// 获取指定天数的餐次
   Future<List<DietPlanMeal>> getMealsByDay(int planId, int dayNumber) async {
-    return await (_db.select(_db.dietPlanMeals)
-          ..where((tbl) => tbl.dietPlanId.equals(planId) & tbl.dayNumber.equals(dayNumber))
-          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.mealType)]))
-        .get();
+    try {
+      return await (_db.select(_db.dietPlanMeals)
+            ..where((tbl) => tbl.dietPlanId.equals(planId) & tbl.dayNumber.equals(dayNumber))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.mealType)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取天数餐次失败: $e');
+      throw DietPlanRepositoryException('获取天数餐次失败', e, st);
+    }
   }
 
   /// 根据ID获取餐次
   Future<DietPlanMeal?> getMealById(int id) async {
-    return await (_db.select(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    try {
+      return await (_db.select(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    } catch (e, st) {
+      debugPrint('获取餐次详情失败: $e');
+      throw DietPlanRepositoryException('获取餐次详情失败', e, st);
+    }
   }
 
   /// 创建餐次
   Future<int> createMeal(DietPlanMealsCompanion meal) async {
-    return await _db.into(_db.dietPlanMeals).insert(meal);
+    try {
+      return await _db.into(_db.dietPlanMeals).insert(meal);
+    } catch (e, st) {
+      debugPrint('创建餐次失败: $e');
+      throw DietPlanRepositoryException('创建餐次失败', e, st);
+    }
   }
 
   /// 批量创建餐次
   Future<void> createMeals(List<DietPlanMealsCompanion> meals) async {
-    await _db.batch((batch) {
-      for (final meal in meals) {
-        batch.insert(_db.dietPlanMeals, meal);
-      }
-    });
+    try {
+      await _db.batch((batch) {
+        for (final meal in meals) {
+          batch.insert(_db.dietPlanMeals, meal);
+        }
+      });
+    } catch (e, st) {
+      debugPrint('批量创建餐次失败: $e');
+      throw DietPlanRepositoryException('批量创建餐次失败', e, st);
+    }
   }
 
   /// 更新餐次
   Future<bool> updateMeal(DietPlanMeal meal) async {
-    return await _db.update(_db.dietPlanMeals).replace(meal);
+    try {
+      return await _db.update(_db.dietPlanMeals).replace(meal);
+    } catch (e, st) {
+      debugPrint('更新餐次失败: $e');
+      throw DietPlanRepositoryException('更新餐次失败', e, st);
+    }
   }
 
   /// 完成餐次
   Future<void> completeMeal(int mealId) async {
-    await (_db.update(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(mealId))).write(
-      DietPlanMealsCompanion(
-        isCompleted: const drift.Value(true),
-        completedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    try {
+      await (_db.update(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(mealId))).write(
+        DietPlanMealsCompanion(
+          isCompleted: const drift.Value(true),
+          completedAt: drift.Value(DateTime.now()),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('完成餐次失败: $e');
+      throw DietPlanRepositoryException('完成餐次失败', e, st);
+    }
   }
 
   /// 删除餐次
   Future<int> deleteMeal(int id) async {
-    // 删除餐次及其关联的所有食材
-    final items = await getMealItems(id);
-    for (final item in items) {
-      await deleteItem(item.id);
+    try {
+      // 删除餐次及其关联的所有食材
+      final items = await getMealItems(id);
+      for (final item in items) {
+        await deleteItem(item.id);
+      }
+      return await (_db.delete(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(id))).go();
+    } catch (e, st) {
+      debugPrint('删除餐次失败: $e');
+      throw DietPlanRepositoryException('删除餐次失败', e, st);
     }
-    return await (_db.delete(_db.dietPlanMeals)..where((tbl) => tbl.id.equals(id))).go();
   }
 
   // ==================== 食材相关 ====================
 
   /// 获取餐次的所有食材
   Future<List<MealItem>> getMealItems(int mealId) async {
-    return await (_db.select(_db.mealItems)
-          ..where((tbl) => tbl.dietPlanMealId.equals(mealId))
-          ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.itemOrder)]))
-        .get();
+    try {
+      return await (_db.select(_db.mealItems)
+            ..where((tbl) => tbl.dietPlanMealId.equals(mealId))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.itemOrder)]))
+          .get();
+    } catch (e, st) {
+      debugPrint('获取餐次食材失败: $e');
+      throw DietPlanRepositoryException('获取餐次食材失败', e, st);
+    }
   }
 
   /// 根据ID获取食材
   Future<MealItem?> getItemById(int id) async {
-    return await (_db.select(_db.mealItems)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    try {
+      return await (_db.select(_db.mealItems)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    } catch (e, st) {
+      debugPrint('获取食材详情失败: $e');
+      throw DietPlanRepositoryException('获取食材详情失败', e, st);
+    }
   }
 
   /// 创建食材
   Future<int> createItem(MealItemsCompanion item) async {
-    return await _db.into(_db.mealItems).insert(item);
+    try {
+      return await _db.into(_db.mealItems).insert(item);
+    } catch (e, st) {
+      debugPrint('创建食材失败: $e');
+      throw DietPlanRepositoryException('创建食材失败', e, st);
+    }
   }
 
   /// 批量创建食材
   Future<void> createItems(List<MealItemsCompanion> items) async {
-    await _db.batch((batch) {
-      for (final item in items) {
-        batch.insert(_db.mealItems, item);
-      }
-    });
+    try {
+      await _db.batch((batch) {
+        for (final item in items) {
+          batch.insert(_db.mealItems, item);
+        }
+      });
+    } catch (e, st) {
+      debugPrint('批量创建食材失败: $e');
+      throw DietPlanRepositoryException('批量创建食材失败', e, st);
+    }
   }
 
   /// 更新食材
   Future<bool> updateItem(MealItem item) async {
-    return await _db.update(_db.mealItems).replace(item);
+    try {
+      return await _db.update(_db.mealItems).replace(item);
+    } catch (e, st) {
+      debugPrint('更新食材失败: $e');
+      throw DietPlanRepositoryException('更新食材失败', e, st);
+    }
   }
 
   /// 删除食材
   Future<int> deleteItem(int id) async {
-    return await (_db.delete(_db.mealItems)..where((tbl) => tbl.id.equals(id))).go();
+    try {
+      return await (_db.delete(_db.mealItems)..where((tbl) => tbl.id.equals(id))).go();
+    } catch (e, st) {
+      debugPrint('删除食材失败: $e');
+      throw DietPlanRepositoryException('删除食材失败', e, st);
+    }
   }
 
   /// 获取完整的饮食计划（含餐次和食材）
   Future<DietPlanWithDetails?> getPlanWithDetails(int planId) async {
-    final plan = await getPlanById(planId);
-    if (plan == null) return null;
+    try {
+      final plan = await getPlanById(planId);
+      if (plan == null) return null;
 
-    final meals = await getPlanMeals(planId);
-    final mealsWithItems = <DietPlanMealWithItems>[];
+      final meals = await getPlanMeals(planId);
+      final mealsWithItems = <DietPlanMealWithItems>[];
 
-    for (final meal in meals) {
-      final items = await getMealItems(meal.id);
-      mealsWithItems.add(DietPlanMealWithItems(
-        meal: meal,
-        items: items,
-      ));
+      for (final meal in meals) {
+        final items = await getMealItems(meal.id);
+        mealsWithItems.add(DietPlanMealWithItems(
+          meal: meal,
+          items: items,
+        ));
+      }
+
+      return DietPlanWithDetails(
+        plan: plan,
+        meals: mealsWithItems,
+      );
+    } catch (e, st) {
+      debugPrint('获取饮食计划详情失败: $e');
+      throw DietPlanRepositoryException('获取饮食计划详情失败', e, st);
     }
-
-    return DietPlanWithDetails(
-      plan: plan,
-      meals: mealsWithItems,
-    );
   }
 
   /// 获取指定天数的饮食（含食材）
   Future<List<DietPlanMealWithItems>> getDayWithItems(int planId, int dayNumber) async {
-    final meals = await getMealsByDay(planId, dayNumber);
-    final mealsWithItems = <DietPlanMealWithItems>[];
+    try {
+      final meals = await getMealsByDay(planId, dayNumber);
+      final mealsWithItems = <DietPlanMealWithItems>[];
 
-    for (final meal in meals) {
-      final items = await getMealItems(meal.id);
-      mealsWithItems.add(DietPlanMealWithItems(
-        meal: meal,
-        items: items,
-      ));
+      for (final meal in meals) {
+        final items = await getMealItems(meal.id);
+        mealsWithItems.add(DietPlanMealWithItems(
+          meal: meal,
+          items: items,
+        ));
+      }
+
+      return mealsWithItems;
+    } catch (e, st) {
+      debugPrint('获取天数饮食详情失败: $e');
+      throw DietPlanRepositoryException('获取天数饮食详情失败', e, st);
     }
-
-    return mealsWithItems;
   }
 
   /// 生成食材采购清单（按周）
   Future<List<ShoppingItem>> generateShoppingList(int planId, int weekNumber) async {
-    final plan = await getPlanById(planId);
-    if (plan == null) return [];
+    try {
+      final plan = await getPlanById(planId);
+      if (plan == null) return [];
 
-    final startDay = (weekNumber - 1) * 7 + 1;
-    final endDay = weekNumber * 7;
+      final startDay = (weekNumber - 1) * 7 + 1;
+      final endDay = weekNumber * 7;
 
-    final meals = await getPlanMeals(planId);
-    final weekMeals = meals.where((m) => m.dayNumber >= startDay && m.dayNumber <= endDay).toList();
+      final meals = await getPlanMeals(planId);
+      final weekMeals = meals.where((m) => m.dayNumber >= startDay && m.dayNumber <= endDay).toList();
 
-    final shoppingList = <String, ShoppingItem>{};
+      final shoppingList = <String, ShoppingItem>{};
 
-    for (final meal in weekMeals) {
-      final items = await getMealItems(meal.id);
-      for (final item in items) {
-        final key = item.foodName;
-        if (shoppingList.containsKey(key)) {
-          final existing = shoppingList[key]!;
-          shoppingList[key] = ShoppingItem(
-            foodName: item.foodName,
-            amount: _combineAmounts(existing.amount, item.amount),
-            weightGrams: (existing.weightGrams ?? 0) + (item.weightGrams ?? 0),
-          );
-        } else {
-          shoppingList[key] = ShoppingItem(
-            foodName: item.foodName,
-            amount: item.amount,
-            weightGrams: item.weightGrams,
-          );
+      for (final meal in weekMeals) {
+        final items = await getMealItems(meal.id);
+        for (final item in items) {
+          final key = item.foodName;
+          if (shoppingList.containsKey(key)) {
+            final existing = shoppingList[key]!;
+            shoppingList[key] = ShoppingItem(
+              foodName: item.foodName,
+              amount: _combineAmounts(existing.amount, item.amount),
+              weightGrams: (existing.weightGrams ?? 0) + (item.weightGrams ?? 0),
+            );
+          } else {
+            shoppingList[key] = ShoppingItem(
+              foodName: item.foodName,
+              amount: item.amount,
+              weightGrams: item.weightGrams,
+            );
+          }
         }
       }
-    }
 
-    return shoppingList.values.toList()
-      ..sort((a, b) => a.foodName.compareTo(b.foodName));
+      return shoppingList.values.toList()
+        ..sort((a, b) => a.foodName.compareTo(b.foodName));
+    } catch (e, st) {
+      debugPrint('生成采购清单失败: $e');
+      throw DietPlanRepositoryException('生成采购清单失败', e, st);
+    }
   }
 
   /// 合并用量描述

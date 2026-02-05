@@ -101,28 +101,48 @@ class GachaConfig {
       };
     }
 
-    // 10抽保底：必出稀有以上（修复：使用正确的触发点和概率归一化）
+    // 10抽保底：必出稀有以上（软保底阶段）
+    //
+    // 软保底机制说明：
+    // - 触发点：从第10抽开始（pityCount >= 10）
+    // - 持续范围：第10抽到第49抽（共40抽）
+    // - 结束点：第50抽触发硬保底（必出史诗）
+    //
+    // 概率设计原则：
+    // 1. 初始状态（第10抽）：稀有70%、史诗25%、传说5%
+    // 2. 随着抽数增加，高稀有度概率平滑上升
+    // 3. 最终状态（第49抽）：稀有50%、史诗40%、传说10%
+    // 4. 概率总和始终严格为100%（增量总和为0）
     if (pityCount >= rarePityThreshold) {
-      // 软保底阶段：从第10抽到第49抽
-      // 进度值：0.0 (第10抽) -> 1.0 (第49抽)
+      // 计算软保底进度：0.0 (第10抽) -> 1.0 (第49抽)
+      // 分母：50 - 10 = 40抽
       final softPityProgress = (pityCount - rarePityThreshold) /
-          (epicPityThreshold - rarePityThreshold - 1);
+          (epicPityThreshold - rarePityThreshold);
 
-      // 修复：调整概率增量，确保总和为100%
-      // 初始：稀有70%、史诗25%、传说5% = 100%
-      // 最终：稀有80%、史诗15%、传说5% = 100%
-      final rareChance = 0.70 + (0.10 * softPityProgress); // 70% -> 80%
-      final epicChance = 0.25 - (0.10 * softPityProgress); // 25% -> 15%
-      final legendaryChance = 0.05; // 保持5%不变
+      // 基础概率（第10抽时的初始值）
+      const baseRare = 0.70;      // 70%
+      const baseEpic = 0.25;      // 25%
+      const baseLegendary = 0.05; // 5%
+      // 总和 = 100%
 
-      // 归一化处理，确保总和精确为100%
-      final total = rareChance + epicChance + legendaryChance;
+      // 概率增量（随进度线性变化）
+      // 稀有概率：下降 20%（70% -> 50%）
+      // 史诗概率：上升 15%（25% -> 40%）
+      // 传说概率：上升 5%（5% -> 10%）
+      // 增量总和：-20% + 15% + 5% = 0%，保证总概率始终为100%
+      final rareDelta = -0.20 * softPityProgress;       // 0 -> -20%
+      final epicDelta = 0.15 * softPityProgress;        // 0 -> +15%
+      final legendaryDelta = 0.05 * softPityProgress;   // 0 -> +5%
+
+      final rareChance = baseRare + rareDelta;      // 70% -> 50%
+      final epicChance = baseEpic + epicDelta;      // 25% -> 40%
+      final legendaryChance = baseLegendary + legendaryDelta; // 5% -> 10%
 
       return {
         GachaRarity.common: 0.0,
-        GachaRarity.rare: rareChance / total,
-        GachaRarity.epic: epicChance / total,
-        GachaRarity.legendary: legendaryChance / total,
+        GachaRarity.rare: rareChance,
+        GachaRarity.epic: epicChance,
+        GachaRarity.legendary: legendaryChance,
       };
     }
 
