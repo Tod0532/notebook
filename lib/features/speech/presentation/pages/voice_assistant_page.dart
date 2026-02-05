@@ -8,7 +8,13 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
-import 'package:thick_notepad/services/speech/speech_recognition_service.dart';
+import 'package:thick_notepad/services/speech/speech_recognition_service.dart'
+    show
+        SpeechRecognitionService,
+        SpeechDiagnostics,
+        SpeechLanguage,
+        NetworkDetector,
+        NetworkStatus;
 import 'package:thick_notepad/services/speech/intent_parser.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:thick_notepad/core/config/providers.dart';
@@ -789,22 +795,65 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
     );
   }
 
-  /// 切换监听状态
+  /// 切换监听状态 - 增强版，添加网络检测提示
   void _toggleListening(VoiceAssistantState state) async {
     debugPrint('VoiceAssistantPage: ========== 切换监听状态 ==========');
     debugPrint('VoiceAssistantPage: 当前状态 isListening: ${state.isListening}');
 
     final notifier = ref.read(voiceAssistantProvider.notifier);
+    final recognitionService = ref.read(speechRecognitionServiceProvider);
 
     if (state.isListening) {
       debugPrint('VoiceAssistantPage: 停止监听...');
       await notifier.stopListening();
     } else {
       debugPrint('VoiceAssistantPage: 开始监听...');
+
+      // 检查网络状态并提示用户
+      final hasNetwork = await NetworkDetector.hasNetworkConnection();
+      if (!hasNetwork && mounted) {
+        _showNetworkWarningDialog();
+      }
+
       await notifier.startListening();
     }
 
     debugPrint('VoiceAssistantPage: ========== 切换完成 ==========');
+  }
+
+  /// 显示网络警告对话框
+  void _showNetworkWarningDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.wifi_off, color: AppColors.warning),
+            SizedBox(width: 8),
+            Text('网络不可用'),
+          ],
+        ),
+        content: const Text(
+          '检测到网络连接不可用。语音识别功能可能受限，建议连接网络后使用。是否继续尝试？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // 继续尝试，不阻止用户操作
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            child: const Text('继续尝试'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 执行意图
@@ -873,6 +922,7 @@ class _DiagnosticsDialog extends StatelessWidget {
               _buildRow('麦克风权限', micStatus.isGranted ? '已授予' : '未授予 (${micStatus.name})', micStatus.isGranted),
               _buildRow('语音识别初始化', diagnostics.speechToTextAvailable ? '成功' : '失败', diagnostics.speechToTextAvailable),
               _buildRow('Google服务', diagnostics.googleServicesAvailable ? '可用' : '不可用', diagnostics.googleServicesAvailable),
+              _buildRow('网络状态', _getNetworkStatusText(diagnostics.networkStatus), diagnostics.isNetworkAvailable),
               _buildRow('语音合成', synthesisInitialized ? '已初始化' : '未初始化', synthesisInitialized),
             ]),
             const Divider(),
@@ -967,6 +1017,18 @@ class _DiagnosticsDialog extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 获取网络状态文本
+  String _getNetworkStatusText(NetworkStatus status) {
+    switch (status) {
+      case NetworkStatus.available:
+        return '可用';
+      case NetworkStatus.unavailable:
+        return '不可用';
+      case NetworkStatus.limited:
+        return '受限';
+    }
   }
 }
 
