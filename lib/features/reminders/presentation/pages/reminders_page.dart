@@ -1,6 +1,7 @@
 /// 提醒模块页面 - 现代渐变风格
 /// 无 Scaffold，用于在 HomePage 的 ShellRoute 内部显示
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/reminders/presentation/providers/reminder_providers.dart';
+import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
+import 'package:thick_notepad/features/speech/presentation/widgets/voice_floating_button.dart';
 import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:thick_notepad/services/database/database.dart';
@@ -75,17 +78,29 @@ class RemindersView extends ConsumerWidget {
                   fontWeight: FontWeight.w800,
                 ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.secondaryGradient,
-              borderRadius: AppRadius.mdRadius,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.add, size: 20, color: Colors.white),
-              onPressed: () => _showAddReminderSheet(context, ref),
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              constraints: const BoxConstraints(),
-            ),
+          Row(
+            children: [
+              // 语音输入按钮
+              _VoiceInputButton(
+                onResult: (text) {
+                  // 显示添加提醒表单并预填充标题
+                  _showAddReminderSheetWithText(context, ref, text);
+                },
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.secondaryGradient,
+                  borderRadius: AppRadius.mdRadius,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.add, size: 20, color: Colors.white),
+                  onPressed: () => _showAddReminderSheet(context, ref),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -98,6 +113,16 @@ class RemindersView extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _AddReminderSheet(ref: ref),
+    );
+  }
+
+  /// 显示添加提醒表单并预填充文本
+  void _showAddReminderSheetWithText(BuildContext context, WidgetRef ref, String text) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddReminderSheet(ref: ref, initialText: text),
     );
   }
 
@@ -376,17 +401,27 @@ class _ErrorView extends StatelessWidget {
 /// 添加提醒底部表单
 class _AddReminderSheet extends ConsumerStatefulWidget {
   final WidgetRef ref;
+  final String? initialText;
 
-  const _AddReminderSheet({required this.ref});
+  const _AddReminderSheet({
+    required this.ref,
+    this.initialText,
+  });
 
   @override
   ConsumerState<_AddReminderSheet> createState() => _AddReminderSheetState();
 }
 
 class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
-  final _titleController = TextEditingController();
+  late final TextEditingController _titleController;
   DateTime _selectedTime = DateTime.now();
   String _repeatType = 'none';
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.initialText);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -706,6 +741,123 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
   void dispose() {
     _titleController.dispose();
     super.dispose();
+  }
+}
+
+/// 语音输入按钮 - 提醒专用
+class _VoiceInputButton extends ConsumerStatefulWidget {
+  final VoiceResultCallback onResult;
+
+  const _VoiceInputButton({
+    required this.onResult,
+  });
+
+  @override
+  ConsumerState<_VoiceInputButton> createState() => _VoiceInputButtonState();
+}
+
+class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _pulseAnimation;
+  StreamSubscription<dynamic>? _resultSubscription;
+  bool _isListening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimation();
+    _setupResultListener();
+  }
+
+  void _setupAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  /// 设置语音识别结果监听
+  void _setupResultListener() {
+    final service = ref.read(speechRecognitionServiceProvider);
+    _resultSubscription = service.resultStream.listen((result) {
+      if (result.isFinal && mounted && _isListening) {
+        _stopListening();
+        widget.onResult(result.recognizedWords);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _resultSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assistantState = ref.watch(voiceAssistantProvider);
+    final isListening = assistantState.isListening;
+    _isListening = isListening;
+
+    if (isListening && !_animationController.isAnimating) {
+      _animationController.repeat(reverse: true);
+    } else if (!isListening && _animationController.isAnimating) {
+      _animationController.stop();
+      _animationController.reset();
+    }
+
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: isListening ? _pulseAnimation.value : 1.0,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: isListening ? AppColors.secondaryGradient : null,
+              color: isListening ? null : AppColors.surfaceVariant,
+              borderRadius: AppRadius.mdRadius,
+            ),
+            child: IconButton(
+              icon: Icon(
+                isListening ? Icons.stop : Icons.mic,
+                color: isListening ? Colors.white : AppColors.primary,
+                size: 20,
+              ),
+              onPressed: () => _toggleListening(assistantState),
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              constraints: const BoxConstraints(),
+              tooltip: '语音添加提醒',
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleListening(VoiceAssistantState state) async {
+    final notifier = ref.read(voiceAssistantProvider.notifier);
+
+    if (state.isListening) {
+      await _stopListening();
+    } else {
+      await notifier.startListening();
+    }
+  }
+
+  Future<void> _stopListening() async {
+    final notifier = ref.read(voiceAssistantProvider.notifier);
+    await notifier.stopListening();
+    _animationController.stop();
+    _animationController.reset();
   }
 }
 

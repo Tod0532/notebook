@@ -15,3 +15,4 @@ export 'package:thick_notepad/features/speech/presentation/pages/voice_assistant
 // ==================== 组件 ====================
 export 'package:thick_notepad/features/speech/presentation/widgets/voice_floating_button.dart';
 export 'package:thick_notepad/features/speech/presentation/widgets/voice_input_button.dart';
+export 'package:thick_notepad/features/speech/presentation/widgets/quick_voice_commands_button.dart';

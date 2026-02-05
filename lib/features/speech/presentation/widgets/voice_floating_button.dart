@@ -1,12 +1,14 @@
 /// 浮动语音按钮 - 全局悬浮按钮，快速启动语音输入
-/// 支持波浪动画效果
+/// 支持波浪动画效果，支持语音识别结果回调
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
 import 'package:thick_notepad/core/config/router.dart';
+import 'package:thick_notepad/core/config/providers.dart';
 
 /// 浮动语音按钮位置
 enum FloatingButtonPosition {
@@ -15,13 +17,19 @@ enum FloatingButtonPosition {
   leftBottom,    // 左下角
 }
 
+/// 语音输入结果回调
+/// 当语音识别完成时返回识别的文本
+typedef VoiceResultCallback = void Function(String recognizedText);
+
 /// 浮动语音按钮
 class VoiceFloatingButton extends ConsumerStatefulWidget {
   final FloatingButtonPosition position;
   final double? offsetX;
   final double? offsetY;
   final VoidCallback? onTap;
+  final VoiceResultCallback? onResult;
   final bool showWaveAnimation;
+  final String? hint;
 
   const VoiceFloatingButton({
     super.key,
@@ -29,7 +37,9 @@ class VoiceFloatingButton extends ConsumerStatefulWidget {
     this.offsetX,
     this.offsetY,
     this.onTap,
+    this.onResult,
     this.showWaveAnimation = true,
+    this.hint,
   });
 
   @override
@@ -40,11 +50,14 @@ class _VoiceFloatingButtonState extends ConsumerState<VoiceFloatingButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
+  StreamSubscription<dynamic>? _resultSubscription;
+  bool _isListening = false;
 
   @override
   void initState() {
     super.initState();
     _setupAnimation();
+    _setupResultListener();
   }
 
   void _setupAnimation() {
@@ -65,9 +78,24 @@ class _VoiceFloatingButtonState extends ConsumerState<VoiceFloatingButton>
     }
   }
 
+  /// 设置语音识别结果监听
+  void _setupResultListener() {
+    if (widget.onResult != null) {
+      // 监听语音识别结果
+      final service = ref.read(speechRecognitionServiceProvider);
+      _resultSubscription = service.resultStream.listen((result) {
+        if (result.isFinal && mounted) {
+          // 调用回调返回结果
+          widget.onResult!(result.recognizedWords);
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
     _waveController.dispose();
+    _resultSubscription?.cancel();
     super.dispose();
   }
 
@@ -75,6 +103,7 @@ class _VoiceFloatingButtonState extends ConsumerState<VoiceFloatingButton>
   Widget build(BuildContext context) {
     final assistantState = ref.watch(voiceAssistantProvider);
     final isListening = assistantState.isListening;
+    _isListening = isListening;
 
     return Positioned(
       right: _getRightPosition(),
@@ -159,13 +188,21 @@ class _VoiceFloatingButtonState extends ConsumerState<VoiceFloatingButton>
       return;
     }
 
+    final notifier = ref.read(voiceAssistantProvider.notifier);
+
     // 如果正在监听，停止监听
     if (state.isListening) {
-      await ref.read(voiceAssistantProvider.notifier).stopListening();
+      await notifier.stopListening();
       return;
     }
 
-    // 导航到语音助手页面
+    // 如果有结果回调，开始监听并返回结果
+    if (widget.onResult != null) {
+      await notifier.startListening();
+      return;
+    }
+
+    // 默认导航到语音助手页面
     context.push(AppRoutes.voiceAssistant);
   }
 
@@ -222,7 +259,9 @@ class VoiceFloatingButtonWrapper extends StatelessWidget {
   final double? offsetX;
   final double? offsetY;
   final VoidCallback? onTap;
+  final VoiceResultCallback? onResult;
   final bool showWaveAnimation;
+  final String? hint;
 
   const VoiceFloatingButtonWrapper({
     super.key,
@@ -231,7 +270,9 @@ class VoiceFloatingButtonWrapper extends StatelessWidget {
     this.offsetX,
     this.offsetY,
     this.onTap,
+    this.onResult,
     this.showWaveAnimation = true,
+    this.hint,
   });
 
   @override
@@ -244,7 +285,9 @@ class VoiceFloatingButtonWrapper extends StatelessWidget {
           offsetX: offsetX,
           offsetY: offsetY,
           onTap: onTap,
+          onResult: onResult,
           showWaveAnimation: showWaveAnimation,
+          hint: hint,
         ),
       ],
     );
@@ -252,78 +295,160 @@ class VoiceFloatingButtonWrapper extends StatelessWidget {
 }
 
 /// 快速语音输入按钮 - 内联版本，用于页面内嵌入
-class QuickVoiceInputButton extends ConsumerWidget {
+/// 支持语音识别结果回调
+class QuickVoiceInputButton extends ConsumerStatefulWidget {
   final String? hint;
-  final Function(String)? onResult;
+  final VoiceResultCallback? onResult;
   final bool showIcon;
+  final bool autoStart;
+  final bool showStatus;
 
   const QuickVoiceInputButton({
     super.key,
     this.hint,
     this.onResult,
     this.showIcon = true,
+    this.autoStart = true,
+    this.showStatus = true,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final assistantState = ref.watch(voiceAssistantProvider);
-    final isListening = assistantState.isListening;
+  ConsumerState<QuickVoiceInputButton> createState() => _QuickVoiceInputButtonState();
+}
 
-    return InkWell(
-      onTap: () => _toggleListening(ref, assistantState),
-      borderRadius: AppRadius.mdRadius,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          gradient: isListening
-              ? AppColors.secondaryGradient
-              : null,
-          color: isListening
-              ? null
-              : AppColors.surfaceVariant,
-          borderRadius: AppRadius.mdRadius,
-          border: Border.all(
-            color: isListening
-                ? Colors.transparent
-                : AppColors.dividerColor,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showIcon)
-              Icon(
-                isListening ? Icons.stop : Icons.mic,
-                color: isListening ? Colors.white : AppColors.primary,
-                size: 18,
-              ),
-            if (showIcon && hint != null)
-              const SizedBox(width: AppSpacing.sm),
-            if (hint != null)
-              Text(
-                isListening ? '正在听...' : hint!,
-                style: TextStyle(
-                  color: isListening ? Colors.white : AppColors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          ],
-        ),
+class _QuickVoiceInputButtonState extends ConsumerState<QuickVoiceInputButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _pulseAnimation;
+  StreamSubscription<dynamic>? _resultSubscription;
+  bool _isListening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimation();
+    _setupResultListener();
+  }
+
+  void _setupAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
       ),
     );
   }
 
-  Future<void> _toggleListening(WidgetRef ref, VoiceAssistantState state) async {
+  /// 设置语音识别结果监听
+  void _setupResultListener() {
+    if (widget.onResult != null) {
+      final service = ref.read(speechRecognitionServiceProvider);
+      _resultSubscription = service.resultStream.listen((result) {
+        if (result.isFinal && mounted) {
+          // 停止监听
+          _stopListening();
+          // 调用回调返回结果
+          widget.onResult!(result.recognizedWords);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _resultSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assistantState = ref.watch(voiceAssistantProvider);
+    final isListening = assistantState.isListening;
+    _isListening = isListening;
+
+    if (isListening && !_animationController.isAnimating) {
+      _animationController.repeat(reverse: true);
+    } else if (!isListening && _animationController.isAnimating) {
+      _animationController.stop();
+      _animationController.reset();
+    }
+
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: isListening ? _pulseAnimation.value : 1.0,
+          child: InkWell(
+            onTap: () => _toggleListening(assistantState),
+            borderRadius: AppRadius.mdRadius,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                gradient: isListening
+                    ? AppColors.secondaryGradient
+                    : null,
+                color: isListening
+                    ? null
+                    : AppColors.surfaceVariant,
+                borderRadius: AppRadius.mdRadius,
+                border: Border.all(
+                  color: isListening
+                      ? Colors.transparent
+                      : AppColors.dividerColor,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.showIcon)
+                    Icon(
+                      isListening ? Icons.stop : Icons.mic,
+                      color: isListening ? Colors.white : AppColors.primary,
+                      size: 18,
+                    ),
+                  if (widget.showIcon && widget.hint != null)
+                    const SizedBox(width: AppSpacing.sm),
+                  if (widget.hint != null)
+                    Text(
+                      isListening && widget.showStatus ? '正在听...' : widget.hint!,
+                      style: TextStyle(
+                        color: isListening ? Colors.white : AppColors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleListening(VoiceAssistantState state) async {
     final notifier = ref.read(voiceAssistantProvider.notifier);
 
     if (state.isListening) {
-      await notifier.stopListening();
+      await _stopListening();
     } else {
       await notifier.startListening();
     }
+  }
+
+  Future<void> _stopListening() async {
+    final notifier = ref.read(voiceAssistantProvider.notifier);
+    await notifier.stopListening();
+    _animationController.stop();
+    _animationController.reset();
   }
 }

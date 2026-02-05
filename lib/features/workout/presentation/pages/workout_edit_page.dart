@@ -1,5 +1,6 @@
 /// 运动记录页
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import 'package:thick_notepad/features/workout/presentation/widgets/workout_type
 import 'package:thick_notepad/features/workout/presentation/widgets/plan_selector.dart';
 import 'package:thick_notepad/features/notes/data/repositories/note_repository.dart';
 import 'package:thick_notepad/features/workout/data/models/workout_repository.dart';
+import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/services/ai/deepseek_service.dart';
 import 'package:thick_notepad/services/ai/plan_integration_service.dart';
@@ -71,6 +73,10 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
       appBar: AppBar(
         title: const Text('记录运动'),
         actions: [
+          // 语音输入按钮
+          _VoiceInputButton(
+            notesController: _notesController,
+          ),
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: _saveWorkout,
@@ -1040,5 +1046,131 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
       '羽毛球': 'badminton',
     };
     return typeMap[displayName] ?? 'other';
+  }
+}
+
+/// 语音输入按钮 - 运动记录专用
+class _VoiceInputButton extends ConsumerStatefulWidget {
+  final TextEditingController notesController;
+
+  const _VoiceInputButton({
+    required this.notesController,
+  });
+
+  @override
+  ConsumerState<_VoiceInputButton> createState() => _VoiceInputButtonState();
+}
+
+class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _pulseAnimation;
+  StreamSubscription<dynamic>? _resultSubscription;
+  bool _isListening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimation();
+    _setupResultListener();
+  }
+
+  void _setupAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  /// 设置语音识别结果监听
+  void _setupResultListener() {
+    final service = ref.read(speechRecognitionServiceProvider);
+    _resultSubscription = service.resultStream.listen((result) {
+      if (result.isFinal && mounted && _isListening) {
+        _handleVoiceResult(result.recognizedWords);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _resultSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assistantState = ref.watch(voiceAssistantProvider);
+    final isListening = assistantState.isListening;
+    _isListening = isListening;
+
+    if (isListening && !_animationController.isAnimating) {
+      _animationController.repeat(reverse: true);
+    } else if (!isListening && _animationController.isAnimating) {
+      _animationController.stop();
+      _animationController.reset();
+    }
+
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: isListening ? _pulseAnimation.value : 1.0,
+          child: IconButton(
+            icon: Icon(
+              isListening ? Icons.mic : Icons.mic_none,
+              color: isListening ? AppColors.secondary : AppColors.textPrimary,
+            ),
+            onPressed: () => _toggleListening(assistantState),
+            tooltip: '语音输入备注',
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleListening(VoiceAssistantState state) async {
+    final notifier = ref.read(voiceAssistantProvider.notifier);
+
+    if (state.isListening) {
+      await notifier.stopListening();
+      _animationController.stop();
+      _animationController.reset();
+    } else {
+      await notifier.startListening();
+    }
+  }
+
+  /// 处理语音识别结果
+  void _handleVoiceResult(String text) {
+    if (text.trim().isEmpty) return;
+
+    final currentNotes = widget.notesController.text;
+    final newNotes = currentNotes.isEmpty ? text : '$currentNotes\n\n$text';
+
+    widget.notesController.value = TextEditingValue(
+      text: newNotes,
+      selection: TextSelection.collapsed(
+        offset: newNotes.length,
+      ),
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('备注已添加'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
   }
 }

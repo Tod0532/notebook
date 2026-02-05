@@ -535,6 +535,44 @@ class HeartRateSessions extends Table {
   ];
 }
 
+/// 心率异常记录表 - 记录心率异常事件
+@DataClassName('HeartRateAlert')
+class HeartRateAlerts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  // 异常类型
+  TextColumn get alertType => text()(); // high（过高）/low（过低）
+
+  // 异常数据
+  IntColumn get alertHeartRate => integer()(); // 触发异常时的心率
+  IntColumn get targetZoneMin => integer().nullable()(); // 目标区间最小值
+  IntColumn get targetZoneMax => integer().nullable()(); // 目标区间最大值
+
+  // 时间信息
+  DateTimeColumn get alertTime => dateTime().withDefault(currentDateAndTime)(); // 异常发生时间
+  IntColumn get durationSeconds => integer().withDefault(const Constant(0))(); // 异常持续时长（秒）
+
+  // 会话关联
+  TextColumn get sessionId => text()(); // 关联的监测会话ID
+
+  // 处理信息
+  TextColumn get advice => text().nullable()(); // 调整建议
+  BoolColumn get isAcknowledged => boolean().withDefault(const Constant(false))(); // 是否已确认
+  DateTimeColumn get acknowledgedAt => dateTime().nullable()(); // 确认时间
+
+  // 创建时间
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 索引：优化查询性能
+  List<Set<Column>> get indexes => [
+    {sessionId}, // 按会话查询
+    {alertTime}, // 按时间查询
+    {alertType}, // 按异常类型查询
+    {isAcknowledged}, // 按确认状态查询
+    {sessionId, alertTime}, // 复合索引：会话+时间查询
+  ];
+}
+
 // ==================== GPS追踪功能数据表 ====================
 
 /// GPS路线表 - 存储运动轨迹的汇总信息
@@ -1097,6 +1135,7 @@ class ShopPurchases extends Table {
     HeartRateRecords,
     HeartRateZones,
     HeartRateSessions,
+    HeartRateAlerts,
     // GPS追踪表
     GpsRoutes,
     // 游戏化系统表
@@ -1126,7 +1165,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   // ==================== 挑战系统 DAO 方法 ====================
 
@@ -1314,6 +1353,10 @@ class AppDatabase extends _$AppDatabase {
         if (from == 12 && to == 13) {
           // Drift 会自动重建所有表以应用新的索引
           // 这里只需要确保数据库迁移正确执行
+        }
+        // 版本13 -> 版本14：添加心率异常记录表
+        if (from == 13 && to == 14) {
+          await m.createTable(heartRateAlerts);
         }
       },
     );

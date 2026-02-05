@@ -113,6 +113,8 @@ class AppColors {
   static const Color surfaceDark = Color(0xFF1E293B);
   static const Color surfaceVariant = Color(0xFFF1F5F9);
   static const Color surfaceVariantDark = Color(0xFF334155);
+  static const Color lightSurface = Color(0xFFF8FAFC);
+  static const Color darkSurface = Color(0xFF1E293B);
 
   // 文字色
   static const Color textPrimary = Color(0xFF0F172A);

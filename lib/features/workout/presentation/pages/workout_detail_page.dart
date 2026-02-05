@@ -9,6 +9,7 @@ import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/features/workout/presentation/providers/workout_providers.dart';
+import 'package:thick_notepad/features/workout/presentation/widgets/workout_export_bottom_sheet.dart';
 import 'package:intl/intl.dart';
 
 /// 获取运动类型对应的图标
@@ -64,14 +65,21 @@ IconData _getWorkoutIcon(WorkoutType type) {
 }
 
 /// 运动详情页面
-class WorkoutDetailPage extends ConsumerWidget {
+class WorkoutDetailPage extends ConsumerStatefulWidget {
   final int workoutId;
 
   const WorkoutDetailPage({super.key, required this.workoutId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final workoutAsync = ref.watch(workoutProvider(workoutId));
+  ConsumerState<WorkoutDetailPage> createState() => _WorkoutDetailPageState();
+}
+
+class _WorkoutDetailPageState extends ConsumerState<WorkoutDetailPage> {
+  Workout? _currentWorkout;
+
+  @override
+  Widget build(BuildContext context) {
+    final workoutAsync = ref.watch(workoutProvider(widget.workoutId));
 
     return Scaffold(
       appBar: AppBar(
@@ -81,6 +89,12 @@ class WorkoutDetailPage extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
         actions: [
+          if (_currentWorkout != null)
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              onPressed: () => _showExportSheet(context, _currentWorkout!),
+              tooltip: '导出',
+            ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () => _confirmDelete(context, ref),
@@ -94,6 +108,8 @@ class WorkoutDetailPage extends ConsumerWidget {
               child: Text('运动记录不存在'),
             );
           }
+          // 更新当前workout
+          _currentWorkout = workout;
           return _buildContent(context, workout);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -323,7 +339,7 @@ class WorkoutDetailPage extends ConsumerWidget {
             onPressed: () async {
               Navigator.pop(dialogContext);
               final workoutRepo = ref.read(workoutRepositoryProvider);
-              await workoutRepo.deleteWorkout(workoutId);
+              await workoutRepo.deleteWorkout(widget.workoutId);
               if (context.mounted) {
                 context.pop();
               }
@@ -335,6 +351,14 @@ class WorkoutDetailPage extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// 显示导出底部表单
+  void _showExportSheet(BuildContext context, Workout workout) {
+    WorkoutExportBottomSheet.show(
+      context: context,
+      workout: workout,
     );
   }
 }

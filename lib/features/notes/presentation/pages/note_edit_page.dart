@@ -1,17 +1,26 @@
 /// 笔记编辑页
 
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/constants/app_constants.dart';
 import 'package:thick_notepad/core/utils/haptic_helper.dart';
+import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
+import 'package:thick_notepad/features/notes/presentation/widgets/image_preview_grid.dart';
+import 'package:thick_notepad/features/notes/utils/image_utils.dart';
 import 'package:thick_notepad/features/emotion/presentation/providers/emotion_providers.dart';
 import 'package:thick_notepad/features/emotion/presentation/widgets/emotion_insight_card.dart';
+import 'package:thick_notepad/features/speech/presentation/widgets/voice_floating_button.dart';
+import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/services/emotion/emotion_analyzer.dart';
 import 'package:thick_notepad/services/emotion/emotion_workout_mapper.dart';
+import 'package:thick_notepad/services/image/image_service.dart';
+import 'package:thick_notepad/features/notes/presentation/widgets/export_bottom_sheet.dart';
 import 'package:drift/drift.dart' as drift;
 
 /// 笔记编辑页
@@ -28,10 +37,14 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   final List<String> _tags = [];
+  final List<String> _images = [];
   String? _selectedFolder;
   bool _isLoading = false;
   Note? _existingNote;
   EmotionResult? _emotionAnalysis;
+
+  // 图片服务
+  final _imageService = ImageService.instance;
 
   @override
   void initState() {
@@ -49,6 +62,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
       _contentController.text = _existingNote!.content;
       _tags.addAll(_parseTags(_existingNote!.tags));
       _selectedFolder = _existingNote!.folder;
+      _images.addAll(ImageUtils.parseImages(_existingNote!.images));
     }
     setState(() => _isLoading = false);
   }
@@ -77,12 +91,24 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
       appBar: AppBar(
         title: Text(widget.noteId == null ? '新建笔记' : '编辑笔记'),
         actions: [
+          // 语音输入按钮
+          _VoiceInputButton(
+            contentController: _contentController,
+            titleController: _titleController,
+          ),
           // 情绪分析按钮
           IconButton(
             icon: const Icon(Icons.mood),
             onPressed: _analyzeEmotion,
             tooltip: '分析情绪',
           ),
+          // 导出按钮（仅编辑模式显示）
+          if (widget.noteId != null && _existingNote != null)
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              onPressed: () => _showExportSheet(context),
+              tooltip: '导出',
+            ),
           if (widget.noteId != null)
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -113,6 +139,15 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                         maxLines: null,
                       ),
                       const Divider(height: 32),
+                      // 图片预览区域
+                      if (_images.isNotEmpty)
+                        ImagePreviewGrid(
+                          imagePaths: _images,
+                          onImagesChanged: (images) {
+                            setState(() => _images.clear());
+                            _images.addAll(images);
+                          },
+                        ),
                       // 富文本格式工具栏
                       _buildFormatToolbar(context),
                       const SizedBox(height: 8),
@@ -135,6 +170,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                 ),
                 _buildFolderBar(context),
                 _buildTagsBar(context),
+                _buildImageBar(context),
               ],
             ),
     );
@@ -262,6 +298,130 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
     );
   }
 
+  /// 构建图片操作栏
+  Widget _buildImageBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            const Icon(Icons.photo_library_outlined, size: 16, color: AppColors.textHint),
+            const SizedBox(width: 8),
+            Text(
+              '图片',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textHint,
+                  ),
+            ),
+            const Spacer(),
+            // 多选图片按钮
+            _buildImageButton(
+              icon: Icons.photo_library,
+              label: '相册',
+              onTap: _pickMultiImage,
+            ),
+            const SizedBox(width: 8),
+            // 拍照按钮
+            _buildImageButton(
+              icon: Icons.camera_alt,
+              label: '拍照',
+              onTap: _takePhoto,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建图片操作按钮
+  Widget _buildImageButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.mdRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: AppRadius.mdRadius,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 选择多张图片
+  Future<void> _pickMultiImage() async {
+    HapticHelper.lightTap();
+
+    if (_images.length >= ImageConfig.maxImagesPerNote) {
+      _showSnackBar('最多只能添加 ${ImageConfig.maxImagesPerNote} 张图片');
+      return;
+    }
+
+    final pickedImages = await _imageService.pickMultiImage();
+
+    if (pickedImages.isEmpty) {
+      return;
+    }
+
+    // 检查数量限制
+    final availableSlots = ImageConfig.maxImagesPerNote - _images.length;
+    final imagesToAdd = pickedImages.take(availableSlots).toList();
+
+    setState(() {
+      _images.addAll(imagesToAdd);
+    });
+
+    if (pickedImages.length > availableSlots) {
+      _showSnackBar('已添加 $availableSlots 张图片（达到上限）');
+    } else {
+      _showSnackBar('已添加 ${imagesToAdd.length} 张图片');
+    }
+  }
+
+  /// 拍照
+  Future<void> _takePhoto() async {
+    HapticHelper.lightTap();
+
+    if (_images.length >= ImageConfig.maxImagesPerNote) {
+      _showSnackBar('最多只能添加 ${ImageConfig.maxImagesPerNote} 张图片');
+      return;
+    }
+
+    final imagePath = await _imageService.takePhoto();
+
+    if (imagePath != null) {
+      setState(() {
+        _images.add(imagePath);
+      });
+      _showSnackBar('已添加图片');
+    }
+  }
+
   void _addTag() {
     showDialog(
       context: context,
@@ -303,8 +463,8 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
 
-    if (title.isEmpty && content.isEmpty) {
-      _showSnackBar('请输入标题或内容');
+    if (title.isEmpty && content.isEmpty && _images.isEmpty) {
+      _showSnackBar('请输入标题、内容或添加图片');
       return;
     }
 
@@ -312,6 +472,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
 
     try {
       final tagsJson = _formatTags(_tags);
+      final imagesJson = ImageUtils.formatImages(_images);
       int? savedNoteId;
 
       if (widget.noteId == null) {
@@ -321,6 +482,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                 content: content,
                 tags: drift.Value(tagsJson),
                 folder: _selectedFolder != null ? drift.Value(_selectedFolder) : const drift.Value(null),
+                images: drift.Value(imagesJson),
               ),
             );
         ref.invalidate(allNotesProvider);
@@ -336,6 +498,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                 content: content,
                 tags: tagsJson,
                 folder: _selectedFolder != null ? drift.Value(_selectedFolder) : const drift.Value(null),
+                images: drift.Value(imagesJson),
                 updatedAt: DateTime.now(),
               ),
             );
@@ -542,6 +705,16 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 显示导出底部表单
+  void _showExportSheet(BuildContext context) {
+    if (_existingNote == null) return;
+    HapticHelper.lightTap();
+    ExportBottomSheet.show(
+      context: context,
+      note: _existingNote!,
     );
   }
 
@@ -1204,5 +1377,183 @@ class _FolderSelectorDialogState extends State<_FolderSelectorDialog> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+}
+
+/// 语音输入按钮 - 笔记编辑专用
+class _VoiceInputButton extends ConsumerStatefulWidget {
+  final TextEditingController contentController;
+  final TextEditingController? titleController;
+
+  const _VoiceInputButton({
+    required this.contentController,
+    this.titleController,
+  });
+
+  @override
+  ConsumerState<_VoiceInputButton> createState() => _VoiceInputButtonState();
+}
+
+class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _pulseAnimation;
+  StreamSubscription<dynamic>? _resultSubscription;
+  bool _isListening = false;
+  bool _isTitleInput = false; // 是否正在输入标题
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimation();
+    _setupResultListener();
+  }
+
+  void _setupAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  /// 设置语音识别结果监听
+  void _setupResultListener() {
+    final service = ref.read(speechRecognitionServiceProvider);
+    _resultSubscription = service.resultStream.listen((result) {
+      if (result.isFinal && mounted && _isListening) {
+        _handleVoiceResult(result.recognizedWords);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _resultSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assistantState = ref.watch(voiceAssistantProvider);
+    final isListening = assistantState.isListening;
+    _isListening = isListening;
+
+    if (isListening && !_animationController.isAnimating) {
+      _animationController.repeat(reverse: true);
+    } else if (!isListening && _animationController.isAnimating) {
+      _animationController.stop();
+      _animationController.reset();
+    }
+
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: isListening ? _pulseAnimation.value : 1.0,
+          child: PopupMenuButton<String>(
+            icon: Icon(
+              isListening ? Icons.mic : Icons.mic_none,
+              color: isListening ? AppColors.secondary : AppColors.textPrimary,
+            ),
+            tooltip: '语音输入',
+            onSelected: (value) {
+              if (value == 'title') {
+                _isTitleInput = true;
+              } else {
+                _isTitleInput = false;
+              }
+              _toggleListening(assistantState);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'title',
+                child: Row(
+                  children: [
+                    Icon(Icons.title, size: 18),
+                    SizedBox(width: 8),
+                    Text('语音输入标题'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'content',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_note, size: 18),
+                    SizedBox(width: 8),
+                    Text('语音输入内容'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleListening(VoiceAssistantState state) async {
+    final notifier = ref.read(voiceAssistantProvider.notifier);
+
+    if (state.isListening) {
+      await notifier.stopListening();
+      _animationController.stop();
+      _animationController.reset();
+    } else {
+      await notifier.startListening();
+    }
+  }
+
+  /// 处理语音识别结果
+  void _handleVoiceResult(String text) {
+    if (text.trim().isEmpty) return;
+
+    HapticHelper.lightTap();
+
+    // 如果是标题输入
+    if (_isTitleInput && widget.titleController != null) {
+      final currentTitle = widget.titleController!.text;
+      widget.titleController!.text = text.trim();
+    } else {
+      // 内容输入
+      final currentContent = widget.contentController.text;
+      final cursorPosition = widget.contentController.selection.baseOffset;
+
+      String newContent;
+      if (cursorPosition >= 0 && cursorPosition < currentContent.length) {
+        // 在光标位置插入
+        newContent = currentContent.substring(0, cursorPosition) +
+                     '\n$text' +
+                     currentContent.substring(cursorPosition);
+      } else {
+        // 追加到末尾
+        newContent = currentContent.isEmpty ? text : '$currentContent\n\n$text';
+      }
+
+      widget.contentController.value = TextEditingValue(
+        text: newContent,
+        selection: TextSelection.collapsed(
+          offset: newContent.length,
+        ),
+      );
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isTitleInput ? '标题已添加' : '内容已添加'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
   }
 }

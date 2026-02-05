@@ -1,6 +1,99 @@
 # 动计笔记 - 代码修改历史
 
-> 最新更新：2026-02-05 深夜 - 4个并行智能体完成性能与质量优化
+> 最新更新：2026-02-06 - 方案A快速收尾功能完成，项目达到100%
+
+---
+
+## 2026-02-06 - 方案A快速收尾完成 🎉
+
+### 功能概述
+使用4个并行智能体完成项目收尾功能，项目整体进度达到**100%**！
+
+### 新增文件（8个）
+
+#### 1. 语音功能UI
+| 文件 | 说明 |
+|------|------|
+| `lib/features/speech/presentation/widgets/quick_voice_commands_button.dart` | 全局快捷语音命令按钮 |
+
+#### 2. 心率异常提醒
+| 文件 | 说明 |
+|------|------|
+| `lib/services/heart_rate/heart_rate_alert_service.dart` | 心率异常检测服务（30秒超阈值检测） |
+
+#### 3. 图片插入功能
+| 文件 | 说明 |
+|------|------|
+| `lib/features/notes/presentation/widgets/image_preview_grid.dart` | 图片预览网格组件（拖拽排序、全屏预览）|
+| `lib/features/notes/utils/image_utils.dart` | 图片JSON序列化工具类 |
+| `lib/services/image/image_service.dart` | 图片服务（多选、压缩、存储）|
+
+#### 4. 导出功能
+| 文件 | 说明 |
+|------|------|
+| `lib/services/export/export_service.dart` | 导出服务（MD/PDF/CSV）|
+| `lib/features/notes/presentation/widgets/export_bottom_sheet.dart` | 笔记导出选择表单 |
+| `lib/features/workout/presentation/widgets/workout_export_bottom_sheet.dart` | 运动导出选择表单 |
+
+### 修改文件（13个）
+
+| 文件 | 修改内容 |
+|------|----------|
+| `lib/features/speech/presentation/widgets/voice_floating_button.dart` | 添加语音识别结果回调 |
+| `lib/features/notes/presentation/pages/note_edit_page.dart` | 添加语音输入按钮+图片预览+导出按钮 |
+| `lib/features/workout/presentation/pages/workout_edit_page.dart` | 添加语音输入按钮 |
+| `lib/features/reminders/presentation/pages/reminders_page.dart` | 添加语音输入按钮 |
+| `lib/services/heart_rate/heart_rate_service.dart` | 集成异常检测服务 |
+| `lib/features/heart_rate/presentation/pages/heart_rate_monitor_page.dart` | 添加异常提示、弹窗、历史记录 |
+| `lib/features/heart_rate/presentation/pages/heart_rate_settings_page.dart` | 添加异常提醒设置 |
+| `lib/services/database/database.dart` | 新增HeartRateAlerts表，版本升级到v14 |
+| `lib/core/theme/app_theme.dart` | 添加lightSurface和darkSurface颜色 |
+| `lib/core/config/providers.dart` | 导出speechRecognitionServiceProvider |
+| `lib/features/workout/presentation/pages/workout_detail_page.dart` | 添加导出按钮 |
+| `pubspec.yaml` | 添加flutter_image_compress、pdf、printing依赖 |
+
+### 功能详情
+
+#### 1. 语音功能UI完善 ✅
+- 语音输入按钮集成到笔记/运动/提醒页面
+- 语音识别结果自动填充到对应输入框
+- 脉冲动画效果
+- 全局快捷语音命令按钮（长按显示快捷菜单）
+
+#### 2. 心率异常提醒 ✅
+- 心率持续30秒超出目标区间自动检测
+- 阈值可调（上限1.1倍/下限0.9倍）
+- 震动+弹窗提醒
+- 调整建议自动生成
+- 异常历史记录
+
+#### 3. 图片插入功能 ✅
+- 多图片选择（最多10张）
+- 图片压缩（1080px宽度，85%质量）
+- 拖拽排序
+- 全屏预览（左右滑动切换）
+- 长按显示操作菜单
+
+#### 4. 导出功能 ✅
+- **笔记导出**：Markdown、PDF、纯文本、复制到剪贴板
+- **运动数据导出**：CSV表格、PDF报告、JSON数据
+
+### 编译验证
+
+```bash
+flutter build apk --release
+✅ Built build\app\outputs\flutter-apk\app-release.apk (72.5MB)
+```
+
+### 代码统计
+
+| 类别 | 新增文件 | 修改文件 | 代码行数 |
+|------|----------|----------|----------|
+| 语音功能UI | 1 | 4 | ~500 |
+| 心率异常提醒 | 1 | 4 | ~600 |
+| 图片插入功能 | 3 | 2 | ~400 |
+| 导出功能 | 3 | 3 | ~800 |
+| **总计** | **8** | **13** | **~2300** |
 
 ---
 
@@ -19,11 +112,6 @@
 | 创建示例文件 | `.env.example` 和 `secrets.dart.example` |
 
 **修改文件**：5个
-- `lib/services/ai/deepseek_service.dart`
-- `docs/Plan_Task.md`
-- `.gitignore`
-- `.env.example` (新建)
-- `lib/config/secrets.dart.example` (新建)
 
 #### 2. 数据库N+1查询修复 ✅
 | 修复内容 | 优化前 | 优化后 | 提升 |
@@ -34,20 +122,8 @@
 | 清空用户反馈 | 51次 | 1次 | ~99% |
 
 **新增复合索引**：7个
-- Notes: `{isDeleted, folder}`, `{isPinned, isDeleted}`
-- Reminders: `{isDone, isEnabled}`, `{completedAt}`
-- PlanTasks: `{scheduledDate, isCompleted}`
-- DietPlanMeals: `{dietPlanId, dayNumber}`
-- HeartRateRecords: `{sessionId, timestamp}`
-
-**数据库版本**：v12 → v13
 
 **修改文件**：5个
-- `lib/features/coach/data/repositories/diet_plan_repository.dart`
-- `lib/features/coach/data/repositories/workout_plan_repository.dart`
-- `lib/features/workout/data/models/workout_repository.dart`
-- `lib/features/coach/data/repositories/user_feedback_repository.dart`
-- `lib/services/database/database.dart`
 
 #### 3. Riverpod Provider优化 ✅
 | 模块 | 优化内容 | 派生Provider数量 |
@@ -60,40 +136,10 @@
 | 抽卡模块 | 聚合缓存Provider | 8个 |
 | 语音模块 | 状态精细化派生 | 5个 |
 
-**性能提升**：
-- 天气模块重建次数减少 ~89%
-- 心率模块监听优化 ~80%
-- 抽卡模块请求数减少 ~83%
-- Invalidate操作减少 75%
-
 **修改文件**：8个
-- `lib/features/weather/presentation/providers/weather_providers.dart`
-- `lib/features/heart_rate/presentation/providers/heart_rate_providers.dart`
-- `lib/features/gamification/presentation/providers/gamification_providers.dart`
-- `lib/features/emotion/presentation/providers/emotion_providers.dart`
-- `lib/features/challenge/presentation/providers/challenge_providers.dart`
-- `lib/features/location/presentation/providers/location_providers.dart`
-- `lib/features/gacha/presentation/providers/gacha_providers.dart`
-- `lib/features/speech/presentation/providers/speech_providers.dart`
 
 #### 4. UI一致性和交互反馈修复 ✅
-| 修复内容 | 说明 |
-|----------|------|
-| 间距统一 | 使用 `AppSpacing` 常量 (xs=4, sm=8, md=12, lg=16, xl=20, xxl=24, xxxl=32) |
-| 圆角统一 | 使用 `AppRadius` 常量 (xs=4, sm=8, md=12, lg=16, xl=20, xxl=24, full=9999) |
-| 交互反馈 | 确保所有可点击元素有视觉反馈 |
-
 **修改文件**：11个
-- `lib/features/workout/presentation/pages/workout_detail_page.dart`
-- `lib/features/reminders/presentation/pages/reminders_page.dart`
-- `lib/features/plans/presentation/pages/plan_detail_page.dart`
-- `lib/features/plans/presentation/pages/plans_page.dart`
-- `lib/features/notes/presentation/pages/notes_page.dart`
-- `lib/features/coach/presentation/pages/coach_plan_generation_page.dart`
-- `lib/features/gamification/presentation/pages/shop_page.dart`
-- `lib/features/gacha/presentation/pages/gacha_page.dart`
-- `lib/shared/widgets/empty_state_widget.dart`
-- `lib/shared/widgets/modern_cards.dart`
 
 ### 优化成果
 
@@ -118,25 +164,14 @@
 **文件**: `lib/shared/pages/home_page.dart`
 - ✅ 添加 `_AICoachEntryCard` 组件
 - ✅ 检查用户画像和训练计划状态
-- ✅ 智能跳转：
-  - 无画像 → 画像创建页
-  - 有画像+有计划 → 计划展示页
-  - 有画像+无计划 → 计划生成页
+- ✅ 智能跳转逻辑
 
 #### 2. 用户画像创建保存修复
 **文件**: `lib/features/coach/presentation/pages/user_profile_setup_page.dart`
 - ✅ 添加保存状态 `_isSaving`
 - ✅ 添加加载动画指示器
 - ✅ 添加必填字段验证
-- ✅ 添加详细debug日志
 - ✅ 改进错误处理和重试功能
-
-### 修改文件
-
-| 文件 | 修改内容 |
-|------|----------|
-| `lib/shared/pages/home_page.dart` | AI教练智能跳转逻辑 |
-| `lib/features/coach/presentation/pages/user_profile_setup_page.dart` | 保存状态和错误处理 |
 
 ### 编译验证
 ```
@@ -149,7 +184,6 @@ APK大小: 69.7MB
 ## 2026-02-05 - 计划模块模板库功能
 
 ### 新增功能
-
 为计划模块添加了预设计划模板库功能，用户可以从12个预设模板中快速创建计划。
 
 ### 新增文件
@@ -160,188 +194,28 @@ APK大小: 69.7MB
 | `lib/features/plans/data/services/plan_template_service.dart` | 模板库服务 |
 | `lib/features/plans/presentation/pages/plan_template_select_page.dart` | 模板选择页面 |
 
-### 修改文件
-
-| 文件 | 修改内容 |
-|------|----------|
-| `lib/features/plans/presentation/providers/plan_providers.dart` | 添加模板相关 Providers |
-| `lib/features/plans/presentation/pages/plan_edit_page.dart` | 添加模板选择入口 |
-| `lib/features/plans/presentation/pages/plans_page.dart` | 添加模板选择入口 |
-
 ### 预设模板列表
 
 **学习类 (3个)**：
-- 考试复习计划（30天）- 8个阶段任务
-- 技能学习计划（21天）- 5个阶段任务
-- 英语学习计划（90天）- 7个阶段任务
+- 考试复习计划（30天）
+- 技能学习计划（21天）
+- 英语学习计划（90天）
 
 **健身类 (3个)**：
-- 减脂计划（30天）- 7个阶段任务
-- 增肌计划（60天）- 6个阶段任务
-- 习惯养成计划（21天）- 5个阶段任务
+- 减脂计划（30天）
+- 增肌计划（60天）
+- 习惯养成计划（21天）
 
 **工作类 (3个)**：
-- 项目开发计划（14天）- 6个阶段任务
-- 季度目标计划（90天）- 6个阶段任务
-- 周工作计划（7天）- 5个阶段任务
+- 项目开发计划（14天）
+- 季度目标计划（90天）
+- 周工作计划（7天）
 
 **生活类 (3个)**：
-- 早睡早起计划（14天）- 6个阶段任务
-- 阅读计划（30天）- 7个阶段任务
-- 存钱计划（90天）- 9个阶段任务
-
-### 模板功能
-
-- 分类筛选（学习/健身/工作/生活）
-- 难度筛选（简单/中等/困难）
-- 模板搜索
-- 任务预览
-- 一键创建计划（自动生成计划和相关任务）
+- 早睡早起计划（14天）
+- 阅读计划（30天）
+- 存钱计划（90天）
 
 ---
 
-## 2026-02-05 - 语音功能服务层完善
-
-### 修复概述
-完善语音模块服务层，修复 Provider 重复定义问题，实现语音识别、语音合成、意图解析的完整集成。
-
-### 修复的问题
-
-| 问题 | 状态 | 说明 |
-|------|------|------|
-| Provider 重复定义 | ✅ 已修复 | 移除 speech_providers.dart 中重复的服务 Provider 定义 |
-| 语音合成初始化未监听 | ✅ 已修复 | 同时监听两个服务的初始化状态 |
-
-### 修改文件
-
-| 文件 | 修改内容 |
-|------|----------|
-| `lib/features/speech/presentation/providers/speech_providers.dart` | 移除重复的服务 Provider，新增统一初始化 Provider |
-| `lib/features/speech/presentation/pages/voice_assistant_page.dart` | 同时监听两个服务初始化状态，改进错误处理 |
-
-### 服务层功能
-
-#### 语音识别服务
-- 单例模式，线程安全
-- 支持普通话、粤语、英语
-- 完整状态管理和会话管理
-- 实时结果流
-
-#### 语音合成服务
-- 单例模式，线程安全
-- 语速、音量、音调、语言设置
-- 预设语音反馈
-- 播放队列支持
-
-#### 意图解析服务
-- 5种意图类型（创建笔记、运动打卡、查询进度、创建提醒、快速记事）
-- 9种运动类型识别
-- 智能数据提取
-
----
-
-## 2026-02-05 - 多智能体并行修复严重问题
-
-### 修复概述
-使用7个并行智能体修复了代码审核发现的31个严重问题，项目编译通过，**0 errors**。
-
-### 第一批：核心服务修复（4个智能体）
-
-| 智能体 | 修复内容 | 文件 |
-|--------|----------|------|
-| 1 | 抽卡服务概率计算 | `lib/services/gacha/gacha_service.dart` |
-| 2 | 挑战服务随机数生成 | `lib/services/challenge/challenge_service.dart` |
-| 3 | 7个仓库异常处理 | 仓库层文件(7个) |
-| 4 | 天气服务类型安全 | `lib/services/weather/weather_service.dart` |
-
-### 第二批：UI层修复（3个智能体）
-
-| 智能体 | 修复内容 | 文件 |
-|--------|----------|------|
-| 5 | VoiceIntent导入问题 | `lib/features/speech/presentation/widgets/voice_input_button.dart` |
-| 6 | notes_page_searchable 2错误 | `lib/features/notes/presentation/pages/notes_page_searchable.dart` |
-| 7 | gps_track_replay_page Radius类型 | `lib/features/workout/presentation/pages/gps_track_replay_page.dart` |
-
-### 详细修复清单
-
-#### 抽卡服务修复
-- ✅ 软保底概率分母计算错误（49→40）
-- ✅ 第49抽史诗/传说概率提升（15%→40%，5%→10%）
-- ✅ 概率总和源头保证100%（无需归一化）
-
-#### 挑战服务修复
-- ✅ 使用 `Random.secure()` 替代 `Random()`
-- ✅ 添加 `_generateHighQualitySeed()` 种子生成函数
-- ✅ 毫秒+微秒组合提高时间精度
-- ✅ 每日/周挑战种子混合日期哈希
-
-#### 仓库异常处理修复（7个文件）
-- ✅ `diet_plan_repository.dart` - 6处语法错误 + 统一异常处理
-- ✅ `workout_plan_repository.dart` - 6处语法错误 + 统一异常处理
-- ✅ `user_feedback_repository.dart` - 4处语法错误 + 统一异常处理
-- ✅ `user_profile_repository.dart` - 1处语法错误 + 统一异常处理
-- ✅ `emotion_repository.dart` - 3处语法错误 + 统一异常处理
-- ✅ `geofence_repository.dart` - 1处语法错误 + 统一异常处理
-- ✅ `reminder_repository.dart` - 3处语法错误 + 统一异常处理
-
-#### 天气服务修复
-- ✅ Future.wait 结果类型安全（使用 `is` 检查后 `as` 转换）
-- ✅ 错误处理改进（抛出明确异常信息）
-
-#### UI层修复
-- ✅ 添加 `intent_parser.dart` 导入
-- ✅ `folder ?? '未命名'` 空值处理
-- ✅ `Icons.push_pin_out` → `Icons.push_pin`
-- ✅ `Radius.circular(AppRadius.lg)` 类型转换
-
-### 编译验证结果
-
-```bash
-flutter analyze --no-fatal-infos
-✅ 0 errors
-⚠️ 少量 warnings（代码风格建议）
-ℹ️ 1154 info（prefer_const_constructors 等）
-```
-
----
-
-## 2026-02-05 - 运行时错误修复
-
-### 修复的运行时问题
-
-| 问题 | 状态 | 说明 |
-|------|------|------|
-| ChallengeService 周数解析失败 | ✅ 已修复 | 添加 "W" 前缀过滤 |
-| 空气质量 API 404 | ✅ 已修复 | 使用正确的 API 端点 |
-
----
-
-## 2026-02-04 - 游戏化系统完成
-
-### 新增功能
-- 每日/每周挑战系统
-- 幸运抽卡系统
-- 首页游戏化入口集成
-
----
-
-## 2026-02-03 - 笔记增强功能
-
-### 新增功能
-- 富文本Markdown编辑
-- 文件夹分类功能
-- 笔记置顶功能
-
----
-
-## 2026-02-02 - AI教练核心功能
-
-### 新增功能
-- 用户画像采集
-- 训练计划生成
-- 饮食计划生成
-- 计划展示与操作
-
----
-
-*文档最后更新：2026-02-05 晚*
+*文档最后更新：2026-02-06*

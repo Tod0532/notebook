@@ -1,4 +1,5 @@
 /// 心率监测页面 - 支持蓝牙设备连接和实时心率监测
+/// 包含心率异常监测和提醒功能
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
 import 'package:thick_notepad/shared/widgets/loading_widget.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/services/heart_rate/heart_rate_service.dart';
+import 'package:thick_notepad/services/heart_rate/heart_rate_alert_service.dart';
 
 /// 心率监测页面
 class HeartRateMonitorPage extends ConsumerStatefulWidget {
@@ -86,6 +88,9 @@ class _MonitorTab extends ConsumerStatefulWidget {
 
 class _MonitorTabState extends ConsumerState<_MonitorTab> {
   Timer? _updateTimer;
+  StreamSubscription<HeartRateAlertEvent>? _alertSubscription;
+  HeartRateAlertEvent? _currentAlert;
+  bool _showAlertDialog = false;
 
   @override
   void initState() {
@@ -94,12 +99,61 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
     _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {});
     });
+
+    // 监听异常事件
+    _startAlertListening();
   }
 
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _alertSubscription?.cancel();
     super.dispose();
+  }
+
+  /// 开始监听异常事件
+  void _startAlertListening() {
+    final service = ref.read(heartRateServiceProvider).alertService;
+    if (service != null) {
+      _alertSubscription = service.alertStream.listen((alert) {
+        if (mounted) {
+          setState(() {
+            _currentAlert = alert;
+            _showAlertDialog = true;
+          });
+          _showAlertNotification(alert);
+        }
+      });
+    }
+  }
+
+  /// 显示异常提醒弹窗
+  void _showAlertNotification(HeartRateAlertEvent alert) {
+    final config = service?.config ?? const HeartRateAlertConfig();
+
+    // 弹窗提醒
+    if (config.enableDialog) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _AlertDialog(
+          alert: alert,
+          onAcknowledge: () {
+            service?.acknowledgeAlert(alert.id);
+            setState(() {
+              _showAlertDialog = false;
+              _currentAlert = null;
+            });
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+    }
+  }
+
+  /// 获取异常提醒服务
+  HeartRateAlertService? get service {
+    return ref.read(heartRateServiceProvider).alertService;
   }
 
   @override
@@ -115,6 +169,12 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
           // 设备连接区域
           _buildDeviceSection(deviceListState),
           const SizedBox(height: 20),
+
+          // 当前异常提示卡片
+          if (_currentAlert != null && _showAlertDialog)
+            _buildCurrentAlertCard(_currentAlert!),
+          if (_currentAlert != null && _showAlertDialog)
+            const SizedBox(height: 16),
 
           // 心率显示区域
           _buildHeartRateSection(monitorState),
@@ -134,6 +194,96 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
 
           // 控制按钮区域
           _buildControlSection(monitorState),
+        ],
+      ),
+    );
+  }
+
+  /// 当前异常提示卡片
+  Widget _buildCurrentAlertCard(HeartRateAlertEvent alert) {
+    final isHigh = alert.type == HeartRateAlertType.high;
+    final color = isHigh ? AppColors.error : AppColors.warning;
+    final icon = isHigh ? Icons.trending_up : Icons.trending_down;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: AppRadius.mdRadius,
+        border: Border.all(color: color, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      alert.type.displayName,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '当前心率: ${alert.heartRate} BPM',
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () {
+                  service?.acknowledgeAlert(alert.id);
+                  setState(() {
+                    _showAlertDialog = false;
+                    _currentAlert = null;
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: AppRadius.smRadius,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    alert.advice,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -685,11 +835,16 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
 
 // ==================== 历史记录标签页 ====================
 
-class _HistoryTab extends ConsumerWidget {
+class _HistoryTab extends ConsumerStatefulWidget {
   const _HistoryTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends ConsumerState<_HistoryTab> {
+  @override
+  Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(heartRateSessionsProvider);
 
     return RefreshIndicator(
@@ -733,6 +888,11 @@ class _HistoryTab extends ConsumerWidget {
     final duration = session.endTime != null
         ? session.endTime!.difference(session.startTime)
         : Duration.zero;
+
+    // 获取异常统计
+    final alertService = ref.read(heartRateServiceProvider).alertService;
+    final alertStatsFuture = alertService?.getSessionAlertStats(session.sessionId) ??
+        Future.value({'total': 0, 'high': 0, 'low': 0});
 
     return ModernCard(
       onTap: () => _showSessionDetail(context, ref, session),
@@ -785,6 +945,80 @@ class _HistoryTab extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // 异常统计行
+          FutureBuilder<Map<String, int>>(
+            future: alertStatsFuture,
+            builder: (context, snapshot) {
+              final stats = snapshot.data ?? {'total': 0, 'high': 0, 'low': 0};
+              final totalAlerts = stats['total'] ?? 0;
+
+              if (totalAlerts == 0) {
+                return const SizedBox.shrink();
+              }
+
+              return Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '异常记录: $totalAlerts 次',
+                    style: TextStyle(
+                      color: AppColors.warning,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (stats['high']! > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '过高${stats['high']}',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 4),
+                  if (stats['low']! > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.info.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '过低${stats['low']}',
+                        style: TextStyle(
+                          color: AppColors.info,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => _showAlertHistory(context, session.sessionId),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('查看详情', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              );
+            },
+          ),
           if (session.deviceName != null) ...[
             const SizedBox(height: 8),
             Text(
@@ -796,6 +1030,16 @@ class _HistoryTab extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+
+  /// 显示异常历史
+  void _showAlertHistory(BuildContext context, String sessionId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AlertHistorySheet(sessionId: sessionId),
     );
   }
 
@@ -1168,5 +1412,401 @@ class _SessionDetailSheetState extends ConsumerState<_SessionDetailSheet> {
       return '${duration.inHours}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}';
     }
     return '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+  }
+}
+
+// ==================== 异常提醒弹窗 ====================
+
+class _AlertDialog extends StatelessWidget {
+  final HeartRateAlertEvent alert;
+  final VoidCallback onAcknowledge;
+
+  const _AlertDialog({
+    required this.alert,
+    required this.onAcknowledge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isHigh = alert.type == HeartRateAlertType.high;
+    final color = isHigh ? AppColors.error : AppColors.warning;
+    final icon = isHigh ? Icons.trending_up : Icons.trending_down;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 图标
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 48),
+            ),
+            const SizedBox(height: 20),
+
+            // 标题
+            Text(
+              alert.type.displayName,
+              style: TextStyle(
+                color: color,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 心率值
+            Text(
+              '${alert.heartRate} BPM',
+              style: TextStyle(
+                color: color,
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 目标区间
+            if (alert.targetMin != null && alert.targetMax != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.dividerColor.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '目标区间: ${alert.targetMin} - ${alert.targetMax} BPM',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+
+            // 建议
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: color.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: color, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      alert.advice,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 确认按钮
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onAcknowledge,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  '我知道了',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 异常历史记录底部表单 ====================
+
+class _AlertHistorySheet extends ConsumerStatefulWidget {
+  final String sessionId;
+
+  const _AlertHistorySheet({required this.sessionId});
+
+  @override
+  ConsumerState<_AlertHistorySheet> createState() => _AlertHistorySheetState();
+}
+
+class _AlertHistorySheetState extends ConsumerState<_AlertHistorySheet> {
+  late Future<List<HeartRateAlertEvent>> _alertsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAlerts();
+  }
+
+  void _loadAlerts() {
+    final alertService = ref.read(heartRateServiceProvider).alertService;
+    _alertsFuture = alertService?.getAlertHistory(
+      sessionId: widget.sessionId,
+      limit: 100,
+    ) ?? Future.value([]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // 拖动条
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.dividerColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // 标题栏
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '异常记录',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // 内容区域
+          Expanded(
+            child: FutureBuilder<List<HeartRateAlertEvent>>(
+              future: _alertsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: LoadingWidget());
+                }
+
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return const EmptyStateWidget(
+                    icon: Icons.error_outline,
+                    title: '加载失败',
+                    description: '无法加载异常记录',
+                  );
+                }
+
+                final alerts = snapshot.data!;
+
+                if (alerts.isEmpty) {
+                  return const EmptyStateWidget(
+                    icon: Icons.check_circle_outline,
+                    title: '无异常记录',
+                    description: '本次监测期间心率保持在正常范围内',
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: alerts.length,
+                  itemBuilder: (context, index) {
+                    final alert = alerts[index];
+                    return _buildAlertCard(context, alert);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertCard(BuildContext context, HeartRateAlertEvent alert) {
+    final isHigh = alert.type == HeartRateAlertType.high;
+    final color = isHigh ? AppColors.error : AppColors.warning;
+    final icon = isHigh ? Icons.trending_up : Icons.trending_down;
+
+    return ModernCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  alert.type.displayName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_formatAlertTime(alert.startTime)} · ${alert.heartRate} BPM · 持续${_formatDuration(alert.durationSeconds)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (alert.advice.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.info_outline, size: 18),
+              onPressed: () => _showAdviceDialog(context, alert),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatAlertTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(int seconds) {
+    if (seconds >= 60) {
+      final minutes = seconds ~/ 60;
+      final secs = seconds % 60;
+      return '${minutes}分${secs}秒';
+    }
+    return '${seconds}秒';
+  }
+
+  void _showAdviceDialog(BuildContext context, HeartRateAlertEvent alert) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(
+              alert.type == HeartRateAlertType.high
+                  ? Icons.trending_up
+                  : Icons.trending_down,
+              color: alert.type == HeartRateAlertType.high
+                  ? AppColors.error
+                  : AppColors.warning,
+            ),
+            const SizedBox(width: 8),
+            Text(alert.type.displayName),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('发生时间', _formatAlertTime(alert.startTime)),
+            _buildDetailRow('心率值', '${alert.heartRate} BPM'),
+            if (alert.targetMin != null && alert.targetMax != null)
+              _buildDetailRow('目标区间', '${alert.targetMin} - ${alert.targetMax} BPM'),
+            _buildDetailRow('持续时长', _formatDuration(alert.durationSeconds)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, size: 18, color: AppColors.info),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      alert.advice,
+                      style: TextStyle(
+                        color: AppColors.info,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

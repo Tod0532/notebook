@@ -9,6 +9,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 import 'package:thick_notepad/services/database/database.dart';
+import 'package:thick_notepad/services/heart_rate/heart_rate_alert_service.dart';
 
 // ==================== 心率服务常量 ====================
 
@@ -179,6 +180,9 @@ class HeartRateService {
   // 心率区间配置
   HeartRateZone? _zoneConfig;
 
+  // 异常提醒服务
+  HeartRateAlertService? _alertService;
+
   // ==================== 初始化 ====================
 
   /// 初始化 FlutterBluePlus
@@ -189,7 +193,15 @@ class HeartRateService {
   /// 设置数据库实例
   void setDatabase(AppDatabase db) {
     _db = db;
+
+    // 初始化异常提醒服务
+    _alertService = HeartRateAlertService();
+    _alertService!.setDatabase(db);
+    _alertService!.init();
   }
+
+  /// 获取异常提醒服务
+  HeartRateAlertService? get alertService => _alertService;
 
   /// 加载心率区间配置
   Future<void> _loadZoneConfig() async {
@@ -457,6 +469,11 @@ class HeartRateService {
       // 添加到会话数据
       _sessionData.add(heartRateData);
 
+      // 发送到异常检测服务
+      if (_currentState == HeartRateServiceState.monitoring) {
+        _alertService?.processHeartRate(heartRate);
+      }
+
       // 发送到流
       _heartRateController.add(heartRateData);
 
@@ -515,6 +532,20 @@ class HeartRateService {
       // 启动定时保存（每5秒保存一次数据）
       _startSaveTimer();
 
+      // 启动异常检测服务
+      if (_alertService != null && _zoneConfig != null) {
+        // 根据目标区间设置异常检测
+        // 这里使用有氧区间（zone3）作为默认目标区间
+        final targetMin = _zoneConfig!.zone3Min;
+        final targetMax = _zoneConfig!.zone3Max;
+        _alertService!.startMonitoring(
+          sessionId: _currentSessionId!,
+          targetMin: targetMin,
+          targetMax: targetMax,
+        );
+        debugPrint('启动心率异常检测: 目标区间=[$targetMin-$targetMax]');
+      }
+
       _updateState(HeartRateServiceState.monitoring);
       debugPrint('开始监测心率，会话ID: $_currentSessionId');
 
@@ -528,6 +559,9 @@ class HeartRateService {
   /// 停止监测
   Future<HeartRateSessionStats?> stopMonitoring() async {
     try {
+      // 停止异常检测服务
+      await _alertService?.stopMonitoring();
+
       _stopSaveTimer();
 
       if (_currentSessionId == null) {
@@ -887,6 +921,9 @@ class HeartRateService {
     _scanTimer?.cancel();
     _heartRateSubscription?.cancel();
     _connectionSubscription?.cancel();
+
+    // 释放异常提醒服务
+    _alertService?.dispose();
 
     _stateController.close();
     _heartRateController.close();

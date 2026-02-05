@@ -1,5 +1,6 @@
 /// 心率区间设置页面 - 用户可自定义心率区间配置
 /// 包括静息心率、最大心率设置，以及5个心率区间的自定义阈值
+/// 包含心率异常提醒开关设置
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:thick_notepad/features/heart_rate/data/repositories/heart_rate_r
 import 'package:thick_notepad/features/heart_rate/presentation/providers/heart_rate_providers.dart';
 import 'package:thick_notepad/shared/widgets/modern_cards.dart';
 import 'package:thick_notepad/shared/widgets/loading_widget.dart';
+import 'package:thick_notepad/services/heart_rate/heart_rate_alert_service.dart';
 
 /// 心率区间设置页面
 class HeartRateSettingsPage extends ConsumerStatefulWidget {
@@ -50,6 +52,10 @@ class _HeartRateSettingsPageState extends ConsumerState<HeartRateSettingsPage> {
   HeartRateZoneConfig? _currentConfig;
   bool _isLoading = true;
   bool _isSaving = false;
+
+  // 异常提醒配置
+  HeartRateAlertConfig? _alertConfig;
+  bool _isLoadingAlertConfig = true;
 
   @override
   void initState() {
@@ -98,6 +104,14 @@ class _HeartRateSettingsPageState extends ConsumerState<HeartRateSettingsPage> {
         _restingHRController.text = '70';
         _maxHRController.text = '';
       }
+
+      // 加载异常提醒配置
+      final alertService = ref.read(heartRateServiceProvider).alertService;
+      if (alertService != null) {
+        _alertConfig = alertService.config;
+      } else {
+        _alertConfig = await HeartRateAlertConfig.load();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,6 +120,7 @@ class _HeartRateSettingsPageState extends ConsumerState<HeartRateSettingsPage> {
       }
     } finally {
       setState(() => _isLoading = false);
+      _isLoadingAlertConfig = false;
     }
   }
 
@@ -186,6 +201,8 @@ class _HeartRateSettingsPageState extends ConsumerState<HeartRateSettingsPage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   _buildBasicInfoCard(),
+                  const SizedBox(height: 16),
+                  _buildAlertSettingsCard(),
                   const SizedBox(height: 16),
                   _buildZoneCard(
                     zoneIndex: 1,
@@ -540,6 +557,17 @@ class _HeartRateSettingsPageState extends ConsumerState<HeartRateSettingsPage> {
       final success = await repo.saveZoneConfig(config);
 
       if (success) {
+        // 保存异常提醒配置
+        if (_alertConfig != null) {
+          await _alertConfig!.save();
+
+          // 更新服务配置
+          final alertService = ref.read(heartRateServiceProvider).alertService;
+          if (alertService != null) {
+            await alertService.updateConfig(_alertConfig!);
+          }
+        }
+
         // 清除缓存
         ref.invalidate(heartRateSettingsConfigProvider);
         repo.clearAllCache();
@@ -568,6 +596,295 @@ class _HeartRateSettingsPageState extends ConsumerState<HeartRateSettingsPage> {
     } finally {
       setState(() => _isSaving = false);
     }
+  }
+
+  /// 异常提醒设置卡片
+  Widget _buildAlertSettingsCard() {
+    if (_alertConfig == null) return const SizedBox.shrink();
+
+    return ModernCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.notifications_active_outlined,
+                color: AppColors.warning,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '异常提醒设置',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 启用异常提醒总开关
+          SwitchListTile(
+            title: const Text('启用异常提醒'),
+            subtitle: const Text('心率超出目标区间时提醒'),
+            value: _alertConfig!.enableVibration ||
+                _alertConfig!.enableNotification ||
+                _alertConfig!.enableDialog,
+            onChanged: (value) {
+              setState(() {
+                if (value) {
+                  // 启用所有提醒方式
+                  _alertConfig = _alertConfig!.copyWith(
+                    enableVibration: true,
+                    enableNotification: true,
+                    enableDialog: true,
+                  );
+                } else {
+                  // 禁用所有提醒方式
+                  _alertConfig = _alertConfig!.copyWith(
+                    enableVibration: false,
+                    enableNotification: false,
+                    enableDialog: false,
+                  );
+                }
+              });
+            },
+            contentPadding: EdgeInsets.zero,
+          ),
+
+          const Divider(),
+          const SizedBox(height: 8),
+
+          // 震动提醒开关
+          SwitchListTile(
+            title: const Text('震动提醒'),
+            subtitle: const Text('心率异常时震动反馈'),
+            value: _alertConfig!.enableVibration,
+            onChanged: (value) {
+              setState(() {
+                _alertConfig = _alertConfig!.copyWith(
+                  enableVibration: value,
+                );
+              });
+            },
+            contentPadding: EdgeInsets.zero,
+          ),
+
+          // 弹窗提醒开关
+          SwitchListTile(
+            title: const Text('弹窗提醒'),
+            subtitle: const Text('显示异常提示弹窗'),
+            value: _alertConfig!.enableDialog,
+            onChanged: (value) {
+              setState(() {
+                _alertConfig = _alertConfig!.copyWith(
+                  enableDialog: value,
+                );
+              });
+            },
+            contentPadding: EdgeInsets.zero,
+          ),
+
+          // 通知提醒开关
+          SwitchListTile(
+            title: const Text('通知提醒'),
+            subtitle: const Text('发送系统通知'),
+            value: _alertConfig!.enableNotification,
+            onChanged: (value) {
+              setState(() {
+                _alertConfig = _alertConfig!.copyWith(
+                  enableNotification: value,
+                );
+              });
+            },
+            contentPadding: EdgeInsets.zero,
+          ),
+
+          const Divider(),
+          const SizedBox(height: 8),
+
+          // 检测延迟设置
+          ListTile(
+            title: const Text('检测延迟'),
+            subtitle: Text('心率持续异常 ${_alertConfig!.alertDelaySeconds} 秒后触发提醒'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showDelaySettingDialog(),
+            contentPadding: EdgeInsets.zero,
+          ),
+
+          // 阈值设置
+          ListTile(
+            title: const Text('触发阈值'),
+            subtitle: Text(
+              '高于上限 ${(_alertConfig!.highThresholdMultiplier * 100).toInt()}% '
+              '或低于下限 ${(_alertConfig!.lowThresholdMultiplier * 100).toInt()}%',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showThresholdSettingDialog(),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示检测延迟设置对话框
+  void _showDelaySettingDialog() {
+    int currentDelay = _alertConfig!.alertDelaySeconds;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置检测延迟'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('心率持续异常多少秒后触发提醒'),
+            const SizedBox(height: 16),
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                return Column(
+                  children: [
+                    Slider(
+                      value: currentDelay.toDouble(),
+                      min: 10,
+                      max: 120,
+                      divisions: 11,
+                      label: '$currentDelay 秒',
+                      onChanged: (value) {
+                        setDialogState(() {
+                          currentDelay = value.round();
+                        });
+                      },
+                    ),
+                    Text(
+                      '$currentDelay 秒',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _alertConfig = _alertConfig!.copyWith(
+                  alertDelaySeconds: currentDelay,
+                );
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示阈值设置对话框
+  void _showThresholdSettingDialog() {
+    int highPercent = (_alertConfig!.highThresholdMultiplier * 100).toInt();
+    int lowPercent = (_alertConfig!.lowThresholdMultiplier * 100).toInt();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置触发阈值'),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 心率过高阈值
+                Text(
+                  '心率过高阈值',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                Slider(
+                  value: highPercent.toDouble(),
+                  min: 100,
+                  max: 150,
+                  divisions: 10,
+                  label: '$highPercent%',
+                  onChanged: (value) {
+                    setDialogState(() {
+                      highPercent = value.round();
+                    });
+                  },
+                ),
+                Text('$highPercent%'),
+                const SizedBox(height: 8),
+                Text(
+                  '超过目标区间上限的 ${highPercent}% 时触发',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+
+                const Divider(height: 32),
+
+                // 心率过低阈值
+                Text(
+                  '心率过低阈值',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                Slider(
+                  value: lowPercent.toDouble(),
+                  min: 50,
+                  max: 100,
+                  divisions: 10,
+                  label: '$lowPercent%',
+                  onChanged: (value) {
+                    setDialogState(() {
+                      lowPercent = value.round();
+                    });
+                  },
+                ),
+                Text('$lowPercent%'),
+                const SizedBox(height: 8),
+                Text(
+                  '低于目标区间下限的 ${lowPercent}% 时触发',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _alertConfig = _alertConfig!.copyWith(
+                  highThresholdMultiplier: highPercent / 100,
+                  lowThresholdMultiplier: lowPercent / 100,
+                );
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
