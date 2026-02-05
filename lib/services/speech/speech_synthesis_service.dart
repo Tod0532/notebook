@@ -326,6 +326,9 @@ class SpeechSynthesisService {
   /// 当前状态
   SpeechSynthesisState get currentState => _currentState;
 
+  /// 检查是否已初始化
+  bool get isInitialized => _isInitialized;
+
   /// 当前语速
   double get speechRate => _speechRate;
 

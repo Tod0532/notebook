@@ -1,6 +1,7 @@
 /// 语音模块 Providers
 /// 提供语音识别、语音合成、意图解析服务的状态管理
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/services/speech/intent_parser.dart';
@@ -110,11 +111,16 @@ class VoiceAssistantNotifier extends StateNotifier<VoiceAssistantState> {
   void _initListeners() {
     // 监听语音识别状态
     _recognitionService.stateStream.listen((recognitionState) {
+      debugPrint('VoiceAssistantNotifier: 识别状态变化 -> ${recognitionState.name}');
       state = state.copyWith(isListening: recognitionState == SpeechRecognitionState.listening);
     });
 
     // 监听语音识别结果
     _recognitionService.resultStream.listen((result) {
+      debugPrint('VoiceAssistantNotifier: 收到识别结果 -> ${result.recognizedWords}, isFinal: ${result.isFinal}');
+      // 处理所有结果（包括中间结果），以便用户可以看到实时反馈
+      state = state.copyWith(lastRecognizedText: result.recognizedWords);
+
       if (result.isFinal) {
         _handleFinalResult(result);
       }
@@ -140,24 +146,59 @@ class VoiceAssistantNotifier extends StateNotifier<VoiceAssistantState> {
   /// 开始语音识别
   Future<void> startListening({SpeechLanguage? language}) async {
     try {
-      state = state.copyWith(errorMessage: null);
+      debugPrint('VoiceAssistantNotifier: ========== 开始语音识别 ==========');
+      debugPrint('VoiceAssistantNotifier: 清除之前的错误信息');
+      state = state.copyWith(errorMessage: null, lastRecognizedText: '');
+
+      // 检查服务状态
+      debugPrint('VoiceAssistantNotifier: 检查服务状态');
+      debugPrint('  - 已初始化: ${_recognitionService.isInitialized}');
+      debugPrint('  - 可用: ${_recognitionService.isAvailable}');
+      debugPrint('  - 当前语言: ${_recognitionService.currentLanguage.name}');
+
+      if (!_recognitionService.isInitialized) {
+        debugPrint('VoiceAssistantNotifier: 服务未初始化，先初始化...');
+        await _recognitionService.initialize(language: language);
+        debugPrint('VoiceAssistantNotifier: 初始化完成');
+      }
 
       // 播放开始语音反馈
-      await _synthesisService.speakPreset(SpeechPreset.listeningStart);
+      debugPrint('VoiceAssistantNotifier: 播放开始语音反馈');
+      try {
+        await _synthesisService.speakPreset(SpeechPreset.listeningStart);
+        debugPrint('VoiceAssistantNotifier: 语音反馈播放完成');
+      } catch (e) {
+        debugPrint('VoiceAssistantNotifier: 语音反馈播放失败（非致命）: $e');
+      }
 
+      debugPrint('VoiceAssistantNotifier: 调用 startListening...');
       await _recognitionService.startListening(language: language);
-    } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
-      await _synthesisService.speakPreset(SpeechPreset.error);
+      debugPrint('VoiceAssistantNotifier: startListening 调用完成');
+    } catch (e, st) {
+      debugPrint('VoiceAssistantNotifier: ========== 开始语音识别失败 ==========');
+      debugPrint('VoiceAssistantNotifier: 错误类型: ${e.runtimeType}');
+      debugPrint('VoiceAssistantNotifier: 错误信息: $e');
+      debugPrint('VoiceAssistantNotifier: 堆栈: $st');
+
+      final errorMessage = '启动语音识别失败: ${e.toString()}';
+      state = state.copyWith(errorMessage: errorMessage);
+
+      // 尝试播放错误提示
+      try {
+        await _synthesisService.speakPreset(SpeechPreset.error);
+      } catch (_) {}
     }
   }
 
   /// 停止语音识别
   Future<void> stopListening() async {
     try {
+      debugPrint('VoiceAssistantNotifier: ========== 停止语音识别 ==========');
       await _recognitionService.stopListening();
       await _synthesisService.speakPreset(SpeechPreset.listeningStop);
+      debugPrint('VoiceAssistantNotifier: 停止完成');
     } catch (e) {
+      debugPrint('VoiceAssistantNotifier: 停止语音识别失败: $e');
       state = state.copyWith(errorMessage: e.toString());
     }
   }

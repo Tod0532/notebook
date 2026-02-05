@@ -4,11 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
 import 'package:thick_notepad/services/speech/speech_recognition_service.dart';
 import 'package:thick_notepad/services/speech/intent_parser.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/core/config/providers.dart';
 
 /// 语音助手页面
 class VoiceAssistantPage extends ConsumerStatefulWidget {
@@ -27,6 +29,7 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
   void initState() {
     super.initState();
     _setupAnimation();
+    _checkAndRequestPermission();
   }
 
   void _setupAnimation() {
@@ -43,6 +46,106 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
     );
 
     _animationController.repeat(reverse: true);
+  }
+
+  /// 检查并请求麦克风权限
+  Future<void> _checkAndRequestPermission() async {
+    try {
+      final status = await Permission.microphone.status;
+      debugPrint('麦克风权限状态: $status');
+
+      if (status.isDenied) {
+        debugPrint('麦克风权限被拒绝，请求权限...');
+        final result = await Permission.microphone.request();
+        debugPrint('权限请求结果: $result');
+
+        if (!result.isGranted) {
+          if (mounted) {
+            _showPermissionDialog();
+          }
+        }
+      } else if (status.isPermanentlyDenied) {
+        debugPrint('麦克风权限被永久拒绝');
+        if (mounted) {
+          _showPermissionDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('检查麦克风权限失败: $e');
+    }
+  }
+
+  /// 显示权限对话框
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('需要麦克风权限'),
+        content: const Text('语音助手需要麦克风权限才能正常工作。请在设置中允许录音权限。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: const Text('打开设置'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示诊断信息
+  void _showDiagnostics() async {
+    final service = ref.read(speechRecognitionServiceProvider);
+    final synthesisService = ref.read(speechSynthesisServiceProvider);
+
+    final diagnostics = {
+      '语音识别初始化': service.isInitialized ? '是' : '否',
+      '语音识别可用': service.isAvailable ? '是' : '否',
+      '当前正在监听': service.isListening ? '是' : '否',
+      '当前语言': service.currentLanguage.name,
+      '识别状态': service.currentState.name,
+      '语音合成初始化': synthesisService.isInitialized ? '是' : '否',
+    };
+
+    final micStatus = await Permission.microphone.status;
+    diagnostics['麦克风权限'] = micStatus.isGranted ? '已授予' : '未授予 (${micStatus.name})';
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('诊断信息'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: diagnostics.entries.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(e.key),
+                    Text(e.value, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              )).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -111,6 +214,12 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
         ),
       ),
       actions: [
+        // 诊断按钮
+        IconButton(
+          icon: const Icon(Icons.bug_report_outlined, color: AppColors.textPrimary),
+          onPressed: () => _showDiagnostics(),
+          tooltip: '诊断',
+        ),
         // 设置按钮
         IconButton(
           icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
@@ -210,6 +319,8 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
                 _buildStatusCard(state),
                 const SizedBox(height: AppSpacing.xl),
                 _buildRecognitionResult(state),
+                const SizedBox(height: AppSpacing.xl),
+                _buildDebugInfo(state), // 添加调试信息面板
                 const SizedBox(height: AppSpacing.xl),
                 if (state.lastIntent != null) _buildIntentResult(state.lastIntent!),
                 const Spacer(),
@@ -340,6 +451,83 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// 构建调试信息面板
+  Widget _buildDebugInfo(VoiceAssistantState state) {
+    // 从服务获取更多调试信息
+    final recognitionService = ref.read(speechRecognitionServiceProvider);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withOpacity(0.5),
+        borderRadius: AppRadius.xlRadius,
+        border: Border.all(
+          color: AppColors.dividerColor.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.bug_report_outlined,
+                color: AppColors.info,
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '调试信息',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _buildDebugRow('正在监听', state.isListening ? '是' : '否'),
+          _buildDebugRow('正在播放', state.isSpeaking ? '是' : '否'),
+          _buildDebugRow('服务已初始化', recognitionService.isInitialized ? '是' : '否'),
+          _buildDebugRow('服务可用', recognitionService.isAvailable ? '是' : '否'),
+          _buildDebugRow('当前语言', recognitionService.currentLanguage.name),
+          _buildDebugRow('识别状态', recognitionService.currentState.name),
+          if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
+            _buildDebugRow('错误信息', state.errorMessage!, isError: true),
+        ],
+      ),
+    );
+  }
+
+  /// 构建调试信息行
+  Widget _buildDebugRow(String label, String value, {bool isError = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: isError ? AppColors.error : AppColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -588,13 +776,20 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
 
   /// 切换监听状态
   void _toggleListening(VoiceAssistantState state) async {
+    debugPrint('VoiceAssistantPage: ========== 切换监听状态 ==========');
+    debugPrint('VoiceAssistantPage: 当前状态 isListening: ${state.isListening}');
+
     final notifier = ref.read(voiceAssistantProvider.notifier);
 
     if (state.isListening) {
+      debugPrint('VoiceAssistantPage: 停止监听...');
       await notifier.stopListening();
     } else {
+      debugPrint('VoiceAssistantPage: 开始监听...');
       await notifier.startListening();
     }
+
+    debugPrint('VoiceAssistantPage: ========== 切换完成 ==========');
   }
 
   /// 执行意图

@@ -165,29 +165,40 @@ class SpeechRecognitionService {
   /// 初始化语音识别
   Future<bool> initialize({SpeechLanguage? language}) async {
     try {
+      debugPrint('===== 初始化语音识别服务 =====');
       _updateState(SpeechRecognitionState.initializing);
 
       // 检查麦克风权限
+      debugPrint('1. 检查麦克风权限...');
       final hasPermission = await _checkMicrophonePermission();
+      debugPrint('2. 权限检查结果: $hasPermission');
+
       if (!hasPermission) {
         _updateState(SpeechRecognitionState.unavailable);
-        throw SpeechRecognitionException('缺少麦克风权限');
+        throw SpeechRecognitionException('缺少麦克风权限，请在设置中允许录音权限');
       }
 
       // 初始化 speech_to_text
-      // speech_to_text 包的 onError 回调使用动态类型，不包含 SpeechRecognitionError 类
+      debugPrint('3. 初始化 speech_to_text 插件...');
       final isAvailable = await _speechToText.initialize(
-        onError: (error) {
-          // error 是一个包含 errorMsg 和 errorCode 的动态对象
-          debugPrint('语音识别错误: $error');
+        onError: (dynamic error) {
+          // error 是动态类型
+          debugPrint('===== 语音识别错误回调 =====');
+          debugPrint('错误详情: $error');
+          debugPrint('错误类型: ${error.runtimeType}');
           _updateState(SpeechRecognitionState.error);
         },
-        onStatus: _onStatus,
+        onStatus: (status) {
+          debugPrint('语音识别状态回调: $status');
+          _onStatus(status);
+        },
       );
+
+      debugPrint('4. 初始化结果: isAvailable=$isAvailable');
 
       if (!isAvailable) {
         _updateState(SpeechRecognitionState.unavailable);
-        throw SpeechRecognitionException('语音识别不可用');
+        throw SpeechRecognitionException('语音识别不可用，设备可能不支持语音识别功能');
       }
 
       _isInitialized = true;
@@ -197,31 +208,70 @@ class SpeechRecognitionService {
         _currentLanguage = language;
       }
 
+      // 打印支持的 locale 列表用于调试
+      try {
+        final locales = await _speechToText.locales();
+        debugPrint('5. 设备支持的语言列表 (${locales.length} 种):');
+        for (final locale in locales.take(10)) {
+          debugPrint('   - ${locale.localeId} (${locale.name})');
+        }
+      } catch (e) {
+        debugPrint('5. 获取语言列表失败: $e');
+      }
+
       _updateState(SpeechRecognitionState.idle);
-      debugPrint('语音识别初始化成功，语言: ${_currentLanguage.name}');
+      debugPrint('===== 语音识别初始化成功 =====');
+      debugPrint('当前语言: ${_currentLanguage.name} (${_currentLanguage.localeId})');
       return true;
     } catch (e, st) {
+      debugPrint('===== 语音识别初始化失败 =====');
+      debugPrint('错误类型: ${e.runtimeType}');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈跟踪: $st');
       _updateState(SpeechRecognitionState.error);
-      debugPrint('语音识别初始化失败: $e');
-      throw SpeechRecognitionException('初始化语音识别失败', e, st);
+      throw SpeechRecognitionException('初始化语音识别失败: ${e.toString()}', e, st);
     }
   }
 
   /// 检查麦克风权限
   Future<bool> _checkMicrophonePermission() async {
     try {
-      final status = await Permission.microphone.request();
+      debugPrint('  1.1 请求麦克风权限...');
+      final status = await Permission.microphone.status;
+      debugPrint('  1.2 当前权限状态: $status');
+
       if (status.isGranted) {
+        debugPrint('  1.3 权限已授予');
         return true;
       }
 
+      if (status.isDenied) {
+        debugPrint('  1.4 权限被拒绝，请求权限...');
+        final result = await Permission.microphone.request();
+        debugPrint('  1.5 请求结果: $result');
+
+        if (result.isGranted) {
+          debugPrint('  1.6 权限已授予');
+          return true;
+        }
+
+        if (result.isPermanentlyDenied) {
+          debugPrint('  1.7 权限被永久拒绝');
+          throw SpeechRecognitionException('麦克风权限被永久拒绝，请在设置中开启');
+        }
+
+        debugPrint('  1.8 权限请求失败');
+        return false;
+      }
+
       if (status.isPermanentlyDenied) {
+        debugPrint('  1.9 权限被永久拒绝');
         throw SpeechRecognitionException('麦克风权限被永久拒绝，请在设置中开启');
       }
 
       return false;
     } catch (e) {
-      debugPrint('检查麦克风权限失败: $e');
+      debugPrint('  检查麦克风权限失败: $e');
       rethrow;
     }
   }
@@ -241,12 +291,20 @@ class SpeechRecognitionService {
     Duration? pauseFor,
   }) async {
     try {
+      debugPrint('===== 开始语音识别流程 =====');
+      debugPrint('1. 检查初始化状态: $_isInitialized');
+
       if (!_isInitialized) {
-        await initialize();
+        debugPrint('2. 服务未初始化，开始初始化...');
+        final initSuccess = await initialize(language: language);
+        debugPrint('3. 初始化结果: $initSuccess');
       }
 
+      debugPrint('4. 检查语音识别可用性: ${_speechToText.isAvailable}');
+
       if (!isAvailable) {
-        throw SpeechRecognitionException('语音识别不可用');
+        debugPrint('5. 语音识别不可用');
+        throw SpeechRecognitionException('语音识别不可用，请检查设备是否支持语音识别功能');
       }
 
       // 更新语言
@@ -254,47 +312,64 @@ class SpeechRecognitionService {
         _currentLanguage = language;
       }
 
+      debugPrint('6. 当前语言: ${_currentLanguage.name} (${_currentLanguage.localeId})');
+
       _updateState(SpeechRecognitionState.listening);
 
       // 创建新会话
       _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
       _sessionTranscripts.clear();
 
-      // 开始监听
-      await _speechToText.listen(
+      debugPrint('7. 开始调用 listen 方法...');
+      debugPrint('8. 配置参数: listenFor=${listenFor ?? const Duration(seconds: 30)}, pauseFor=${pauseFor ?? const Duration(seconds: 3)}');
+
+      // 开始监听 - 使用 deviceDefault 模式而不是 confirmation
+      // confirmation 模式可能在某些设备上不支持中文
+      final listenStarted = await _speechToText.listen(
         onResult: _onResult,
         listenFor: listenFor ?? const Duration(seconds: 30),
-        pauseFor: pauseFor ?? const Duration(seconds: 3),
+        pauseFor: pauseFor ?? const Duration(seconds: 5), // 增加暂停时间
         partialResults: true,
         localeId: _currentLanguage.localeId,
-        cancelOnError: true,
-        listenMode: stt.ListenMode.confirmation,
+        cancelOnError: false, // 改为 false，避免出错时直接取消
+        listenMode: stt.ListenMode.deviceDefault, // 使用设备默认模式
       );
 
-      debugPrint('开始语音识别，会话ID: $_currentSessionId, 语言: ${_currentLanguage.name}');
+      debugPrint('9. listen 方法调用完成，返回值: $listenStarted');
+      debugPrint('10. 当前 isListening 状态: ${_speechToText.isListening}');
+      debugPrint('===== 语音识别已启动 =====');
       return _currentSessionId!;
     } catch (e, st) {
+      debugPrint('===== 开始语音识别失败 =====');
+      debugPrint('错误类型: ${e.runtimeType}');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈跟踪: $st');
       _updateState(SpeechRecognitionState.error);
-      debugPrint('开始语音识别失败: $e');
-      throw SpeechRecognitionException('开始语音识别失败', e, st);
+      throw SpeechRecognitionException('开始语音识别失败: ${e.toString()}', e, st);
     }
   }
 
   /// 停止监听
   Future<void> stopListening() async {
     try {
-      if (_currentState != SpeechRecognitionState.listening) {
+      debugPrint('===== 停止语音识别 =====');
+      debugPrint('当前状态: $_currentState');
+      debugPrint('isListening: ${_speechToText.isListening}');
+
+      if (_currentState != SpeechRecognitionState.listening && !_speechToText.isListening) {
+        debugPrint('当前未在监听，无需停止');
         return;
       }
 
       await _speechToText.stop();
       _updateState(SpeechRecognitionState.notListening);
 
-      debugPrint('停止语音识别，会话ID: $_currentSessionId');
+      debugPrint('已停止语音识别，会话ID: $_currentSessionId');
       final sessionId = _currentSessionId;
       _currentSessionId = null;
     } catch (e) {
-      debugPrint('停止语音识别失败: $e');
+      debugPrint('===== 停止语音识别失败 =====');
+      debugPrint('错误: $e');
     }
   }
 
@@ -313,19 +388,48 @@ class SpeechRecognitionService {
 
   /// 识别结果回调
   void _onResult(dynamic result) {
-    final recognitionResult = VoiceRecognitionResult(
-      recognizedWords: result.recognizedWords ?? '',
-      confidence: result.confidence?.toString(),
-      timestamp: DateTime.now(),
-      isFinal: result.finalResult ?? false,
-    );
+    debugPrint('===== 语音识别结果回调 =====');
+    debugPrint('结果类型: ${result.runtimeType}');
 
-    if (result.finalResult) {
-      _sessionTranscripts.add(result.recognizedWords);
+    String recognizedWords = '';
+    bool isFinal = false;
+    String? confidence;
+
+    try {
+      if (result is Map) {
+        recognizedWords = result['recognizedWords'] ?? '';
+        isFinal = result['finalResult'] ?? false;
+        confidence = result['confidence']?.toString();
+      } else {
+        recognizedWords = result.recognizedWords ?? '';
+        isFinal = result.finalResult ?? false;
+        confidence = result.confidence?.toString();
+      }
+
+      debugPrint('识别文字: "$recognizedWords"');
+      debugPrint('是否最终结果: $isFinal');
+      debugPrint('置信度: $confidence');
+
+      if (recognizedWords.isNotEmpty) {
+        final recognitionResult = VoiceRecognitionResult(
+          recognizedWords: recognizedWords,
+          confidence: confidence,
+          timestamp: DateTime.now(),
+          isFinal: isFinal,
+        );
+
+        if (isFinal) {
+          _sessionTranscripts.add(recognizedWords);
+          debugPrint('最终结果已保存，会话记录: $_sessionTranscripts');
+        }
+
+        _resultController.add(recognitionResult);
+      } else {
+        debugPrint('识别文字为空，忽略此结果');
+      }
+    } catch (e) {
+      debugPrint('解析识别结果失败: $e');
     }
-
-    _resultController.add(recognitionResult);
-    debugPrint('语音识别结果: ${result.recognizedWords}, final: ${result.finalResult}');
   }
 
   /// 状态回调
