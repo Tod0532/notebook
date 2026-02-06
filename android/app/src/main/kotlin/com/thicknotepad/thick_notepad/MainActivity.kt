@@ -7,23 +7,30 @@ import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.thicknotepad.thick_notepad.widget.NoteWidgetUpdater
+import com.thicknotepad.thick_notepad.widget.PlanWidgetUpdater
+import com.thicknotepad.thick_notepad.widget.WorkoutWidgetUpdater
+import com.thicknotepad.thick_notepad.widget.VoiceWidgetUpdater
 
 /**
- * MainActivity - 支持原生语音识别
+ * MainActivity - 支持原生语音识别和桌面小组件
  */
 class MainActivity : FlutterActivity() {
     private val TAG = "MainActivity"
     private val SPEECH_CHANNEL = "com.thicknotepad.thick_notepad/speech"
+    private val WIDGET_CHANNEL = "com.thicknotepad.thick_notepad/widget"
     private val SPEECH_REQUEST_CODE = 1234
 
-    private var methodChannel: MethodChannel? = null
+    private var speechChannel: MethodChannel? = null
+    private var widgetChannel: MethodChannel? = null
     private var pendingResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SPEECH_CHANNEL)
-        methodChannel?.setMethodCallHandler { call, result ->
+        // 语音识别通道
+        speechChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SPEECH_CHANNEL)
+        speechChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "startSpeechRecognition" -> {
                     val language = call.argument<String>("language")
@@ -31,6 +38,44 @@ class MainActivity : FlutterActivity() {
                 }
                 "checkSpeechRecognitionAvailable" -> {
                     checkSpeechRecognitionAvailable(result)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // 桌面小组件通道
+        widgetChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIDGET_CHANNEL)
+        widgetChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "updateNoteWidget" -> {
+                    val noteCount = call.argument<Int>("noteCount") ?: 0
+                    val recentNote = call.argument<String>("recentNote") ?: ""
+                    NoteWidgetUpdater.updateNoteData(this, noteCount, recentNote)
+                    result.success(null)
+                }
+                "updatePlanWidget" -> {
+                    val totalTasks = call.argument<Int>("totalTasks") ?: 0
+                    val completedTasks = call.argument<Int>("completedTasks") ?: 0
+                    PlanWidgetUpdater.updatePlanData(this, totalTasks, completedTasks)
+                    result.success(null)
+                }
+                "updateWorkoutWidget" -> {
+                    val calories = call.argument<Int>("calories") ?: 0
+                    val duration = call.argument<Int>("duration") ?: 0
+                    val workoutType = call.argument<String>("workoutType") ?: "运动"
+                    WorkoutWidgetUpdater.updateWorkoutData(this, calories, duration, workoutType)
+                    result.success(null)
+                }
+                "resetWorkoutCheckin" -> {
+                    WorkoutWidgetUpdater.resetDailyCheckin(this)
+                    result.success(null)
+                }
+                "updateVoiceResult" -> {
+                    val voiceResult = call.argument<String>("result") ?: ""
+                    VoiceWidgetUpdater.updateVoiceResult(this, voiceResult)
+                    result.success(null)
                 }
                 else -> {
                     result.notImplemented()
@@ -151,8 +196,37 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        methodChannel?.setMethodCallHandler(null)
-        methodChannel = null
+        speechChannel?.setMethodCallHandler(null)
+        speechChannel = null
+        widgetChannel?.setMethodCallHandler(null)
+        widgetChannel = null
         pendingResult = null
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // 处理从小组件启动的Intent
+        handleWidgetIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleWidgetIntent(intent)
+    }
+
+    /**
+     * 处理来自小组件的Intent
+     */
+    private fun handleWidgetIntent(intent: Intent?) {
+        intent?.getStringExtra("action")?.let { action ->
+            Log.d(TAG, "收到小组件操作: $action")
+
+            // 通知Flutter处理小组件操作
+            widgetChannel?.invokeMethod("onWidgetAction", mapOf(
+                "action" to action,
+                "data" to intent.extras?.get("result")
+            ))
+        }
     }
 }

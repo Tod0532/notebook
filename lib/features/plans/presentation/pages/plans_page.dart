@@ -10,7 +10,7 @@ import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/plans/presentation/providers/plan_providers.dart';
 import 'package:thick_notepad/features/plans/presentation/pages/plan_template_select_page.dart';
-import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/shared/animations/staggered_animation.dart';
 import 'package:thick_notepad/shared/widgets/progress_components.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:drift/drift.dart' as drift;
@@ -50,17 +50,15 @@ class PlansView extends ConsumerWidget {
                   return _EmptyState(onTap: () => _showCreatePlanSheet(context, ref));
                 }
 
-                return ListView.builder(
+                return StaggeredListView(
+                  config: StaggeredPresets.standardSlideUp,
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                   itemCount: plans.length,
                   itemBuilder: (context, index) {
                     final plan = plans[index];
-                    return AnimatedListItem(
-                      index: index,
-                      child: _PlanCard(
-                        plan: plan,
-                        onTap: () => _showPlanDetail(context, plan),
-                      ),
+                    return _PlanCard(
+                      plan: plan,
+                      onTap: () => _showPlanDetail(context, plan),
                     );
                   },
                 );

@@ -75,6 +75,59 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- 快速笔记小组件 -->
+        <receiver android:name=".widget.NoteWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.thicknotepad.CREATE_NOTE" />
+                <action android:name="com.thicknotepad.REFRESH_NOTES" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_note_info" />
+        </receiver>
+
+        <!-- 今日计划小组件 -->
+        <receiver android:name=".widget.PlanWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.thicknotepad.OPEN_PLAN_APP" />
+                <action android:name="com.thicknotepad.REFRESH_PLAN" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_plan_info" />
+        </receiver>
+
+        <!-- 运动打卡小组件 -->
+        <receiver android:name=".widget.WorkoutWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.thicknotepad.QUICK_CHECKIN" />
+                <action android:name="com.thicknotepad.OPEN_WORKOUT" />
+                <action android:name="com.thicknotepad.REFRESH_WORKOUT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_workout_info" />
+        </receiver>
+
+        <!-- 语音助手小组件 -->
+        <receiver android:name=".widget.VoiceWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.thicknotepad.START_VOICE" />
+                <action android:name="com.thicknotepad.REFRESH_VOICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_voice_info" />
+        </receiver>
     </application>
 
     <!-- 声明使用 BLE 功能 -->

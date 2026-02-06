@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 快速笔记小组件配置信息 -->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="294dp"
+    android:minHeight="146dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_note"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_note_description"
+    android:previewImage="@drawable/widget_note_preview"
+    android:resizeMode="horizontal|vertical"
+    android:minResizeWidth="250dp"
+    android:minResizeHeight="120dp">
+</appwidget-provider>

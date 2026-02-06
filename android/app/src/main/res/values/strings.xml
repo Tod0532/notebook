@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小组件字符串资源 -->
+<resources>
+    <!-- 小组件名称 -->
+    <string name="app_name">ThickNotepad</string>
+
+    <!-- 小组件描述 -->
+    <string name="widget_note_description">快速查看和创建笔记</string>
+    <string name="widget_plan_description">查看今日计划进度</string>
+    <string name="widget_workout_description">快速运动打卡</string>
+    <string name="widget_voice_description">快速启动语音助手</string>
+
+    <!-- 小组件预览图片 (可选，如果没有预览图可以删除 previewImage 属性) -->
+    <string name="widget_note_preview">小组件笔记预览</string>
+    <string name="widget_plan_preview">小组件计划预览</string>
+    <string name="widget_workout_preview">小组件运动预览</string>
+    <string name="widget_voice_preview">小组件语音预览</string>
+</resources>

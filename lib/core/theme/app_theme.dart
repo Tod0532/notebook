@@ -1,8 +1,9 @@
 /// 应用主题配置 - 现代渐变风格
-/// 支持多主题动态切换
+/// 支持多主题动态切换和自定义主题色
 
 import 'package:flutter/material.dart';
 import 'package:thick_notepad/core/theme/app_themes.dart';
+import 'package:thick_notepad/core/theme/app_color_scheme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/providers/theme_provider.dart';
 
@@ -1004,73 +1005,366 @@ ThemeData getThemeData(AppTheme theme) {
   );
 }
 
+// ==================== 自定义主题色系统 ====================
+
+/// 根据自定义主题色生成 ThemeData
+/// 用于支持用户自定义主色调
+ThemeData getThemeDataWithCustomColor(
+  AppThemeColor themeColor, {
+  bool isDark = false,
+}) {
+  final primary = themeColor.primary;
+  final secondary = themeColor.secondary;
+  final background = isDark ? AppColors.backgroundDark : AppColors.background;
+  final surface = isDark ? AppColors.surfaceDark : AppColors.surface;
+  final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+  final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondary;
+
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      primary: primary,
+      secondary: secondary,
+      surface: surface,
+      error: AppColors.error,
+    ),
+
+    // Scaffold 背景
+    scaffoldBackgroundColor: background,
+
+    // AppBar 主题
+    appBarTheme: AppBarTheme(
+      backgroundColor: surface.withValues(alpha: isDark ? 0.95 : 0.9),
+      foregroundColor: textPrimary,
+      elevation: 0,
+      centerTitle: true,
+      titleTextStyle: TextStyle(
+        color: textPrimary,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+    ),
+
+    // 卡片主题
+    cardTheme: CardThemeData(
+      color: surface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.lgRadius,
+        side: BorderSide(
+          color: isDark
+              ? AppColors.dividerColorDark.withOpacity(0.3)
+              : AppColors.dividerColor.withOpacity(0.5),
+          width: 1,
+        ),
+      ),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+    ),
+
+    // 输入框主题
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariant,
+      border: OutlineInputBorder(
+        borderRadius: AppRadius.mdRadius,
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: AppRadius.mdRadius,
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: AppRadius.mdRadius,
+        borderSide: BorderSide(color: primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: AppRadius.mdRadius,
+        borderSide: const BorderSide(color: AppColors.error, width: 1),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      hintStyle: TextStyle(
+        color: isDark ? AppColors.textHintDark : AppColors.textHint,
+        fontSize: 15,
+      ),
+    ),
+
+    // 按钮主题
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.mdRadius,
+        ),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+      ),
+    ),
+
+    // 文本按钮主题
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: primary,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        textStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.smRadius,
+        ),
+      ),
+    ),
+
+    // 浮动按钮主题
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: primary,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.xlRadius,
+      ),
+    ),
+
+    // 底部导航栏主题
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: surface.withOpacity(0.95),
+      selectedItemColor: primary,
+      unselectedItemColor: isDark ? AppColors.textHintDark : AppColors.textHint,
+      type: BottomNavigationBarType.fixed,
+      elevation: 8,
+      selectedLabelStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+
+    // 分割线主题
+    dividerTheme: DividerThemeData(
+      color: isDark
+          ? AppColors.dividerColorDark.withOpacity(0.3)
+          : AppColors.dividerColor.withOpacity(0.6),
+      thickness: 1,
+      space: 1,
+    ),
+
+    // 对话框主题
+    dialogTheme: DialogThemeData(
+      backgroundColor: surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.xlRadius,
+      ),
+      elevation: 8,
+      titleTextStyle: TextStyle(
+        color: textPrimary,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+      ),
+      contentTextStyle: TextStyle(
+        color: textSecondary,
+        fontSize: 15,
+      ),
+    ),
+
+    // 底部表单主题
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.15),
+    ),
+
+    // Chip 主题
+    chipTheme: ChipThemeData(
+      backgroundColor: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariant,
+      selectedColor: primary.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: textSecondary,
+        fontSize: 13,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.smRadius,
+      ),
+      side: BorderSide.none,
+    ),
+
+    // 文本主题
+    textTheme: TextTheme(
+      displayLarge: TextStyle(
+        color: textPrimary,
+        fontSize: 32,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -1,
+        height: 1.2,
+      ),
+      displayMedium: TextStyle(
+        color: textPrimary,
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.8,
+        height: 1.2,
+      ),
+      displaySmall: TextStyle(
+        color: textPrimary,
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+        height: 1.3,
+      ),
+      headlineMedium: TextStyle(
+        color: textPrimary,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        height: 1.3,
+      ),
+      headlineSmall: TextStyle(
+        color: textPrimary,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.4,
+      ),
+      titleLarge: TextStyle(
+        color: textPrimary,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+        height: 1.4,
+      ),
+      titleMedium: TextStyle(
+        color: textPrimary,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+      ),
+      titleSmall: TextStyle(
+        color: textSecondary,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+      ),
+      bodyLarge: TextStyle(
+        color: textPrimary,
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+      ),
+      bodyMedium: TextStyle(
+        color: textSecondary,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+      ),
+      bodySmall: TextStyle(
+        color: isDark ? AppColors.textHintDark : AppColors.textHint,
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+      ),
+      labelLarge: TextStyle(
+        color: textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.2,
+      ),
+      labelMedium: TextStyle(
+        color: textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+      labelSmall: TextStyle(
+        color: isDark ? AppColors.textHintDark : AppColors.textHint,
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+  );
+}
+
 // ==================== 动态主题颜色扩展 ====================
 
 /// BuildContext 扩展 - 方便访问当前主题的颜色
 extension ThemeColorsExtension on BuildContext {
+  /// 当前自定义主题色
+  AppThemeColor get customThemeColor =>
+      ProviderScope.containerOf(this).read(currentCustomColorProvider);
+
   /// 当前主题的主色
-  Color get themePrimary => ThemeFactory.getPrimary(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
+  Color get themePrimary => customThemeColor.primary;
 
   /// 当前主题的主色渐变
-  LinearGradient get themePrimaryGradient => ThemeFactory.getPrimaryGradient(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
+  LinearGradient get themePrimaryGradient => customThemeColor.primaryGradient;
 
   /// 当前主题的辅助色渐变
-  LinearGradient get themeSecondaryGradient => ThemeFactory.getSecondaryGradient(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
+  LinearGradient get themeSecondaryGradient => customThemeColor.secondaryGradient;
 
-  /// 当前主题的成功渐变
-  LinearGradient get themeSuccessGradient => ThemeFactory.getSuccessGradient(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
-
-  /// 当前主题的警告渐变
-  LinearGradient get themeWarningGradient => ThemeFactory.getWarningGradient(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
-
-  /// 当前主题的错误渐变
-  LinearGradient get themeErrorGradient => ThemeFactory.getErrorGradient(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
-
-  /// 当前主题的信息渐变
-  LinearGradient get themeInfoGradient => ThemeFactory.getInfoGradient(
-        ProviderScope.containerOf(this).read(currentThemeProvider),
-      );
+  /// 当前主题的辅助色
+  Color get themeSecondary => customThemeColor.secondary;
 }
 
 /// WidgetRef 扩展 - 方便在 ConsumerWidget 中访问当前主题的颜色
 extension ThemeColorsRefExtension on WidgetRef {
+  /// 当前自定义主题色
+  AppThemeColor get customThemeColor => read(currentCustomColorProvider);
+
   /// 当前主题的主色
-  Color get themePrimary => ThemeFactory.getPrimary(read(currentThemeProvider));
+  Color get themePrimary => customThemeColor.primary;
 
   /// 当前主题的主色渐变
-  LinearGradient get themePrimaryGradient =>
-      ThemeFactory.getPrimaryGradient(read(currentThemeProvider));
+  LinearGradient get themePrimaryGradient => customThemeColor.primaryGradient;
 
   /// 当前主题的辅助色渐变
-  LinearGradient get themeSecondaryGradient =>
-      ThemeFactory.getSecondaryGradient(read(currentThemeProvider));
+  LinearGradient get themeSecondaryGradient => customThemeColor.secondaryGradient;
 
-  /// 当前主题的成功渐变
-  LinearGradient get themeSuccessGradient =>
-      ThemeFactory.getSuccessGradient(read(currentThemeProvider));
+  /// 当前主题的辅助色
+  Color get themeSecondary => customThemeColor.secondary;
+}
 
-  /// 当前主题的警告渐变
-  LinearGradient get themeWarningGradient =>
-      ThemeFactory.getWarningGradient(read(currentThemeProvider));
+// ==================== 主题模式支持（深色模式）====================
 
-  /// 当前主题的错误渐变
-  LinearGradient get themeErrorGradient =>
-      ThemeFactory.getErrorGradient(read(currentThemeProvider));
+/// 根据主题模式和颜色主题生成 ThemeData
+/// 支持亮色/深色/跟随系统三种模式
+ThemeData getThemeDataWithMode(
+  AppTheme colorTheme,
+  AppColorMode colorMode,
+  Brightness? systemBrightness,
+) {
+  // 确定是否使用深色模式
+  final bool useDarkMode = switch (colorMode) {
+    AppColorMode.dark => true,
+    AppColorMode.light => false,
+    AppColorMode.system => systemBrightness == Brightness.dark,
+  };
 
-  /// 当前主题的信息渐变
-  LinearGradient get themeInfoGradient =>
-      ThemeFactory.getInfoGradient(read(currentThemeProvider));
+  // 根据颜色模式选择使用深色还是浅色主题
+  final bool isDark = switch (colorMode) {
+    AppColorMode.light => false,
+    AppColorMode.dark => true,
+    AppColorMode.system => systemBrightness == Brightness.dark,
+  };
+
+  final selectedTheme = isDark ? AppTheme.darkMode : AppTheme.modernGradient;
+
+  return getThemeData(selectedTheme);
 }
 

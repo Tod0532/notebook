@@ -7,6 +7,7 @@ import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/constants/app_constants.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/core/config/providers.dart';
+import 'package:thick_notepad/core/providers/theme_provider.dart';
 import 'package:thick_notepad/services/backup/backup_service.dart';
 import 'package:thick_notepad/services/ai/deepseek_service.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
@@ -62,18 +63,20 @@ class SettingsPage extends ConsumerWidget {
                       onTap: () => context.push(AppRoutes.themeSelection),
                     ),
                     _SettingsTile(
+                      icon: Icons.color_lens_rounded,
+                      iconColor: AppColors.secondary,
+                      title: '主题色选择',
+                      subtitle: '自定义应用主色调',
+                      trailing: _ColorPreviewIndicator(),
+                      onTap: () => context.push(AppRoutes.colorSelection),
+                    ),
+                    _SettingsTile(
                       icon: Icons.dark_mode_rounded,
                       iconColor: Colors.deepPurple,
                       title: '深色模式',
-                      subtitle: '跟随系统设置',
-                      trailing: const Text(
-                        '自动',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                      onTap: () => _showSnackBar(context, '深色模式跟随系统'),
+                      subtitle: '选择深色模式显示方式',
+                      trailing: _ColorModeIndicator(),
+                      onTap: () => _showColorModeDialog(context, ref),
                     ),
                   ],
                 ),
@@ -195,6 +198,56 @@ class SettingsPage extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+
+  void _showColorModeDialog(BuildContext context, WidgetRef ref) {
+    final currentMode = ref.read(currentColorModeProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('深色模式'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: AppColorMode.values.map((mode) {
+            final isSelected = mode == currentMode;
+            return RadioListTile<AppColorMode>(
+              title: Text(colorModeNames[mode] ?? ''),
+              subtitle: Text(_getModeDescription(mode)),
+              value: mode,
+              groupValue: currentMode,
+              onChanged: (value) {
+                if (value != null) {
+                  ref.read(colorModeNotifierProvider.notifier).setMode(value);
+                  Navigator.pop(context);
+                  _showSnackBar(context, '已切换到${colorModeNames[value]}');
+                }
+              },
+              activeColor: AppColors.primary,
+              selected: isSelected,
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getModeDescription(AppColorMode mode) {
+    switch (mode) {
+      case AppColorMode.light:
+        return '始终使用浅色主题';
+      case AppColorMode.dark:
+        return '始终使用深色主题';
+      case AppColorMode.system:
+        return '跟随系统设置自动切换';
+    }
   }
 
   void _showBackupDialog(BuildContext context, WidgetRef ref) {
@@ -516,6 +569,57 @@ class _ThemePreviewIndicator extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 颜色模式指示器（深色模式）
+class _ColorModeIndicator extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorMode = ref.watch(currentColorModeProvider);
+    final modeName = colorModeNames[colorMode] ?? '未知';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _getModeIcon(colorMode),
+            size: 14,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            modeName,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getModeIcon(AppColorMode mode) {
+    switch (mode) {
+      case AppColorMode.light:
+        return Icons.light_mode_rounded;
+      case AppColorMode.dark:
+        return Icons.dark_mode_rounded;
+      case AppColorMode.system:
+        return Icons.brightness_auto_rounded;
+    }
   }
 }
 
@@ -932,3 +1036,46 @@ class _RestoreDialogState extends ConsumerState<_RestoreDialog> {
     }
   }
 }
+
+// ==================== 主题色预览指示器 ====================
+
+/// 主题色预览指示器 - 显示当前选择的主题色
+class _ColorPreviewIndicator extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentColor = ref.watch(currentCustomColorProvider);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: currentColor.primaryGradient,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: currentColor.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            '10 色',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==================== 颜色模式指示器 ====================

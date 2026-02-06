@@ -8,6 +8,7 @@ import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/shared/animations/staggered_animation.dart';
 import 'package:intl/intl.dart';
 
 /// 笔记视图（无 Scaffold，在 ShellRoute 内部显示）
@@ -68,9 +69,13 @@ class _NotesViewSearchableState extends ConsumerState<NotesViewSearchable> {
                 final hasSeparator = pinnedNotes.isNotEmpty && normalNotes.isNotEmpty;
                 final separatorOffset = hasSeparator ? 1 : 0;
 
-                return ListView.builder(
+                // 构建组合列表（置顶 + 普通笔记）
+                final allNotes = [...pinnedNotes, ...normalNotes];
+
+                return StaggeredListView(
+                  config: StaggeredPresets.quickSlideUp,
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-                  itemCount: pinnedNotes.length + normalNotes.length + separatorOffset,
+                  itemCount: allNotes.length + (hasSeparator ? 1 : 0),
                   itemBuilder: (context, index) {
                     // 置顶分隔
                     if (hasSeparator && index == pinnedNotes.length) {
@@ -87,19 +92,14 @@ class _NotesViewSearchableState extends ConsumerState<NotesViewSearchable> {
                       );
                     }
 
-                    final isPinned = index < pinnedNotes.length;
-                    final note = isPinned
-                        ? pinnedNotes[index]
-                        : normalNotes[index - pinnedNotes.length - separatorOffset];
+                    final adjustedIndex = hasSeparator && index > pinnedNotes.length ? index - 1 : index;
+                    final note = allNotes[adjustedIndex];
 
-                    return AnimatedListItem(
-                      index: index,
-                      child: _NoteCard(
-                        note: note,
-                        onTap: () => _showNoteDetail(context, note.id),
-                        onTogglePin: () => _togglePin(note),
-                        onDelete: () => _deleteNote(context, ref, note.id),
-                      ),
+                    return _NoteCard(
+                      note: note,
+                      onTap: () => _showNoteDetail(context, note.id),
+                      onTogglePin: () => _togglePin(note),
+                      onDelete: () => _deleteNote(context, ref, note.id),
                     );
                   },
                 );

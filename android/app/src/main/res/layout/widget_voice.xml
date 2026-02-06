@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 语音助手小组件布局 (2x2) -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <!-- 麦克风按钮 -->
+    <ImageView
+        android:id="@+id/micBtn"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_mic"
+        android:scaleType="centerInside"
+        android:background="@drawable/widget_mic_button"
+        android:padding="8dp"
+        android:contentDescription="点击开始语音识别" />
+
+    <!-- 提示文本 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="语音助手"
+        android:textSize="14sp"
+        android:textColor="#AAAAAA" />
+
+    <!-- 最近识别结果 -->
+    <TextView
+        android:id="@+id/voiceResult"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:gravity="center|top"
+        android:text="点击说话"
+        android:textSize="12sp"
+        android:textColor="#CCCCCC"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+</LinearLayout>

@@ -8,8 +8,8 @@ import 'package:thick_notepad/core/utils/haptic_helper.dart';
 
 // ==================== 渐变卡片 ====================
 
-/// 渐变卡片 - 带有美丽渐变背景的卡片
-class GradientCard extends StatelessWidget {
+/// 渐变卡片 - 带有美丽渐变背景和点击动画的卡片
+class GradientCard extends StatefulWidget {
   final Widget child;
   final Gradient gradient;
   final EdgeInsetsGeometry? padding;
@@ -34,6 +34,9 @@ class GradientCard extends StatelessWidget {
     this.shadows,
     this.border,
   });
+
+  @override
+  State<GradientCard> createState() => _GradientCardState();
 
   /// 主色渐变卡片
   factory GradientCard.primary({
@@ -130,32 +133,62 @@ class GradientCard extends StatelessWidget {
       shadows: AppShadows.light,
     );
   }
+}
+
+class _GradientCardState extends State<GradientCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderRadius = borderRadius ?? AppRadius.lgRadius;
-    final effectiveShadows = shadows ?? AppShadows.light;
+    final effectiveBorderRadius = widget.borderRadius ?? AppRadius.lgRadius;
+    final effectiveShadows = widget.shadows ?? AppShadows.light;
 
     Widget cardWidget = Container(
-      width: width,
-      height: height,
-      margin: margin,
+      width: widget.width,
+      height: widget.height,
+      margin: widget.margin,
       decoration: BoxDecoration(
-        gradient: gradient,
+        gradient: widget.gradient,
         borderRadius: effectiveBorderRadius,
         boxShadow: effectiveShadows,
-        border: border,
+        border: widget.border,
       ),
-      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
-      child: child,
+      padding: widget.padding ?? const EdgeInsets.all(AppSpacing.lg),
+      child: widget.child,
     );
 
-    if (onTap != null) {
-      cardWidget = Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: effectiveBorderRadius,
+    if (widget.onTap != null) {
+      cardWidget = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) async {
+          _controller.reverse();
+          await HapticHelper.lightTap();
+          widget.onTap!();
+        },
+        onTapCancel: () => _controller.reverse(),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
           child: cardWidget,
         ),
       );
@@ -167,9 +200,9 @@ class GradientCard extends StatelessWidget {
 
 // ==================== 毛玻璃卡片 ====================
 
-/// 毛玻璃卡片 - 半透明模糊背景效果
+/// 毛玻璃卡片 - 半透明模糊背景效果 + 点击动画
 /// 优化：根据明暗模式自动调整不透明度和边框
-class GlassCard extends StatelessWidget {
+class GlassCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -196,14 +229,41 @@ class GlassCard extends StatelessWidget {
   });
 
   @override
+  State<GlassCard> createState() => _GlassCardState();
+}
+
+class _GlassCardState extends State<GlassCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final effectiveBorderRadius = borderRadius ?? AppRadius.lgRadius;
+    final effectiveBorderRadius = widget.borderRadius ?? AppRadius.lgRadius;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // 根据主题调整参数：浅色模式需要更高不透明度
-    final effectiveOpacity = opacity ?? (isDark ? 0.7 : 0.95);
-    final effectiveBlur = blur ?? (isDark ? 10.0 : 5.0);
-    final effectiveBorder = border ??
+    final effectiveOpacity = widget.opacity ?? (isDark ? 0.7 : 0.95);
+    final effectiveBlur = widget.blur ?? (isDark ? 10.0 : 5.0);
+    final effectiveBorder = widget.border ??
         Border.all(
           color: isDark
               ? Colors.white.withOpacity(0.3)
@@ -212,9 +272,9 @@ class GlassCard extends StatelessWidget {
         );
 
     Widget cardWidget = Container(
-      width: width,
-      height: height,
-      margin: margin,
+      width: widget.width,
+      height: widget.height,
+      margin: widget.margin,
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withOpacity(effectiveOpacity)
@@ -228,19 +288,25 @@ class GlassCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: effectiveBlur, sigmaY: effectiveBlur),
           child: Container(
-            padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
-            child: child,
+            padding: widget.padding ?? const EdgeInsets.all(AppSpacing.lg),
+            child: widget.child,
           ),
         ),
       ),
     );
 
-    if (onTap != null) {
-      cardWidget = Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: effectiveBorderRadius,
+    if (widget.onTap != null) {
+      cardWidget = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) async {
+          _controller.reverse();
+          await HapticHelper.lightTap();
+          widget.onTap!();
+        },
+        onTapCancel: () => _controller.reverse(),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
           child: cardWidget,
         ),
       );
@@ -359,8 +425,8 @@ class _ModernCardState extends State<ModernCard>
 
 // ==================== 浮动卡片 ====================
 
-/// 浮动卡片 - 带有更大阴影的悬浮效果卡片
-class FloatingCard extends StatelessWidget {
+/// 浮动卡片 - 带有更大阴影和点击动画的悬浮效果卡片
+class FloatingCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -385,29 +451,62 @@ class FloatingCard extends StatelessWidget {
   });
 
   @override
+  State<FloatingCard> createState() => _FloatingCardState();
+}
+
+class _FloatingCardState extends State<FloatingCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final effectiveBorderRadius = borderRadius ?? AppRadius.xlRadius;
+    final effectiveBorderRadius = widget.borderRadius ?? AppRadius.xlRadius;
 
     Widget cardWidget = Container(
-      width: width,
-      height: height,
-      margin: margin,
+      width: widget.width,
+      height: widget.height,
+      margin: widget.margin,
       decoration: BoxDecoration(
-        gradient: gradient,
-        color: backgroundColor ?? AppColors.surface,
+        gradient: widget.gradient,
+        color: widget.backgroundColor ?? AppColors.surface,
         borderRadius: effectiveBorderRadius,
         boxShadow: AppShadows.medium,
       ),
-      padding: padding ?? const EdgeInsets.all(AppSpacing.xl),
-      child: child,
+      padding: widget.padding ?? const EdgeInsets.all(AppSpacing.xl),
+      child: widget.child,
     );
 
-    if (onTap != null) {
-      cardWidget = Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: effectiveBorderRadius,
+    if (widget.onTap != null) {
+      cardWidget = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) async {
+          _controller.reverse();
+          await HapticHelper.lightTap();
+          widget.onTap!();
+        },
+        onTapCancel: () => _controller.reverse(),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
           child: cardWidget,
         ),
       );
@@ -491,7 +590,7 @@ class IconCard extends StatelessWidget {
 
 // ==================== 统计卡片 ====================
 
-/// 统计数据卡片 - 显示统计信息
+/// 统计数据卡片 - 显示统计信息 + 波纹点击效果
 class StatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -514,8 +613,9 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ModernCard(
-      onTap: onTap,
+    final effectiveIconColor = iconColor ?? AppColors.primary;
+
+    Widget cardContent = Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
@@ -523,7 +623,7 @@ class StatCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: iconColor ?? AppColors.primary,  // 简化：小图标使用纯色
+              color: effectiveIconColor,
               borderRadius: AppRadius.lgRadius,
             ),
             child: Icon(
@@ -562,6 +662,30 @@ class StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (onTap != null) {
+      cardContent = Material(
+        color: AppColors.surface,
+        borderRadius: AppRadius.lgRadius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.lgRadius,
+          splashColor: effectiveIconColor.withOpacity(0.15),
+          highlightColor: effectiveIconColor.withOpacity(0.08),
+          child: cardContent,
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.lgRadius,
+        boxShadow: AppShadows.light,
+        border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5), width: 1),
+      ),
+      child: cardContent,
     );
   }
 }

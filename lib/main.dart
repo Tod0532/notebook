@@ -16,6 +16,7 @@ import 'core/theme/app_theme.dart';
 import 'core/providers/theme_provider.dart';
 import 'services/database/database.dart';
 import 'services/notification/notification_service.dart';
+import 'services/widget/widget_helper.dart';
 import 'features/coach/data/repositories/workout_plan_repository.dart';
 import 'features/coach/data/repositories/diet_plan_repository.dart';
 import 'shared/widgets/animated_theme.dart';
@@ -28,6 +29,9 @@ void main() async {
 
   // 初始化日期格式化（中文）
   await initializeDateFormatting('zh_CN', null);
+
+  // 初始化桌面小组件辅助服务
+  WidgetHelper.initialize();
 
   // 初始化通知服务
   await _initNotifications();
@@ -175,20 +179,40 @@ Future<void> _checkPlanUpdateReminders() async {
 }
 
 /// 应用主 Widget
-/// 优化：添加主题切换过渡动画
+/// 优化：添加主题切换过渡动画和深色模式支持
 class ThickNotepadApp extends ConsumerWidget {
   const ThickNotepadApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTheme = ref.watch(currentThemeProvider);
+    final currentTheme = ref.watch(currentColorThemeProvider);
+    final currentColorMode = ref.watch(currentColorModeProvider);
+    final customColor = ref.watch(currentCustomColorProvider);
 
     return SimpleThemeTransition(
-      child: MaterialApp.router(
-        title: '动计笔记',
-        debugShowCheckedModeBanner: false,
-        theme: getThemeData(currentTheme),
-        routerConfig: appRouter,
+      key: ValueKey('theme_${currentTheme.name}_${currentColorMode.name}_${customColor.name}'),
+      child: Builder(
+        builder: (context) {
+          // 获取系统亮度
+          final systemBrightness = MediaQuery.of(context).platformBrightness;
+
+          // 确定是否使用深色模式
+          final bool useDarkMode = switch (currentColorMode) {
+            AppColorMode.dark => true,
+            AppColorMode.light => false,
+            AppColorMode.system => systemBrightness == Brightness.dark,
+          };
+
+          return MaterialApp.router(
+            title: '动计笔记',
+            debugShowCheckedModeBanner: false,
+            theme: getThemeDataWithCustomColor(
+              customColor,
+              isDark: useDarkMode,
+            ),
+            routerConfig: appRouter,
+          );
+        },
       ),
     );
   }

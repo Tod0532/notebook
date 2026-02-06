@@ -30,6 +30,7 @@ import 'package:thick_notepad/features/speech/presentation/pages/voice_assistant
 import 'package:thick_notepad/features/weather/presentation/pages/weather_settings_page.dart';
 import 'package:thick_notepad/shared/pages/settings_page.dart';
 import 'package:thick_notepad/shared/pages/theme_selection_page.dart';
+import 'package:thick_notepad/shared/pages/color_selection_page.dart';
 import 'package:thick_notepad/shared/pages/ai_settings_page.dart';
 import 'package:thick_notepad/features/location/presentation/pages/location_settings_page.dart';
 import 'package:thick_notepad/features/location/presentation/pages/geofences_page.dart';
@@ -64,6 +65,7 @@ class AppRoutes {
   static const String voiceAssistant = '/voice-assistant';  // 语音助手
   static const String settings = '/settings';
   static const String themeSelection = '/settings/theme';  // 完整路径，用于外部跳转
+  static const String colorSelection = '/settings/color';  // 主题色选择页面
   static const String aiSettings = '/settings/ai';  // AI 设置页面
   static const String weatherSettings = '/settings/weather';  // 天气设置页面
   static const String userProfileSetup = '/coach/profile/setup';  // 用户画像采集
@@ -82,15 +84,69 @@ class AppRoutes {
 
 // ==================== 路由配置 ====================
 
-/// 自定义页面过渡动画
-class _FadeTransition extends CustomTransitionPage {
-  _FadeTransition({required super.child})
+/// 自定义页面过渡动画 - 使用优化的滑动+淡入效果
+class _SlideFadeTransition extends CustomTransitionPage {
+  _SlideFadeTransition({required super.child})
       : super(
-          transitionDuration: const Duration(milliseconds: 250),
+          transitionDuration: const Duration(milliseconds: 300),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurveTween(curve: Curves.easeInOut).animate(animation),
-              child: child,
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOutCubic,
+              )),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+        );
+}
+
+/// 自定义页面过渡动画 - 从下滑入（用于模态页面）
+class _ModalSlideUpTransition extends CustomTransitionPage {
+  _ModalSlideUpTransition({required super.child})
+      : super(
+          transitionDuration: const Duration(milliseconds: 350),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 1.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+        );
+}
+
+/// 自定义页面过渡动画 - 缩放+淡入（用于特殊页面）
+class _ScaleFadeTransition extends CustomTransitionPage {
+  _ScaleFadeTransition({required super.child})
+      : super(
+          transitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutBack,
+                ),
+              ),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
             );
           },
         );
@@ -118,13 +174,13 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.noteEdit,
-          pageBuilder: (context, state) => _FadeTransition(child: const NoteEditPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const NoteEditPage()),
         ),
         GoRoute(
           path: AppRoutes.noteDetail,
           pageBuilder: (context, state) {
             final id = int.parse(state.pathParameters['id']!);
-            return _FadeTransition(child: NoteEditPage(noteId: id));
+            return _SlideFadeTransition(child: NoteEditPage(noteId: id));
           },
         ),
 
@@ -141,13 +197,13 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.workoutStats,
-          pageBuilder: (context, state) => _FadeTransition(child: const WorkoutStatsPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const WorkoutStatsPage()),
         ),
         GoRoute(
           path: AppRoutes.workoutGpsTracking,
           pageBuilder: (context, state) {
             final workoutType = state.uri.queryParameters['type'] ?? '跑步';
-            return _FadeTransition(child: GpsTrackingPage(workoutType: workoutType));
+            return _SlideFadeTransition(child: GpsTrackingPage(workoutType: workoutType));
           },
         ),
         GoRoute(
@@ -157,7 +213,7 @@ final appRouter = GoRouter(
             final workoutId = state.uri.queryParameters['workoutId'] != null
                 ? int.tryParse(state.uri.queryParameters['workoutId']!)
                 : null;
-            return _FadeTransition(child: GpsRouteDetailPage(
+            return _SlideFadeTransition(child: GpsRouteDetailPage(
               routeId: routeId,
               workoutId: workoutId,
             ));
@@ -165,13 +221,13 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.workoutEdit,
-          pageBuilder: (context, state) => _FadeTransition(child: const WorkoutEditPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const WorkoutEditPage()),
         ),
         GoRoute(
           path: AppRoutes.workoutDetail,
           pageBuilder: (context, state) {
             final id = int.parse(state.pathParameters['id']!);
-            return _FadeTransition(child: WorkoutDetailPage(workoutId: id));
+            return _SlideFadeTransition(child: WorkoutDetailPage(workoutId: id));
           },
         ),
 
@@ -182,7 +238,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.planEdit,
-          pageBuilder: (context, state) => _FadeTransition(child: const PlanEditPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const PlanEditPage()),
         ),
         GoRoute(
           path: AppRoutes.planCalendar,
@@ -192,7 +248,7 @@ final appRouter = GoRouter(
           path: AppRoutes.planDetail,
           pageBuilder: (context, state) {
             final id = int.parse(state.pathParameters['id']!);
-            return _FadeTransition(child: PlanDetailPage(planId: id));
+            return _SlideFadeTransition(child: PlanDetailPage(planId: id));
           },
         ),
       ],
@@ -201,27 +257,32 @@ final appRouter = GoRouter(
     // 设置页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.settings,
-      pageBuilder: (context, state) => _FadeTransition(child: const SettingsPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const SettingsPage()),
       routes: [
         // 主题选择子路由（使用相对路径）
         GoRoute(
           path: 'theme',  // 相对路径，完整路径为 /settings/theme
-          pageBuilder: (context, state) => _FadeTransition(child: const ThemeSelectionPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const ThemeSelectionPage()),
+        ),
+        // 主题色选择子路由
+        GoRoute(
+          path: 'color',  // 相对路径，完整路径为 /settings/color
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const ColorSelectionPage()),
         ),
         // AI 设置子路由
         GoRoute(
           path: 'ai',  // 相对路径，完整路径为 /settings/ai
-          pageBuilder: (context, state) => _FadeTransition(child: const AISettingsPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const AISettingsPage()),
         ),
         // 天气设置子路由
         GoRoute(
           path: 'weather',  // 相对路径，完整路径为 /settings/weather
-          pageBuilder: (context, state) => _FadeTransition(child: const WeatherSettingsPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const WeatherSettingsPage()),
         ),
         // 位置设置子路由
         GoRoute(
           path: 'location',  // 相对路径，完整路径为 /settings/location
-          pageBuilder: (context, state) => _FadeTransition(child: const LocationSettingsPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const LocationSettingsPage()),
         ),
       ],
     ),
@@ -229,33 +290,33 @@ final appRouter = GoRouter(
     // 位置功能页面（独立路由）
     GoRoute(
       path: AppRoutes.locationGeofences,
-      pageBuilder: (context, state) => _FadeTransition(child: const GeofencesPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const GeofencesPage()),
     ),
 
     // AI教练功能页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.userProfileSetup,
-      pageBuilder: (context, state) => _FadeTransition(child: const UserProfileSetupPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const UserProfileSetupPage()),
     ),
     GoRoute(
       path: AppRoutes.coachPlanGeneration,
       pageBuilder: (context, state) {
         final profileId = int.parse(state.pathParameters['profileId']!);
-        return _FadeTransition(child: CoachPlanGenerationPage(userProfileId: profileId));
+        return _SlideFadeTransition(child: CoachPlanGenerationPage(userProfileId: profileId));
       },
     ),
     GoRoute(
       path: AppRoutes.workoutPlanDisplay,
       pageBuilder: (context, state) {
         final planId = int.parse(state.pathParameters['planId']!);
-        return _FadeTransition(child: WorkoutPlanDisplayPage(planId: planId));
+        return _SlideFadeTransition(child: WorkoutPlanDisplayPage(planId: planId));
       },
     ),
     GoRoute(
       path: AppRoutes.dietPlanDisplay,
       pageBuilder: (context, state) {
         final planId = int.parse(state.pathParameters['planId']!);
-        return _FadeTransition(child: DietPlanDisplayPage(planId: planId));
+        return _SlideFadeTransition(child: DietPlanDisplayPage(planId: planId));
       },
     ),
     GoRoute(
@@ -270,7 +331,7 @@ final appRouter = GoRouter(
         final dietPlanId = state.uri.queryParameters['dietPlanId'] != null
             ? int.tryParse(state.uri.queryParameters['dietPlanId']!)
             : null;
-        return _FadeTransition(child: FeedbackPage(
+        return _SlideFadeTransition(child: FeedbackPage(
           userProfileId: userProfileId,
           workoutPlanId: workoutPlanId,
           dietPlanId: dietPlanId,
@@ -289,7 +350,7 @@ final appRouter = GoRouter(
         final dietPlanId = state.uri.queryParameters['dietPlanId'] != null
             ? int.tryParse(state.uri.queryParameters['dietPlanId']!)
             : null;
-        return _FadeTransition(child: PlanIterationPage(
+        return _SlideFadeTransition(child: PlanIterationPage(
           userProfileId: userProfileId,
           workoutPlanId: workoutPlanId,
           dietPlanId: dietPlanId,
@@ -300,12 +361,12 @@ final appRouter = GoRouter(
     // 心率监测页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.heartRateMonitor,
-      pageBuilder: (context, state) => _FadeTransition(child: const HeartRateMonitorPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const HeartRateMonitorPage()),
       routes: [
         // 心率设置子路由
         GoRoute(
           path: 'settings',
-          pageBuilder: (context, state) => _FadeTransition(child: const HeartRateSettingsPage()),
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const HeartRateSettingsPage()),
         ),
       ],
     ),
@@ -313,37 +374,37 @@ final appRouter = GoRouter(
     // 情绪趋势页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.emotionTrend,
-      pageBuilder: (context, state) => _FadeTransition(child: const EmotionTrendPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const EmotionTrendPage()),
     ),
 
     // 语音助手页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.voiceAssistant,
-      pageBuilder: (context, state) => _FadeTransition(child: const VoiceAssistantPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const VoiceAssistantPage()),
     ),
 
     // 游戏化成就页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.achievements,
-      pageBuilder: (context, state) => _FadeTransition(child: const AchievementsPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const AchievementsPage()),
     ),
 
     // 积分商店页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.shop,
-      pageBuilder: (context, state) => _FadeTransition(child: const ShopPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const ShopPage()),
     ),
 
     // 挑战页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.challenges,
-      pageBuilder: (context, state) => _FadeTransition(child: const ChallengesPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const ChallengesPage()),
     ),
 
     // 抽卡页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.gacha,
-      pageBuilder: (context, state) => _FadeTransition(child: const GachaPage()),
+      pageBuilder: (context, state) => _SlideFadeTransition(child: const GachaPage()),
     ),
   ],
 );
