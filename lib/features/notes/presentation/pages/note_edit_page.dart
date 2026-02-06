@@ -4,7 +4,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/constants/app_constants.dart';
 import 'package:thick_notepad/core/utils/haptic_helper.dart';
@@ -1380,8 +1382,8 @@ class _FolderSelectorDialogState extends State<_FolderSelectorDialog> {
   }
 }
 
-/// 语音输入按钮 - 笔记编辑专用
-class _VoiceInputButton extends ConsumerStatefulWidget {
+/// 语音输入按钮 - 使用原生 Android RecognizerIntent
+class _VoiceInputButton extends StatefulWidget {
   final TextEditingController contentController;
   final TextEditingController? titleController;
 
@@ -1391,128 +1393,56 @@ class _VoiceInputButton extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_VoiceInputButton> createState() => _VoiceInputButtonState();
+  State<_VoiceInputButton> createState() => _VoiceInputButtonState();
 }
 
-class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _pulseAnimation;
-  StreamSubscription<dynamic>? _resultSubscription;
-  bool _isListening = false;
-  bool _isTitleInput = false; // 是否正在输入标题
+class _VoiceInputButtonState extends State<_VoiceInputButton> {
+  bool _isTitleInput = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _setupAnimation();
-    _setupResultListener();
-  }
-
-  void _setupAnimation() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-  }
-
-  /// 设置语音识别结果监听
-  void _setupResultListener() {
-    final service = ref.read(speechRecognitionServiceProvider);
-    _resultSubscription = service.resultStream.listen((result) {
-      if (result.isFinal && mounted && _isListening) {
-        _handleVoiceResult(result.recognizedWords);
+  Future<void> _startNativeSpeechRecognition() async {
+    try {
+      // 检查麦克风权限
+      final status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        final result = await Permission.microphone.request();
+        if (!result.isGranted) {
+          if (mounted) {
+            _showErrorSnackBar('需要麦克风权限');
+          }
+          return;
+        }
       }
-    });
-  }
 
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _resultSubscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final assistantState = ref.watch(voiceAssistantProvider);
-    final isListening = assistantState.isListening;
-    _isListening = isListening;
-
-    if (isListening && !_animationController.isAnimating) {
-      _animationController.repeat(reverse: true);
-    } else if (!isListening && _animationController.isAnimating) {
-      _animationController.stop();
-      _animationController.reset();
-    }
-
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: isListening ? _pulseAnimation.value : 1.0,
-          child: PopupMenuButton<String>(
-            icon: Icon(
-              isListening ? Icons.mic : Icons.mic_none,
-              color: isListening ? AppColors.secondary : AppColors.textPrimary,
-            ),
-            tooltip: '语音输入',
-            onSelected: (value) {
-              if (value == 'title') {
-                _isTitleInput = true;
-              } else {
-                _isTitleInput = false;
-              }
-              _toggleListening(assistantState);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'title',
-                child: Row(
-                  children: [
-                    Icon(Icons.title, size: 18),
-                    SizedBox(width: 8),
-                    Text('语音输入标题'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'content',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit_note, size: 18),
-                    SizedBox(width: 8),
-                    Text('语音输入内容'),
-                  ],
-                ),
-              ),
-            ],
+      // 显示提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isTitleInput ? '正在输入标题...' : '正在输入内容...'),
+            duration: const Duration(seconds: 2),
           ),
         );
-      },
-    );
-  }
+      }
 
-  Future<void> _toggleListening(VoiceAssistantState state) async {
-    final notifier = ref.read(voiceAssistantProvider.notifier);
+      // 调用原生语音识别
+      const channel = MethodChannel('com.thicknotepad.thick_notepad/speech');
+      final result = await channel.invokeMethod('startSpeechRecognition', {
+        'language': 'zh-CN',
+      });
 
-    if (state.isListening) {
-      await notifier.stopListening();
-      _animationController.stop();
-      _animationController.reset();
-    } else {
-      await notifier.startListening();
+      if (result is Map && result['text'] != null) {
+        final text = result['text'] as String;
+        if (text.isNotEmpty) {
+          _handleVoiceResult(text);
+        }
+      }
+    } catch (e) {
+      debugPrint('原生语音识别失败: $e');
+      if (mounted) {
+        _showErrorSnackBar('语音识别失败: $e');
+      }
     }
   }
 
-  /// 处理语音识别结果
   void _handleVoiceResult(String text) {
     if (text.trim().isEmpty) return;
 
@@ -1520,7 +1450,6 @@ class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
 
     // 如果是标题输入
     if (_isTitleInput && widget.titleController != null) {
-      final currentTitle = widget.titleController!.text;
       widget.titleController!.text = text.trim();
     } else {
       // 内容输入
@@ -1555,5 +1484,59 @@ class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
         ),
       );
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: '重试',
+          textColor: Colors.white,
+          onPressed: () => _startNativeSpeechRecognition(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: const Icon(
+        Icons.mic,
+        color: AppColors.textPrimary,
+      ),
+      tooltip: '语音输入',
+      onSelected: (value) {
+        setState(() {
+          _isTitleInput = value == 'title';
+        });
+        _startNativeSpeechRecognition();
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'title',
+          child: Row(
+            children: const [
+              Icon(Icons.title, size: 18),
+              SizedBox(width: 8),
+              Text('语音输入标题'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'content',
+          child: Row(
+            children: const [
+              Icon(Icons.edit_note, size: 18),
+              SizedBox(width: 8),
+              Text('语音输入内容'),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
