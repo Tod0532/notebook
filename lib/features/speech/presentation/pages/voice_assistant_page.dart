@@ -3,6 +3,7 @@
 /// 简化版：移除复杂诊断功能
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -756,10 +757,9 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
     );
   }
 
-  /// 切换监听状态
+  /// 切换监听状态 - 使用原生 Android 语音识别
   void _toggleListening(VoiceAssistantState state) async {
     debugPrint('VoiceAssistantPage: ========== 切换监听状态 ==========');
-    debugPrint('VoiceAssistantPage: 当前状态 isListening: ${state.isListening}');
 
     final notifier = ref.read(voiceAssistantProvider.notifier);
 
@@ -767,11 +767,182 @@ class _VoiceAssistantPageState extends ConsumerState<VoiceAssistantPage>
       debugPrint('VoiceAssistantPage: 停止监听...');
       await notifier.stopListening();
     } else {
-      debugPrint('VoiceAssistantPage: 开始监听...');
-      await notifier.startListening();
+      debugPrint('VoiceAssistantPage: 开始原生语音识别...');
+      await _startNativeSpeechRecognition();
     }
 
     debugPrint('VoiceAssistantPage: ========== 切换完成 ==========');
+  }
+
+  /// 启动原生 Android 语音识别
+  Future<void> _startNativeSpeechRecognition() async {
+    try {
+      const channel = MethodChannel('com.thicknotepad.thick_notepad/speech');
+
+      // 显示提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('正在启动语音识别...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // 调用原生方法
+      final result = await channel.invokeMethod('startSpeechRecognition', {
+        'language': 'zh-CN',
+      });
+
+      debugPrint('VoiceAssistantPage: 原生语音识别结果: $result');
+
+      if (result is Map && result['text'] != null) {
+        final text = result['text'] as String;
+        if (text.isNotEmpty) {
+          // 处理识别结果
+          _handleNativeVoiceResult(text);
+        }
+      } else if (result is Map && result['error'] != null) {
+        final error = result['error'] as String;
+        if (mounted) {
+          _showErrorDialog(error);
+        }
+      }
+    } catch (e, st) {
+      debugPrint('VoiceAssistantPage: 原生语音识别失败: $e');
+      debugPrint('VoiceAssistantPage: 堆栈: $st');
+      if (mounted) {
+        _showErrorDialog('语音识别失败: $e');
+      }
+    }
+  }
+
+  /// 处理原生语音识别结果
+  void _handleNativeVoiceResult(String text) {
+    debugPrint('VoiceAssistantPage: 处理识别结果: "$text"');
+
+    // 更新显示
+    ref.read(voiceAssistantProvider.notifier).reset();
+    ref.read(voiceAssistantProvider.notifier).state =
+        ref.read(voiceAssistantProvider.notifier).state.copyWith(
+              lastRecognizedText: text,
+            );
+
+    // 解析意图
+    final intent = ref.read(intentParserProvider).parse(text);
+
+    // 显示确认对话框
+    if (mounted && intent.type != IntentType.unknown) {
+      _showIntentConfirmationDialog(intent);
+    } else {
+      // 未知意图，只显示文字
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('识别: "$text"'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 显示意图确认对话框
+  void _showIntentConfirmationDialog(VoiceIntent intent) {
+    String intentName;
+    String intentDescription;
+    IconData intentIcon;
+    Color intentColor;
+
+    switch (intent.type) {
+      case IntentType.createNote:
+      case IntentType.quickMemo:
+        intentName = '创建笔记';
+        intentDescription = intent.content ?? '无内容';
+        intentIcon = Icons.edit_note;
+        intentColor = AppColors.primary;
+        break;
+      case IntentType.logWorkout:
+        intentName = '运动打卡';
+        intentDescription = intent.workoutType?.name ?? '运动';
+        intentIcon = Icons.fitness_center;
+        intentColor = AppColors.secondary;
+        break;
+      case IntentType.queryProgress:
+        intentName = '查询进度';
+        intentDescription = '获取统计数据';
+        intentIcon = Icons.query_stats;
+        intentColor = AppColors.info;
+        break;
+      case IntentType.createReminder:
+        intentName = '创建提醒';
+        intentDescription = intent.content ?? '提醒内容';
+        intentIcon = Icons.alarm;
+        intentColor = AppColors.warning;
+        break;
+      default:
+        intentName = '未知';
+        intentDescription = '无法识别';
+        intentIcon = Icons.help_outline;
+        intentColor = AppColors.textHint;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(intentIcon, color: intentColor, size: 24),
+            const SizedBox(width: 8),
+            Text(intentName),
+          ],
+        ),
+        content: Text(intentDescription),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(voiceAssistantProvider.notifier).executeIntent(intent);
+            },
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示错误对话框
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: AppColors.error),
+            SizedBox(width: 8),
+            Text('语音识别失败'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _startNativeSpeechRecognition();
+            },
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 执行意图
