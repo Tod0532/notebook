@@ -21,37 +21,51 @@ enum SpeechRecognitionState {
 
 // ==================== 语言配置 ====================
 
-/// 支持的语言 - 简化版，只保留最常用的
+/// 支持的语言 - 扩展版，包含多种 localeId 尝试格式
 class SpeechLanguage {
   final String code;
   final String name;
-  final String localeId;
+  final String primaryLocale;
+  final List<String> fallbackLocales;
 
   const SpeechLanguage({
     required this.code,
     required this.name,
-    required this.localeId,
+    required this.primaryLocale,
+    this.fallbackLocales = const [],
   });
 
-  /// 普通话（简体中文）
+  /// 普通话（简体中文）- 多种格式尝试
   static const mandarin = SpeechLanguage(
     code: 'zh-CN',
     name: '普通话',
-    localeId: 'zh_CN',
+    primaryLocale: 'zh-CN',
+    fallbackLocales: [
+      'zh_CN',           // 下划线格式
+      'zh-Hans-CN',      // 完整 BCP 47
+      'zh',              // 仅语言
+      'cmn-Hans-CN',     // 拼音化
+      'cmn-CN',          // 拼音简化
+    ],
   );
 
   /// 粤语
   static const cantonese = SpeechLanguage(
     code: 'zh-HK',
     name: '粤语',
-    localeId: 'zh_HK',
+    primaryLocale: 'zh-HK',
+    fallbackLocales: [
+      'zh_HK',
+      'yue-Hant-HK',
+    ],
   );
 
   /// 英语
   static const english = SpeechLanguage(
     code: 'en-US',
     name: 'English',
-    localeId: 'en_US',
+    primaryLocale: 'en-US',
+    fallbackLocales: ['en_US'],
   );
 
   /// 所有支持的语言
@@ -68,6 +82,9 @@ class SpeechLanguage {
     }
     return null;
   }
+
+  /// 获取所有要尝试的 locale（包括主格式和后备格式）
+  List<String> get allLocales => [primaryLocale, ...fallbackLocales];
 }
 
 // ==================== 语音识别结果 ====================
@@ -151,6 +168,16 @@ class SpeechRecognitionService {
   SpeechLanguage _currentLanguage = SpeechLanguage.mandarin;
   bool _isInitialized = false;
 
+  // 尝试状态
+  int _currentLocaleIndex = 0;
+  int _currentModeIndex = 0;
+  static const List<stt.ListenMode> _listenModes = [
+    stt.ListenMode.deviceDefault,  // 优先使用设备默认
+    stt.ListenMode.search,         // 搜索模式
+    stt.ListenMode.confirmation,   // 确认模式
+    stt.ListenMode.dictation,      // 听写模式
+  ];
+
   // ==================== 初始化 ====================
 
   /// 初始化语音识别 - 简化版
@@ -202,7 +229,7 @@ class SpeechRecognitionService {
       _updateState(SpeechRecognitionState.idle);
       debugPrint('===== 语音识别初始化成功 =====');
       debugPrint('当前语言: ${_currentLanguage.name}');
-      debugPrint('使用locale: ${_currentLanguage.localeId}');
+      debugPrint('使用locale: ${_currentLanguage.primaryLocale}');
 
       return true;
     } catch (e) {
@@ -308,10 +335,10 @@ class SpeechRecognitionService {
 
   // ==================== 语音识别控制 ====================
 
-  /// 开始监听 - 简化版，使用最基本的配置
+  /// 开始监听 - 增强版，自动尝试多种配置
   Future<void> startListening({SpeechLanguage? language}) async {
     try {
-      debugPrint('===== 开始语音识别（简化版）=====');
+      debugPrint('===== 开始语音识别（增强版）=====');
 
       // 检查初始化状态
       if (!_isInitialized) {
@@ -332,21 +359,10 @@ class SpeechRecognitionService {
         );
       }
 
-      debugPrint('当前语言: ${_currentLanguage.name}');
-      debugPrint('使用locale: ${_currentLanguage.localeId}');
-
       _updateState(SpeechRecognitionState.listening);
 
-      // 使用最基本的配置启动监听
-      await _speechToText.listen(
-        onResult: _onResult,
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 5),
-        partialResults: true,
-        localeId: _currentLanguage.localeId,
-        cancelOnError: false,
-        listenMode: stt.ListenMode.search, // 使用搜索模式，适合语音助手
-      );
+      // 尝试所有配置组合
+      await _tryAllConfigurations();
 
       debugPrint('===== 语音识别已启动 =====');
     } catch (e) {
@@ -355,6 +371,66 @@ class SpeechRecognitionService {
       _updateState(SpeechRecognitionState.error);
       rethrow;
     }
+  }
+
+  /// 尝试所有配置组合（locale + listenMode）
+  Future<void> _tryAllConfigurations() async {
+    final locales = _currentLanguage.allLocales;
+    final modes = _listenModes;
+
+    debugPrint('=== 自动尝试配置组合 ===');
+    debugPrint('语言: ${_currentLanguage.name}');
+    debugPrint('Locale 候选: ${locales.length} 个');
+    debugPrint('ListenMode 候选: ${modes.length} 个');
+
+    for (final mode in modes) {
+      for (final locale in locales) {
+        debugPrint('--- 尝试: locale="$locale", mode=$mode ---');
+
+        try {
+          // 先停止之前的监听
+          if (_speechToText.isListening) {
+            await _speechToText.stop();
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+
+          // 尝试启动监听
+          final listenResult = await _speechToText.listen(
+            onResult: _onResult,
+            listenFor: const Duration(seconds: 30),
+            pauseFor: const Duration(seconds: 5),
+            partialResults: true,
+            localeId: locale,
+            cancelOnError: false,
+            listenMode: mode,
+          );
+
+          if (!listenResult) {
+            debugPrint('配置失败: locale="$locale", mode=$mode');
+            continue; // 尝试下一个配置
+          }
+
+          debugPrint('✓ 配置成功: locale="$locale", mode=$mode');
+          debugPrint('当前使用locale: $locale');
+          debugPrint('当前模式: $mode');
+          return; // 成功启动，退出循环
+
+        } catch (e) {
+          debugPrint('✗ 配置异常: $e');
+          // 继续尝试下一个配置
+        }
+      }
+    }
+
+    // 所有配置都失败
+    throw SpeechRecognitionException(
+      '无法启动语音识别。已尝试 ${locales.length} 个 locale × ${modes.length} 种模式',
+      '建议：\n'
+      '1. 检查网络连接\n'
+      '2. 确保设备语音输入已启用\n'
+      '3. 尝试重启设备\n'
+      '4. 更新 Google 语音服务',
+    );
   }
 
   /// 停止监听 - 简化版
