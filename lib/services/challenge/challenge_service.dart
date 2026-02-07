@@ -870,18 +870,43 @@ class ChallengeService {
   /// ISO 周数据
   /// 使用 ISO-8601 标准计算周数和年份
   ({int year, int weekNumber}) _getISOWeekData(DateTime date) {
-    // 方案1：使用 intl 包的 ISO 周数格式化
-    // 移除可能的 "W" 前缀，确保可以正确解析
-    String weekStr = DateFormat('w').format(date);
-    // 如果返回的是 "W05" 格式，移除 "W" 前缀
-    weekStr = weekStr.replaceAll('W', '').replaceAll('w', '');
-    final weekNumber = int.parse(weekStr);
+    try {
+      // 方案1：使用 intl 包的 ISO 周数格式化
+      // 移除可能的 "W" 前缀，确保可以正确解析
+      String weekStr = DateFormat('w').format(date);
+      // 如果返回的是 "W05" 格式，移除 "W" 前缀
+      weekStr = weekStr.replaceAll('W', '').replaceAll('w', '').trim();
 
-    // 获取 ISO 年份（可能与日历年不同）
-    // 使用 'Y' 格式符获取 ISO 年份
-    final year = int.parse(DateFormat('Y').format(date));
+      // 验证 weekStr 不为空且是有效数字
+      if (weekStr.isEmpty) {
+        throw FormatException('Week string is empty after formatting');
+      }
 
-    return (year: year, weekNumber: weekNumber);
+      final weekNumber = int.parse(weekStr);
+
+      // 获取 ISO 年份（可能与日历年不同）
+      // 使用 'Y' 格式符获取 ISO 年份
+      String yearStr = DateFormat('Y').format(date).trim();
+      if (yearStr.isEmpty) {
+        throw FormatException('Year string is empty after formatting');
+      }
+      final year = int.parse(yearStr);
+
+      return (year: year, weekNumber: weekNumber);
+    } catch (e) {
+      debugPrint('ChallengeService: _getISOWeekData failed, using fallback: $e');
+      // 降级方案：手动计算 ISO 周数
+      return _getISOWeekDataFallback(date);
+    }
+  }
+
+  /// 降级方案：手动计算 ISO 周数
+  ({int year, int weekNumber}) _getISOWeekDataFallback(DateTime date) {
+    // 简单的周数计算：1月1日为第一周
+    final firstDayOfYear = DateTime.utc(date.year, 1, 1);
+    final dayOfYear = date.difference(firstDayOfYear).inDays + 1;
+    final weekNumber = ((dayOfYear - 1) / 7 + 1).ceil().clamp(1, 53);
+    return (year: date.year, weekNumber: weekNumber);
   }
 
   /// 获取周数（保持向后兼容）

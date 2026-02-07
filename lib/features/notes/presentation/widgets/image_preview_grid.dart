@@ -1,6 +1,7 @@
 /// 图片预览组件 - 支持滑动查看、删除、拖拽排序
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/utils/haptic_helper.dart';
@@ -37,8 +38,12 @@ class _ImagePreviewGridState extends State<ImagePreviewGrid> {
   @override
   void didUpdateWidget(ImagePreviewGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.imagePaths != widget.imagePaths) {
-      _images = List.from(widget.imagePaths);
+    // 比较列表长度和内容，而不仅仅是引用
+    if (oldWidget.imagePaths.length != widget.imagePaths.length ||
+        !oldWidget.imagePaths.every((element) => widget.imagePaths.contains(element))) {
+      setState(() {
+        _images = List.from(widget.imagePaths);
+      });
     }
   }
 
@@ -159,17 +164,12 @@ class _ImagePreviewGridState extends State<ImagePreviewGrid> {
                   borderRadius: AppRadius.mdRadius,
                   child: Stack(
                     children: [
-                      // 图片
+                      // 图片 - 优化缓存和加载
                       Positioned.fill(
-                        child: file.existsSync()
-                            ? Image.file(
-                                file,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildErrorPlaceholder();
-                                },
-                              )
-                            : _buildErrorPlaceholder(),
+                        child: _OptimizedImage(
+                          file: file,
+                          errorWidget: _buildErrorPlaceholder(),
+                        ),
                       ),
                       // 序号
                       Positioned(
@@ -554,6 +554,174 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
         icon: Icon(icon, color: Colors.white, size: 32),
         onPressed: onTap,
       ),
+    );
+  }
+}
+
+/// 内存缓存 - LRU策略限制内存占用
+class _ImageMemoryCache {
+  static final Map<String, Uint8List> _cache = {};
+  static final List<String> _lruKeys = [];
+  static const int _maxCacheSize = 10; // 最多缓存10张图片
+  static const int _maxCacheBytes = 10 * 1024 * 1024; // 最多10MB
+
+  static int _currentBytes = 0;
+
+  static Uint8List? get(String path) {
+    if (_cache.containsKey(path)) {
+      // 更新LRU顺序
+      _lruKeys.remove(path);
+      _lruKeys.add(path);
+      return _cache[path];
+    }
+    return null;
+  }
+
+  static void put(String path, Uint8List bytes) {
+    // 移除旧值
+    if (_cache.containsKey(path)) {
+      _currentBytes -= _cache[path]!.length;
+      _lruKeys.remove(path);
+      _cache.remove(path);
+    }
+
+    // 淘汰策略
+    while (_lruKeys.length >= _maxCacheSize || _currentBytes + bytes.length > _maxCacheBytes) {
+      if (_lruKeys.isEmpty) break;
+      final oldestKey = _lruKeys.removeAt(0);
+      final oldestBytes = _cache.remove(oldestKey);
+      if (oldestBytes != null) _currentBytes -= oldestBytes.length;
+    }
+
+    _cache[path] = bytes;
+    _lruKeys.add(path);
+    _currentBytes += bytes.length;
+  }
+
+  static void clear() {
+    _cache.clear();
+    _lruKeys.clear();
+    _currentBytes = 0;
+  }
+}
+
+/// 优化的图片组件 - 带缓存和渐进式加载
+class _OptimizedImage extends StatefulWidget {
+  final File file;
+  final Widget errorWidget;
+
+  const _OptimizedImage({
+    required this.file,
+    required this.errorWidget,
+  });
+
+  @override
+  State<_OptimizedImage> createState() => _OptimizedImageState();
+}
+
+class _OptimizedImageState extends State<_OptimizedImage> {
+  Uint8List? _imageData;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    final path = widget.file.path;
+
+    // 先检查内存缓存
+    final cached = _ImageMemoryCache.get(path);
+    if (cached != null) {
+      if (mounted) {
+        setState(() {
+          _imageData = cached;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      if (!widget.file.existsSync()) {
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final bytes = await widget.file.readAsBytes();
+
+      // 存入缓存
+      _ImageMemoryCache.put(path, bytes);
+
+      if (mounted) {
+        setState(() {
+          _imageData = bytes;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(_OptimizedImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file.path != widget.file.path) {
+      setState(() {
+        _imageData = null;
+        _isLoading = true;
+        _hasError = false;
+      });
+      _loadImage();
+    }
+  }
+
+  @override
+  void dispose() {
+    // 不在这里清理内存，让缓存管理器统一处理
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return widget.errorWidget;
+    }
+
+    if (_isLoading || _imageData == null) {
+      return Container(
+        color: AppColors.surfaceVariant,
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    return Image.memory(
+      _imageData!,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) {
+        return widget.errorWidget;
+      },
     );
   }
 }

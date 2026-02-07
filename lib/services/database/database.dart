@@ -30,12 +30,17 @@ class Notes extends Table {
   /// 索引：优化查询性能
   List<Set<Column>> get indexes => [
     {createdAt}, // 按创建时间查询
+    {updatedAt}, // 按更新时间查询
     {isDeleted}, // 过滤已删除笔记
     {isPinned}, // 查询置顶笔记
     {folder}, // 按文件夹查询
     {deletedAt}, // 按删除时间查询（回收站排序）
     {isDeleted, folder}, // 复合索引：未删除+文件夹查询
     {isPinned, isDeleted}, // 复合索引：置顶+未删除查询
+    {isDeleted, createdAt}, // 复合索引：未删除+按创建时间排序（最近笔记）
+    {isDeleted, updatedAt}, // 复合索引：未删除+按更新时间排序
+    {color}, // 按颜色标记查询
+    {isDeleted, color}, // 复合索引：未删除+颜色筛选
   ];
 }
 

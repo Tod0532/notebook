@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
+import 'package:thick_notepad/features/notes/presentation/widgets/note_preview_dialog.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:intl/intl.dart';
 
@@ -18,70 +19,87 @@ class NotesView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(allNotesProvider);
 
-    return SafeArea(
-      child: Column(
-        children: [
-          // 顶部标题栏
-          _buildHeader(context),
-          // 笔记列表
-          Expanded(
-            child: notesAsync.when(
-              data: (notes) {
-                if (notes.isEmpty) {
-                  return _EmptyState(onTap: () => context.push(AppRoutes.noteEdit));
-                }
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // 顶部标题栏
+            _buildHeader(context),
+            // 笔记列表
+            Expanded(
+              child: notesAsync.when(
+                data: (notes) {
+                  if (notes.isEmpty) {
+                    return _EmptyState(onTap: () => context.push(AppRoutes.noteEdit));
+                  }
 
-                // 分离置顶和普通笔记
-                final pinnedNotes = notes.where((n) => n.isPinned).toList();
-                final normalNotes = notes.where((n) => !n.isPinned).toList();
+                  // 分离置顶和普通笔记
+                  final pinnedNotes = notes.where((n) => n.isPinned).toList();
+                  final normalNotes = notes.where((n) => !n.isPinned).toList();
 
-                // 只有一种类型的笔记时不需要分隔符
-                final hasSeparator = pinnedNotes.isNotEmpty && normalNotes.isNotEmpty;
-                final separatorOffset = hasSeparator ? 1 : 0;
+                  // 只有一种类型的笔记时不需要分隔符
+                  final hasSeparator = pinnedNotes.isNotEmpty && normalNotes.isNotEmpty;
+                  final separatorOffset = hasSeparator ? 1 : 0;
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-                  itemCount: pinnedNotes.length + normalNotes.length + separatorOffset,
-                  itemBuilder: (context, index) {
-                    // 置顶分隔
-                    if (hasSeparator && index == pinnedNotes.length) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                        child: Text(
-                          '全部笔记',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+                    itemCount: pinnedNotes.length + normalNotes.length + separatorOffset,
+                    // 预估卡片高度，提升滚动性能
+                    itemExtent: 160,
+                    cacheExtent: 500, // 缓存更多屏幕外的item
+                    itemBuilder: (context, index) {
+                      // 置顶分隔
+                      if (hasSeparator && index == pinnedNotes.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                          child: Text(
+                            '全部笔记',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                          ),
+                        );
+                      }
+
+                      final isPinned = index < pinnedNotes.length;
+                      final note = isPinned
+                          ? pinnedNotes[index]
+                          : normalNotes[index - pinnedNotes.length - separatorOffset];
+
+                      return AnimatedListItem(
+                        index: index,
+                        child: _SwipeableNoteCard(
+                          note: note,
+                          onTap: () => _showNoteDetail(context, note.id),
+                          onTogglePin: () => _togglePin(ref, note),
+                          onDelete: () => _deleteNote(context, ref, note.id),
                         ),
                       );
-                    }
-
-                    final isPinned = index < pinnedNotes.length;
-                    final note = isPinned
-                        ? pinnedNotes[index]
-                        : normalNotes[index - pinnedNotes.length - separatorOffset];
-
-                    return AnimatedListItem(
-                      index: index,
-                      child: _NoteCard(
-                        note: note,
-                        onTap: () => _showNoteDetail(context, note.id),
-                        onTogglePin: () => _togglePin(ref, note),
-                        onDelete: () => _deleteNote(context, ref, note.id),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => _ErrorView(
-                message: e.toString(),
-                onRetry: () => ref.refresh(allNotesProvider),
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, s) => _ErrorView(
+                  message: e.toString(),
+                  onRetry: () => ref.refresh(allNotesProvider),
+                ),
               ),
             ),
+          ],
+        ),
+        // 新建笔记悬浮按钮
+        Positioned(
+          right: AppSpacing.lg,
+          bottom: AppSpacing.xl,
+          child: FloatingActionButton.extended(
+            onPressed: () => context.push(AppRoutes.noteEdit),
+            icon: const Icon(Icons.add),
+            label: const Text('新建'),
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -97,17 +115,52 @@ class NotesView extends ConsumerWidget {
                   fontWeight: FontWeight.w800,
                 ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: AppRadius.mdRadius,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.search, size: 20),
-              onPressed: () => _showSearchDialog(context),
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              constraints: const BoxConstraints(),
-            ),
+          Row(
+            children: [
+              // 导出按钮
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: AppRadius.mdRadius,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.file_download_outlined, size: 20),
+                  onPressed: () => context.push(AppRoutes.noteExport),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  constraints: const BoxConstraints(),
+                  tooltip: '导出笔记',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // 回收站按钮
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: AppRadius.mdRadius,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  onPressed: () => context.push(AppRoutes.recycleBin),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  constraints: const BoxConstraints(),
+                  tooltip: '回收站',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // 搜索按钮
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: AppRadius.mdRadius,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.search, size: 20),
+                  onPressed: () => _showSearchDialog(context),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -149,10 +202,7 @@ class NotesView extends ConsumerWidget {
   }
 
   void _showSearchDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const _SearchDialog(),
-    );
+    context.push(AppRoutes.noteSearch);
   }
 }
 
@@ -170,13 +220,37 @@ class _NoteCard extends StatelessWidget {
     required this.onDelete,
   });
 
+  // 缓存标签列表解析结果 - 使用LRU策略限制大小
+  static final Map<String, List<String>> _tagCache = {};
+  static const int _maxCacheSize = 50;
+  static final List<String> _cacheKeys = [];
+
   List<String> get _tagList {
     final tags = note.tags as String? ?? '';
     if (tags.isEmpty || tags == '[]') return [];
+
+    // 使用缓存
+    if (_tagCache.containsKey(tags)) {
+      // 更新LRU顺序
+      _cacheKeys.remove(tags);
+      _cacheKeys.add(tags);
+      return _tagCache[tags]!;
+    }
+
     try {
       final clean = tags.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').replaceAll("'", '');
       if (clean.isEmpty) return [];
-      return clean.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      final result = clean.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+      // LRU淘汰策略
+      if (_tagCache.length >= _maxCacheSize) {
+        final oldestKey = _cacheKeys.removeAt(0);
+        _tagCache.remove(oldestKey);
+      }
+
+      _tagCache[tags] = result;
+      _cacheKeys.add(tags);
+      return result;
     } catch (_) {
       return [];
     }
@@ -184,8 +258,15 @@ class _NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('M月d日');
-    final timeFormat = DateFormat('HH:mm');
+    // 预先计算常用值
+    final title = (note.title as String?)?.isEmpty ?? true ? '无标题' : (note.title as String? ?? '无标题');
+    final content = note.content as String? ?? '';
+    final hasContent = content.isNotEmpty;
+    final createdAt = note.createdAt;
+    final isPinned = note.isPinned ?? false;
+
+    // 使用静态格式化器避免重复创建
+    final dateTimeStr = '${DateFormat('M月d日').format(createdAt)} ${DateFormat('HH:mm').format(createdAt)}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -197,10 +278,12 @@ class _NoteCard extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.lgRadius,
-          child: Padding(
+        child: GestureDetector(
+          onLongPress: () => _showPreview(context),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: AppRadius.lgRadius,
+            child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,15 +291,15 @@ class _NoteCard extends StatelessWidget {
                 // 标题行
                 Row(
                   children: [
-                    if (note.isPinned)
+                    if (isPinned)
                       Container(
                         padding: const EdgeInsets.all(4),
                         margin: const EdgeInsets.only(right: AppSpacing.sm),
                         decoration: BoxDecoration(
-                          color: AppColors.primary,  // 简化：小图标使用纯色
+                          color: AppColors.primary,
                           borderRadius: AppRadius.smRadius,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.push_pin,
                           size: 12,
                           color: Colors.white,
@@ -224,7 +307,7 @@ class _NoteCard extends StatelessWidget {
                       ),
                     Expanded(
                       child: Text(
-                        ((note.title as String?)?.isEmpty ?? true) ? '无标题' : (note.title as String? ?? '无标题'),
+                        title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -236,10 +319,10 @@ class _NoteCard extends StatelessWidget {
                   ],
                 ),
                 // 内容预览
-                if (((note.content as String?)?.isNotEmpty ?? false)) ...[
+                if (hasContent) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    note.content as String? ?? '',
+                    content,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -258,7 +341,7 @@ class _NoteCard extends StatelessWidget {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
                         decoration: BoxDecoration(
-                          color: tagColor.withValues(alpha: 0.12),  // 简化：标签使用纯色
+                          color: tagColor.withValues(alpha: 0.12),
                           borderRadius: AppRadius.smRadius,
                         ),
                         child: Text(
@@ -277,14 +360,14 @@ class _NoteCard extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.schedule_outlined,
                       size: 12,
                       color: AppColors.textHint,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${dateFormat.format(note.createdAt)} ${timeFormat.format(note.createdAt)}',
+                      dateTimeStr,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textHint,
                           ),
@@ -295,7 +378,15 @@ class _NoteCard extends StatelessWidget {
             ),
           ),
         ),
+        ),
       ),
+    );
+  }
+
+  void _showPreview(BuildContext context) {
+    NotePreviewDialog.show(
+      context: context,
+      note: note,
     );
   }
 
@@ -437,54 +528,60 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-/// 搜索对话框
-class _SearchDialog extends ConsumerStatefulWidget {
-  const _SearchDialog();
+/// 可滑动删除的笔记卡片
+class _SwipeableNoteCard extends StatelessWidget {
+  final dynamic note;
+  final VoidCallback onTap;
+  final VoidCallback onTogglePin;
+  final VoidCallback onDelete;
 
-  @override
-  ConsumerState<_SearchDialog> createState() => _SearchDialogState();
-}
-
-class _SearchDialogState extends ConsumerState<_SearchDialog> {
-  final _controller = TextEditingController();
-  String _keyword = '';
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _SwipeableNoteCard({
+    required this.note,
+    required this.onTap,
+    required this.onTogglePin,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('搜索笔记'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: const InputDecoration(
-          hintText: '输入关键词...',
-          prefixIcon: Icon(Icons.search),
-        ),
-        onChanged: (value) {
-          setState(() => _keyword = value);
-        },
-        onSubmitted: (value) {
-          if (value.isNotEmpty) {
-            Navigator.pop(context, value);
-          }
-        },
+    return Dismissible(
+      key: ValueKey(note.id),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {
+        DismissDirection.endToStart: 0.7,
+      },
+      background: _buildDismissableBackground(),
+      onDismissed: (_) {
+        onDelete();
+      },
+      child: _NoteCard(
+        note: note,
+        onTap: onTap,
+        onTogglePin: onTogglePin,
+        onDelete: onDelete,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: _keyword.isEmpty ? null : () => Navigator.pop(context, _keyword),
-          child: const Text('搜索'),
-        ),
-      ],
+    );
+  }
+
+  Widget _buildDismissableBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.error,
+        borderRadius: AppRadius.lgRadius,
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.delete, color: Colors.white, size: 32),
+          SizedBox(height: 4),
+          Text(
+            '删除',
+            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -19,6 +19,7 @@ import 'package:thick_notepad/features/weather/presentation/providers/weather_pr
 import 'package:thick_notepad/features/gamification/presentation/widgets/level_progress_card.dart';
 import 'package:thick_notepad/features/gamification/presentation/widgets/streak_display.dart';
 import 'package:thick_notepad/features/gamification/presentation/providers/gamification_providers.dart';
+import 'package:thick_notepad/core/providers/theme_provider.dart';
 
 /// 底部导航项配置
 class _NavItem {
@@ -203,93 +204,113 @@ class DashboardView extends ConsumerWidget {
   Widget _buildGreetingHeader(BuildContext context) {
     final hour = DateTime.now().hour;
     String greeting;
-    IconData icon;
-    Color iconColor;
 
     if (hour < 6) {
       greeting = '夜深了';
-      icon = Icons.nights_stay;
-      iconColor = AppColors.primary;
     } else if (hour < 12) {
       greeting = '早上好';
-      icon = Icons.wb_sunny_outlined;
-      iconColor = Colors.orange;
     } else if (hour < 14) {
       greeting = '中午好';
-      icon = Icons.wb_twilight;
-      iconColor = Colors.deepOrange;
     } else if (hour < 18) {
       greeting = '下午好';
-      icon = Icons.wb_sunny;
-      iconColor = Colors.orangeAccent;
     } else {
       greeting = '晚上好';
-      icon = Icons.bedtime_outlined;
-      iconColor = AppColors.primary;
     }
 
-    return Row(
-      children: [
-        // 大头像图标
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity( 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: Colors.white, size: 32),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Flexible(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$greeting，老大',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 24,
-                      letterSpacing: -0.5,
+    return Consumer(
+      builder: (context, ref, _) {
+        final colorMode = ref.watch(currentColorModeProvider);
+
+        // 根据主题模式显示不同图标
+        IconData themeIcon;
+        Color themeIconColor;
+
+        switch (colorMode) {
+          case AppColorMode.dark:
+            themeIcon = Icons.dark_mode;
+            themeIconColor = Colors.indigo;
+            break;
+          case AppColorMode.light:
+            themeIcon = Icons.light_mode;
+            themeIconColor = Colors.orange;
+            break;
+          case AppColorMode.system:
+            themeIcon = Icons.brightness_auto;
+            themeIconColor = AppColors.primary;
+            break;
+        }
+
+        return Row(
+          children: [
+            // 大头像图标 - 可点击切换主题，图标随主题变化
+            GestureDetector(
+              onTap: () {
+                debugPrint('主题按钮被点击');
+                final notifier = ref.read(colorModeNotifierProvider.notifier);
+                notifier.nextMode();
+              },
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity( 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
+                  ],
+                ),
+                child: Icon(themeIcon, color: Colors.white, size: 32),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '今天也是充满活力的一天！',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                    ),
-              ),
-            ],
-          ),
-        ),
-        // 设置按钮
-        ModernCard(
-          onTap: () => context.push(AppRoutes.settings),
-          padding: EdgeInsets.zero,
-          backgroundColor: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: 52,
-            height: 52,
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.settings_outlined,
-              color: AppColors.textSecondary,
-              size: 24,
             ),
-          ),
-        ),
-      ],
+            const SizedBox(width: AppSpacing.md),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$greeting，老大',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 24,
+                          letterSpacing: -0.5,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '今天也是充满活力的一天！',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            // 设置按钮
+            ModernCard(
+              onTap: () => context.push(AppRoutes.settings),
+              padding: EdgeInsets.zero,
+              backgroundColor: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.settings_outlined,
+                  color: AppColors.textSecondary,
+                  size: 24,
+                ),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 

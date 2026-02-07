@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/shared/pages/home_page.dart';
 import 'package:thick_notepad/features/notes/presentation/pages/notes_page.dart';
 import 'package:thick_notepad/features/notes/presentation/pages/note_edit_page.dart';
+import 'package:thick_notepad/features/notes/presentation/pages/recycle_bin_page.dart';
+import 'package:thick_notepad/features/notes/presentation/pages/note_search_page.dart';
+import 'package:thick_notepad/features/notes/presentation/pages/note_export_page.dart';
 import 'package:thick_notepad/features/reminders/presentation/pages/reminders_page.dart';
 import 'package:thick_notepad/features/workout/presentation/pages/workout_page.dart';
 import 'package:thick_notepad/features/workout/presentation/pages/workout_edit_page.dart';
@@ -46,6 +49,9 @@ class AppRoutes {
   static const String notes = '/notes';
   static const String noteDetail = '/notes/:id';
   static const String noteEdit = '/notes/new';
+  static const String recycleBin = '/notes/recycle-bin';
+  static const String noteSearch = '/notes/search';
+  static const String noteExport = '/notes/export';
   static const String reminders = '/reminders';
   static const String reminderDetail = '/reminders/:id';
   static const String reminderEdit = '/reminders/new';
@@ -155,7 +161,7 @@ class _ScaleFadeTransition extends CustomTransitionPage {
 /// 应用路由器 - 使用 ShellRoute 保持底部导航栏
 final appRouter = GoRouter(
   debugLogDiagnostics: false,
-  initialLocation: AppRoutes.notes,
+  initialLocation: AppRoutes.home,
   routes: [
     // ShellRoute 包裹底部导航栏
     ShellRoute(
@@ -182,6 +188,18 @@ final appRouter = GoRouter(
             final id = int.parse(state.pathParameters['id']!);
             return _SlideFadeTransition(child: NoteEditPage(noteId: id));
           },
+        ),
+        GoRoute(
+          path: AppRoutes.recycleBin,
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const RecycleBinView()),
+        ),
+        GoRoute(
+          path: AppRoutes.noteSearch,
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const NoteSearchPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.noteExport,
+          pageBuilder: (context, state) => _SlideFadeTransition(child: const NoteExportPage()),
         ),
 
         // 提醒模块

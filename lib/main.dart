@@ -30,27 +30,33 @@ void main() async {
   // 初始化日期格式化（中文）
   await initializeDateFormatting('zh_CN', null);
 
-  // 初始化桌面小组件辅助服务
-  WidgetHelper.initialize();
-
-  // 初始化通知服务
-  await _initNotifications();
-
+  // 立即启动应用，其他服务在后台初始化
   runApp(
     const ProviderScope(
       child: ThickNotepadApp(),
     ),
   );
 
-  // 启动后检查计划迭代提醒（延迟执行，不影响启动速度）
-  _schedulePlanUpdateCheck();
+  // 延迟初始化非关键服务，不影响启动速度
+  _initBackgroundServices();
 }
 
-/// 延迟检查计划更新提醒
-void _schedulePlanUpdateCheck() {
-  // 延迟5秒后检查，避免影响应用启动
-  Future.delayed(const Duration(seconds: 5), () async {
-    await _checkPlanUpdateReminders();
+/// 后台初始化非关键服务
+void _initBackgroundServices() {
+  // 使用 Future.microtask 在第一帧后执行
+  Future.microtask(() async {
+    // 初始化桌面小组件辅助服务
+    WidgetHelper.initialize();
+
+    // 初始化通知服务（非阻塞）
+    _initNotifications().catchError((e) {
+      debugPrint('后台服务初始化失败: $e');
+    });
+
+    // 延迟检查计划迭代提醒
+    Future.delayed(const Duration(seconds: 5), () async {
+      await _checkPlanUpdateReminders();
+    });
   });
 }
 
@@ -78,6 +84,11 @@ Future<void> _initNotifications() async {
     // 通知服务初始化失败不影响应用启动
     debugPrint('通知服务初始化失败: $e');
   }
+}
+
+/// 移除旧的延迟检查函数（已在_initBackgroundServices中处理）
+void _schedulePlanUpdateCheck() {
+  // 此功能已整合到 _initBackgroundServices 中
 }
 
 /// 处理通知点击
@@ -185,12 +196,11 @@ class ThickNotepadApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTheme = ref.watch(currentColorThemeProvider);
     final currentColorMode = ref.watch(currentColorModeProvider);
     final customColor = ref.watch(currentCustomColorProvider);
 
     return SimpleThemeTransition(
-      key: ValueKey('theme_${currentTheme.name}_${currentColorMode.name}_${customColor.name}'),
+      key: ValueKey('theme_${currentColorMode.name}_${customColor.name}'),
       child: Builder(
         builder: (context) {
           // 获取系统亮度
@@ -208,8 +218,17 @@ class ThickNotepadApp extends ConsumerWidget {
             debugShowCheckedModeBanner: false,
             theme: getThemeDataWithCustomColor(
               customColor,
-              isDark: useDarkMode,
+              isDark: false,
             ),
+            darkTheme: getThemeDataWithCustomColor(
+              customColor,
+              isDark: true,
+            ),
+            themeMode: useDarkMode
+                ? ThemeMode.dark
+                : (currentColorMode == AppColorMode.system
+                    ? ThemeMode.system
+                    : ThemeMode.light),
             routerConfig: appRouter,
           );
         },

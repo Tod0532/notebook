@@ -120,15 +120,75 @@ class NoteRepository {
     }
   }
 
-  /// 搜索笔记
+  /// 搜索笔记 - 优化版：智能排序和标签搜索
   Future<List<Note>> searchNotes(String keyword) async {
     try {
       final allNotes = await getAllNotes();
-      final lowerKeyword = keyword.toLowerCase();
-      return allNotes.where((note) {
-        return (note.title?.toLowerCase().contains(lowerKeyword) ?? false) ||
-            note.content.toLowerCase().contains(lowerKeyword);
-      }).toList();
+      final lowerKeyword = keyword.toLowerCase().trim();
+
+      // 空关键词返回所有笔记
+      if (lowerKeyword.isEmpty) {
+        return allNotes;
+      }
+
+      // 计算每个笔记的相关性分数
+      final scoredNotes = allNotes.map((note) {
+        int score = 0;
+
+        // 标题匹配权重最高
+        if (note.title != null && note.title!.toLowerCase().contains(lowerKeyword)) {
+          score += 10;
+          // 完全匹配加分
+          if (note.title!.toLowerCase() == lowerKeyword) {
+            score += 5;
+          }
+        }
+
+        // 内容匹配
+        final content = note.content.toLowerCase();
+        if (content.contains(lowerKeyword)) {
+          score += 5;
+          // 计算关键词出现次数（最多3分）
+          final occurrences = content.split(lowerKeyword).length - 1;
+          score += occurrences.clamp(0, 3);
+        }
+
+        // 标签匹配
+        final tags = _parseTags(note.tags);
+        for (final tag in tags) {
+          if (tag.toLowerCase().contains(lowerKeyword)) {
+            score += 3;
+            break;
+          }
+        }
+
+        // 文件夹匹配
+        if (note.folder != null && note.folder!.toLowerCase().contains(lowerKeyword)) {
+          score += 2;
+        }
+
+        // 置顶笔记优先
+        if (note.isPinned ?? false) {
+          score += 1;
+        }
+
+        // 最近更新有轻微加分
+        final daysSinceUpdate = DateTime.now().difference(note.updatedAt).inDays;
+        if (daysSinceUpdate < 7) {
+          score += 1;
+        }
+
+        return MapEntry(note, score);
+      }).where((entry) => entry.value > 0).toList();
+
+      // 按分数降序排序，分数相同按更新时间降序
+      scoredNotes.sort((a, b) {
+        final scoreCompare = b.value.compareTo(a.value);
+        if (scoreCompare != 0) return scoreCompare;
+        return b.key.updatedAt.compareTo(a.key.updatedAt);
+      });
+
+      return scoredNotes.map((e) => e.key).toList();
     } catch (e, st) {
       debugPrint('搜索笔记失败: $e');
       throw NoteRepositoryException('搜索笔记失败', e, st);

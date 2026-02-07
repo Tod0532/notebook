@@ -23,6 +23,7 @@ import 'package:thick_notepad/services/emotion/emotion_analyzer.dart';
 import 'package:thick_notepad/services/emotion/emotion_workout_mapper.dart';
 import 'package:thick_notepad/services/image/image_service.dart';
 import 'package:thick_notepad/features/notes/presentation/widgets/export_bottom_sheet.dart';
+import 'package:thick_notepad/features/notes/presentation/widgets/note_templates.dart';
 import 'package:drift/drift.dart' as drift;
 
 /// 笔记编辑页
@@ -93,6 +94,13 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
       appBar: AppBar(
         title: Text(widget.noteId == null ? '新建笔记' : '编辑笔记'),
         actions: [
+          // 模板按钮（仅新建模式显示）
+          if (widget.noteId == null)
+            IconButton(
+              icon: const Icon(Icons.description_outlined),
+              onPressed: () => _showTemplateDialog(context),
+              tooltip: '选择模板',
+            ),
           // 语音输入按钮
           _VoiceInputButton(
             contentController: _contentController,
@@ -144,6 +152,7 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
                       // 图片预览区域
                       if (_images.isNotEmpty)
                         ImagePreviewGrid(
+                          key: ValueKey('images_${_images.length}'),
                           imagePaths: _images,
                           onImagesChanged: (images) {
                             setState(() => _images.clear());
@@ -720,6 +729,39 @@ class _NoteEditPageState extends ConsumerState<NoteEditPage> {
     );
   }
 
+  void _showTemplateDialog(BuildContext context) {
+    HapticHelper.lightTap();
+    NoteTemplateDialog.show(
+      context: context,
+      onSelected: (templateId) => _applyTemplate(templateId),
+    );
+  }
+
+  void _applyTemplate(String templateId) {
+    final template = PresetTemplates.all.firstWhere(
+      (t) => t.id == templateId,
+      orElse: () => PresetTemplates.all.first,
+    );
+
+    final content = template.build();
+
+    setState(() {
+      _contentController.text = content;
+      if (_titleController.text.isEmpty) {
+        _titleController.text = template.name;
+      }
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已应用 ${template.name}模板'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   String _formatTags(List<String> tags) {
     if (tags.isEmpty) return '[]';
     return '[${tags.map((e) => '"$e"').join(',')}]';
@@ -1108,7 +1150,11 @@ class _AddTagDialogState extends State<_AddTagDialog> {
             decoration: const InputDecoration(
               hintText: '输入标签名称',
             ),
-            onChanged: (value) => _selectedTag = value.trim(),
+            onChanged: (value) {
+              setState(() {
+                _selectedTag = value.trim();
+              });
+            },
             onSubmitted: (_) => _confirmAdd(),
           ),
           const SizedBox(height: 16),
