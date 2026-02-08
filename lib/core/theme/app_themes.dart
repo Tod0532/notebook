@@ -30,7 +30,16 @@ enum AppTheme {
   cherrySweet,
 
   /// 极光幻彩 - 彩虹渐变
-  auroraColorful;
+  auroraColorful,
+
+  /// 赛博朋克 - 霓虹紫/青色系
+  cyberpunk,
+
+  /// 森林秘境 - 深绿/棕色系
+  forest,
+
+  /// 极简白 - 纯白/灰色系
+  minimalWhite;
 }
 
 /// 主题显示名称
@@ -43,6 +52,9 @@ const Map<AppTheme, String> themeNames = {
   AppTheme.sunsetWarm: '日落温暖',
   AppTheme.cherrySweet: '樱花甜美',
   AppTheme.auroraColorful: '极光幻彩',
+  AppTheme.cyberpunk: '赛博朋克',
+  AppTheme.forest: '森林秘境',
+  AppTheme.minimalWhite: '极简白',
 };
 
 // ==================== 配色方案 ====================
@@ -460,6 +472,156 @@ class _AuroraColorfulColors {
   static const Color textSecondary = Color(0xFF6B21A8);
 }
 
+/// 赛博朋克配色（霓虹紫/青色系）
+class _CyberpunkColors {
+  static const Color primary = Color(0xFFD946EF);
+  static const Color primaryDark = Color(0xFFC026D3);
+  static const Color primaryLight = Color(0xFFE879F9);
+  static const Color secondary = Color(0xFF06B6D4);
+  static const Color secondaryLight = Color(0xFF22D3EE);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFD946EF), Color(0xFFA855F7), Color(0xFF8B5CF6)],
+  );
+
+  static const LinearGradient secondaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF06B6D4), Color(0xFF0891B2), Color(0xFF0E7490)],
+  );
+
+  static const LinearGradient successGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF10B981), Color(0xFF34D399), Color(0xFF6EE7B7)],
+  );
+
+  static const LinearGradient warningGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFDE68A)],
+  );
+
+  static const LinearGradient errorGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFEF4444), Color(0xFFF87171), Color(0xFFFCA5A5)],
+  );
+
+  static const LinearGradient infoGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF3B82F6), Color(0xFF60A5FA), Color(0xFF93C5FD)],
+  );
+
+  static const Color background = Color(0xFF0F172A);
+  static const Color surface = Color(0xFF1E293B);
+  static const Color textPrimary = Color(0xFFF1F5F9);
+  static const Color textSecondary = Color(0xFF94A3B8);
+}
+
+/// 森林秘境配色（深绿/棕色系）
+class _ForestColors {
+  static const Color primary = Color(0xFF059669);
+  static const Color primaryDark = Color(0xFF047857);
+  static const Color primaryLight = Color(0xFF10B981);
+  static const Color secondary = Color(0xFF92400E);
+  static const Color secondaryLight = Color(0xFFB45309);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+  );
+
+  static const LinearGradient secondaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF92400E), Color(0xFFB45309), Color(0xFFD97706)],
+  );
+
+  static const LinearGradient successGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF22C55E), Color(0xFF4ADE80), Color(0xFF86EFAC)],
+  );
+
+  static const LinearGradient warningGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF92400E), Color(0xFFB45309), Color(0xFFD97706)],
+  );
+
+  static const LinearGradient errorGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)],
+  );
+
+  static const LinearGradient infoGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+  );
+
+  static const Color background = Color(0xFFF0FDF4);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF14532D);
+  static const Color textSecondary = Color(0xFF166534);
+}
+
+/// 极简白配色（纯白/灰色系）
+class _MinimalWhiteColors {
+  static const Color primary = Color(0xFFFFFFFF);
+  static const Color primaryDark = Color(0xFFF3F4F6);
+  static const Color primaryLight = Color(0xFFFFFFFF);
+  static const Color secondary = Color(0xFF9CA3AF);
+  static const Color secondaryLight = Color(0xFFD1D5DB);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFFFFF), Color(0xFFF9FAFB), Color(0xFFF3F4F6)],
+  );
+
+  static const LinearGradient secondaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF9CA3AF), Color(0xFFD1D5DB), Color(0xFFE5E7EB)],
+  );
+
+  static const LinearGradient successGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFD1D5DB), Color(0xFFE5E7EB), Color(0xFFF3F4F6)],
+  );
+
+  static const LinearGradient warningGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF9CA3AF), Color(0xFFD1D5DB), Color(0xFFE5E7EB)],
+  );
+
+  static const LinearGradient errorGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF6B7280), Color(0xFF9CA3AF), Color(0xFFD1D5DB)],
+  );
+
+  static const LinearGradient infoGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF9CA3AF), Color(0xFFD1D5DB), Color(0xFFE5E7EB)],
+  );
+
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF6B7280);
+}
+
 // ==================== 主题工厂 ====================
 
 /// 主题工厂 - 根据主题类型生成对应的配色
@@ -483,6 +645,12 @@ class ThemeFactory {
         return _CherrySweetColors.primary;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.primary;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.primary;
+      case AppTheme.forest:
+        return _ForestColors.primary;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.primary;
     }
   }
 
@@ -505,6 +673,12 @@ class ThemeFactory {
         return _CherrySweetColors.primaryGradient;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.primaryGradient;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.primaryGradient;
+      case AppTheme.forest:
+        return _ForestColors.primaryGradient;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.primaryGradient;
     }
   }
 
@@ -527,6 +701,12 @@ class ThemeFactory {
         return _CherrySweetColors.secondaryGradient;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.secondaryGradient;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.secondaryGradient;
+      case AppTheme.forest:
+        return _ForestColors.secondaryGradient;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.secondaryGradient;
     }
   }
 
@@ -549,6 +729,12 @@ class ThemeFactory {
         return _CherrySweetColors.successGradient;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.successGradient;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.successGradient;
+      case AppTheme.forest:
+        return _ForestColors.successGradient;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.successGradient;
     }
   }
 
@@ -571,6 +757,12 @@ class ThemeFactory {
         return _CherrySweetColors.warningGradient;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.warningGradient;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.warningGradient;
+      case AppTheme.forest:
+        return _ForestColors.warningGradient;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.warningGradient;
     }
   }
 
@@ -593,6 +785,12 @@ class ThemeFactory {
         return _CherrySweetColors.errorGradient;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.errorGradient;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.errorGradient;
+      case AppTheme.forest:
+        return _ForestColors.errorGradient;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.errorGradient;
     }
   }
 
@@ -615,6 +813,12 @@ class ThemeFactory {
         return _CherrySweetColors.infoGradient;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.infoGradient;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.infoGradient;
+      case AppTheme.forest:
+        return _ForestColors.infoGradient;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.infoGradient;
     }
   }
 
@@ -637,6 +841,12 @@ class ThemeFactory {
         return _CherrySweetColors.background;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.background;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.background;
+      case AppTheme.forest:
+        return _ForestColors.background;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.background;
     }
   }
 
@@ -659,6 +869,12 @@ class ThemeFactory {
         return _CherrySweetColors.surface;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.surface;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.surface;
+      case AppTheme.forest:
+        return _ForestColors.surface;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.surface;
     }
   }
 
@@ -681,6 +897,12 @@ class ThemeFactory {
         return _CherrySweetColors.textPrimary;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.textPrimary;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.textPrimary;
+      case AppTheme.forest:
+        return _ForestColors.textPrimary;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.textPrimary;
     }
   }
 
@@ -703,11 +925,17 @@ class ThemeFactory {
         return _CherrySweetColors.textSecondary;
       case AppTheme.auroraColorful:
         return _AuroraColorfulColors.textSecondary;
+      case AppTheme.cyberpunk:
+        return _CyberpunkColors.textSecondary;
+      case AppTheme.forest:
+        return _ForestColors.textSecondary;
+      case AppTheme.minimalWhite:
+        return _MinimalWhiteColors.textSecondary;
     }
   }
 
   /// 是否为深色主题
   static bool isDarkTheme(AppTheme theme) {
-    return theme == AppTheme.darkMode;
+    return theme == AppTheme.darkMode || theme == AppTheme.cyberpunk;
   }
 }

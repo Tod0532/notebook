@@ -1,171 +1,251 @@
-# 动计笔记 - 代码修改历史
+# 慧记 - 代码修改历史
 
-> 更新时间：2026-02-07
+> 更新时间：2026-02-08
 
 ---
 
-## 2026-02-07 - 全面优化版本 🚀
+## 2026-02-08 - GPS追踪优化 + 地图显示修复 🗺️
+
+### GPS追踪优化
+
+#### 分阶段定位策略
+- ✅ 4阶段GPS获取：快速(5s) → 高精度(60s) → 低精度(10s) → 缓存
+- ✅ 高精度定位超时从30秒延长到60秒（适合室内环境）
+- ✅ 最后已知位置作为最终fallback
+- ✅ 详细的调试日志（emoji标记）
+
+#### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `gps_tracking_service.dart` | 4阶段定位、60秒超时、详细日志 |
+
+### 地图显示修复
+
+#### 问题
+在线地图瓦片服务器（OpenStreetMap/CartoDB）在用户网络环境下无法访问，导致地图只显示空白。
+
+#### 解决方案
+移除在线瓦片依赖，使用渐变背景+轨迹线显示：
+
+| 页面 | 背景（浅色） | 背景（深色） |
+|------|--------------|--------------|
+| GPS追踪 | 绿色渐变 | 深蓝渐变 |
+| 路线详情 | 绿色渐变 | 深蓝渐变 |
+| 轨迹回放 | 绿色渐变 | 深蓝渐变 |
+
+#### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `gps_tracking_page.dart` | 移除TileLayer，添加渐变背景 |
+| `gps_route_detail_page.dart` | 移除TileLayer，添加渐变背景 |
+| `gps_track_replay_page.dart` | 移除TileLayer，添加渐变背景 |
+| `network_security_config.xml` | 新建（已废弃，因不再使用在线瓦片） |
+
+### 网络安全配置
+- ✅ 新增 `network_security_config.xml`（尽管最终未使用）
+- ✅ 在 `AndroidManifest.xml` 中添加 `android:networkSecurityConfig` 引用
+
+---
+
+## 2026-02-08 - 心率蓝牙连接优化 🔧 + UI入口优化 🎯
+
+### 心率蓝牙连接优化
+
+#### 设备识别优化
+- ✅ 添加心率设备关键词识别（heart/polar/wahoo/garmin等17个关键词）
+- ✅ 设备列表自动排序（心率设备优先 + 信号强度排序）
+- ✅ 设备置信度分级（高/中/低）
+- ✅ 友好的设备显示名称
+
+#### 连接体验优化
+- ✅ 连接超时从15秒缩短到10秒
+- ✅ 添加自动重试机制（最多3次，间隔2秒）
+- ✅ 重试失败自动清理连接状态
+
+#### 用户提示优化
+- ✅ 友好的错误消息分类和提示
+- ✅ 权限被拒时显示引导说明
+- ✅ 设备列表显示信号强度指示器
+- ✅ 心率设备特殊标记（爱心图标）
+
+#### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `heart_rate_service.dart` | 设备识别扩展、重试机制、友好错误消息 |
+| `heart_rate_providers.dart` | 添加identifiedDevices字段 |
+| `heart_rate_monitor_page.dart` | 新的设备列表UI（信号强度、设备标记） |
+
+---
+
+## 2026-02-08 - UI入口优化 🎯
+
+### 问题
+GPS追踪和心率监测功能已实现，但UI入口不明显或缺失。
+
+### 修改内容
+
+#### 新增"智能功能"区域
+在运动记录编辑页添加显眼的功能入口区域：
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| GPS追踪 | 有氧运动启用 | 力量训练显示为禁用状态 |
+| 心率监测 | 所有运动可用 | 点击跳转到心率监测页面 |
+
+#### 视觉设计
+```
+┌─────────────────────────────────────────────┐
+│  ✨ 智能功能          提升运动体验           │
+│                                             │
+│  ┌─────────────┐     ┌─────────────┐       │
+│  │ 📍 GPS追踪  │     │  ❤️ 心率监测 │       │
+│  │ 记录运动路线 │     │ 连接心率带   │       │
+│  └─────────────┘     └─────────────┘       │
+└─────────────────────────────────────────────┘
+```
+
+#### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `workout_edit_page.dart` | 新增 `_buildSmartFeaturesSection()` 方法 |
+| `workout_edit_page.dart` | 新增 `_buildFeatureCard()` 通用卡片组件 |
+| `workout_edit_page.dart` | 新增 `_openHeartRateMonitor()` 方法 |
+| `AndroidManifest.xml` | 移除过时的 LocalNotificationsReceiver 声明 |
+
+---
+
+## 2026-02-07 - 品牌升级 + Bug修复 🚀
 
 ### 里程碑
 
-🎉 **发布就绪版本** - UI美化 + 功能完善 + 性能优化
+🎉 **品牌全面升级** - APP名称改为"慧记"，全新图标设计
 
 ---
 
-### 修复问题
+## 品牌升级
 
-| 问题 | 解决方案 |
-|------|----------|
-| 标签无法添加 | onChange 中添加 setState() |
-| 图片添加后不显示 | 添加 ValueKey + 改进 didUpdateWidget |
-| 没有新建笔记按钮 | 添加右下角悬浮按钮 |
-| 主题切换无效果 | 添加 darkTheme 和 themeMode 参数 |
-| 首页左上角图标无效 | 改为可点击的主题切换按钮 |
-| ChallengeService 错误 | 添加 try-catch 和降级方案 |
+### APP更名
+| 项目 | 旧值 | 新值 |
+|------|------|------|
+| 中文名称 | 动计笔记 | 慧记 |
+| English Name | ThickNotepad | HuiJi |
+| 品牌口号 | 无 | 慧记，你的AI生活智囊 |
 
----
+### 新图标设计
+- **风格**: 现代简约
+- **背景**: 橙红→紫渐变 (#ff6b6b → #a855f7)
+- **主体**: 白色圆环 + 绿色大对勾
+- **细节**: 虚线内圈、背景光晕、顶部三点装饰
 
-### 新增功能 (4项)
-
-#### 1. 笔记回收站 ✅
-**文件：** `recycle_bin_page.dart`
-
-- 已删除笔记可恢复/永久删除
-- 空状态提示
-- 清空回收站功能
-
-#### 2. 笔记搜索高亮 ✅
-**文件：** `note_search_page.dart`
-
-- 全屏搜索页面
-- 关键词高亮显示
-- 实时搜索结果
-
-#### 3. 笔记导出功能 ✅
-**文件：** `note_export_page.dart`
-
-- 支持Markdown/JSON格式导出
-- 分享功能集成
-
-#### 4. 笔记模板系统 ✅
-**文件：** `note_templates.dart`
-
-- 8种预设模板（日记、会议、学习、项目计划、待办清单、读书笔记、旅行计划、健身记录）
-- 新建笔记时可选择模板
-
----
-
-### 性能优化 (3项)
-
-#### 1. 数据库索引优化 ✅
-**文件：** `database.dart`
-
-新增索引：
-- `{updatedAt}` - 更新时间索引
-- `{isDeleted, createdAt}` - 未删除+按创建时间排序
-- `{isDeleted, updatedAt}` - 未删除+按更新时间排序
-- `{color}` - 颜色标记索引
-- `{isDeleted, color}` - 未删除+颜色筛选
-
-#### 2. 内存管理优化 ✅
-**文件：** `notes_page.dart`, `image_preview_grid.dart`
-
-- 标签缓存 LRU淘汰策略（最多50条）
-- 图片内存缓存（最多10MB，10张图片）
-- 自动清理机制
-
-#### 3. 启动速度优化 ✅
-**文件：** `main.dart`
-
-- 非关键服务后台初始化
-- 立即启动应用，不等待初始化完成
-
----
-
-### Bug修复 (2项)
-
-#### 1. 通知权限修复 ✅
-**文件：** `AndroidManifest.xml`
-
-新增权限：
-- `POST_NOTIFICATIONS`
-- `SCHEDULE_EXACT_ALARM`
-- `USE_EXACT_ALARM`
-
-#### 2. 全文搜索优化 ✅
-**文件：** `note_repository.dart`
-
-- 智能排序算法（标题匹配权重最高）
-- 标签搜索支持
-- 置顶笔记优先
-- 出现次数计分
-
----
-
-### UI/UX 完善 (3项)
-
-#### 1. 左上角主题切换 ✅
-**文件：** `home_page.dart`, `notes_page.dart`
-
-- 左上角大图标可点击切换主题
-- 图标根据主题模式显示：
-  - 浅色模式：太阳图标 ☀️
-  - 深色模式：月亮图标 🌙
-  - 跟随系统：自动图标 🔄
-
-#### 2. 滑动删除笔记 ✅
-**文件：** `notes_page.dart`
-
-- 左滑笔记卡片可删除
-- 红色删除背景
-- 触觉反馈
-
-#### 3. 长按预览笔记 ✅
-**文件：** `note_preview_dialog.dart`, `notes_page.dart`
-
-- 长按笔记卡片显示预览
-- 预览页面可编辑或关闭
-
----
-
-### 修改文件列表
-
+### 修改文件
 | 文件 | 修改内容 |
 |------|----------|
-| `main.dart` | 后台初始化服务，启动速度优化 |
-| `router.dart` | 添加回收站/搜索/导出路由，首页优先 |
-| `database.dart` | 添加复合索引优化查询 |
-| `challenge_service.dart` | 添加 try-catch 和降级方案 |
-| `AndroidManifest.xml` | 添加通知权限 |
-| `home_page.dart` | 左上角图标可切换主题 |
-| `notes_page.dart` | 回收站入口、导出按钮、滑动删除、长按预览 |
-| `note_edit_page.dart` | 修复标签添加、模板选择按钮 |
-| `recycle_bin_page.dart` | **新建** 回收站页面 |
-| `note_search_page.dart` | **新建** 搜索高亮页面 |
-| `note_export_page.dart` | **新建** 导出功能页面 |
-| `note_templates.dart` | **新建** 模板系统 |
-| `note_preview_dialog.dart` | **新建** 预览对话框 |
-| `image_preview_grid.dart` | 内存缓存优化 |
+| `AndroidManifest.xml` | android:label="慧记" |
+| `Info.plist` | CFBundleDisplayName="慧记" |
+| `pubspec.yaml` | description更新为"慧记 - 你的AI生活智囊" |
+| `mipmap-*/ic_launcher.png` | 全套新图标 (48/72/96/144/192px) |
 
 ---
 
-### 新增路由
+## 抽卡功能优化
 
-| 路由 | 页面 |
+### 新增功能
+- ✅ 粒子特效系统 (GachaParticleSystem)
+- ✅ 3D翻转效果 (Gacha3DCard)
+- ✅ 闪光特效 (GachaShineEffect)
+- ✅ 分享功能
+- ✅ 保底进度可视化
+- ✅ 限定稀有度 (GachaRarity.limited)
+- ✅ 物品池扩展 (75→94个物品)
+
+### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `gacha_animation.dart` | 粒子系统、3D效果、分享功能 |
+| `gacha_page.dart` | 保底进度条、概率显示 |
+| `gacha_service.dart` | 限定物品、物品池扩展 |
+| `gacha_sound_manager.dart` | 简化为NoOp实现 |
+| `gacha_providers.dart` | limited分支支持 |
+
+---
+
+## UI全面优化
+
+### 设计系统
+| 类名 | 用途 |
 |------|------|
-| `/notes/recycle-bin` | 回收站页面 |
-| `/notes/search` | 搜索高亮页面 |
-| `/notes/export` | 导出页面 |
+| AppRadius | 圆角常量统一 |
+| AppTextStyles | 文字样式统一 |
+
+### 优化项
+- ✅ 触摸目标优化 (48x48标准)
+- ✅ 空状态统一 (EmptyStateWidget)
+- ✅ 骨架屏加载
+- ✅ 圆角去硬编码
+- ✅ 文字样式统一
 
 ---
 
-### APK信息
+## Bug修复
+
+### SnackBar不消失问题
+**问题**: 计划模板创建后提示一直显示
+
+**文件**: `plan_template_select_page.dart`
+
+**修复**:
+```dart
+// 旧代码
+ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(content: Text('已创建计划：${template.name}'),
+    action: SnackBarAction(...),
+  ),
+);
+context.pop();
+context.push('/plans/$planId');
+
+// 新代码
+ScaffoldMessenger.of(context).clearSnackBars();
+context.pop();
+context.push('/plans/$planId');
+```
+
+---
+
+## 之前版本 (2026-02-06)
+
+### 全面优化版本
+- ✅ 笔记回收站
+- ✅ 笔记搜索高亮
+- ✅ 笔记导出功能
+- ✅ 笔记模板系统 (8种)
+- ✅ 数据库索引优化
+- ✅ 内存管理优化
+- ✅ 通知权限修复
+
+---
+
+## APK信息
 
 ```
 文件: build/app/outputs/flutter-apk/app-release.apk
-大小: 73.0 MB
+大小: 73.1 MB
 版本: 1.0.0
+名称: 慧记
+图标: 现代简约圆环对勾
 ```
+
+---
+
+## 技术栈
+
+| 组件 | 版本 |
+|------|------|
+| Flutter | 3.38.8 |
+| Dart | 3.10.7 |
+| Riverpod | 2.6.1 |
+| Drift | 2.28.2 |
+| go_router | 14.8.1 |
 
 ---
 

@@ -254,13 +254,27 @@ class AppShadows {
 }
 
 /// 圆角系统
+/// 统一管理应用中的所有圆角值，确保设计一致性
 class AppRadius {
+  /// 超小圆角 4 - 用于小元素的内圆角（如列表项内部、小图标容器）
   static const double xs = 4;
+
+  /// 小圆角 8 - 用于按钮、小卡片
   static const double sm = 8;
+
+  /// 中圆角 12 - 用于输入框、chip 标签
   static const double md = 12;
+
+  /// 大圆角 16 - 用于卡片、对话框
   static const double lg = 16;
+
+  /// 超大圆角 20 - 用于大卡片
   static const double xl = 20;
+
+  /// 特大圆角 24 - 用于底部表单、大对话框
   static const double xxl = 24;
+
+  /// 完全圆角 9999 - 用于圆形按钮、胶囊形标签
   static const double full = 9999;
 
   static const BorderRadius xsRadius = BorderRadius.all(Radius.circular(xs));
@@ -270,6 +284,70 @@ class AppRadius {
   static const BorderRadius xlRadius = BorderRadius.all(Radius.circular(xl));
   static const BorderRadius xxlRadius = BorderRadius.all(Radius.circular(xxl));
   static const BorderRadius fullRadius = BorderRadius.all(Radius.circular(full));
+}
+
+/// 统一文字样式系统
+/// 确保应用内文字大小和字重一致
+class AppTextStyles {
+  /// 大标题 - 24px, ExtraBold
+  static const TextStyle titleLarge = TextStyle(
+    fontSize: 24,
+    fontWeight: FontWeight.w800,
+    height: 1.2,
+    letterSpacing: -0.5,
+  );
+
+  /// 中标题 - 20px, Bold
+  static const TextStyle titleMedium = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+    letterSpacing: -0.3,
+  );
+
+  /// 小标题 - 18px, SemiBold
+  static const TextStyle titleSmall = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+    letterSpacing: -0.2,
+  );
+
+  /// 大正文 - 16px, Medium
+  static const TextStyle bodyLarge = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    height: 1.5,
+  );
+
+  /// 中正文 - 14px, Regular
+  static const TextStyle bodyMedium = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+  );
+
+  /// 小正文 - 12px, Regular
+  static const TextStyle bodySmall = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+  );
+
+  /// 标签文字 - 11px, Medium
+  static const TextStyle label = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    height: 1.4,
+  );
+
+  /// 按钮文字 - 16px, SemiBold
+  static const TextStyle button = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+    letterSpacing: 0.2,
+  );
 }
 
 /// 间距系统

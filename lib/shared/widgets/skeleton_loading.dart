@@ -24,7 +24,7 @@ class ListItemSkeleton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
         border: Border.all(color: AppColors.surfaceVariant),
       ),
       child: Row(
@@ -96,7 +96,7 @@ class CardSkeleton extends StatelessWidget {
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
         border: Border.all(color: AppColors.surfaceVariant),
       ),
       child: Column(
@@ -151,7 +151,7 @@ class StatCardSkeleton extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.lgRadius,
         border: Border.all(color: AppColors.surfaceVariant),
       ),
       child: Column(
@@ -279,6 +279,165 @@ class SkeletonGridView extends StatelessWidget {
   }
 }
 
+/// 笔记列表骨架屏
+/// 模拟笔记卡片的布局，包括标题、内容预览、标签和日期
+class NoteListSkeleton extends StatelessWidget {
+  const NoteListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+          height: 160,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: AppRadius.lgRadius,
+            border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5)),
+            boxShadow: AppShadows.subtle,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 标题行骨架
+              Row(
+                children: [
+                  Expanded(
+                    child: _ShimmerBox(
+                      width: 150,
+                      height: 16,
+                      borderRadius: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _ShimmerBox(
+                    width: 32,
+                    height: 32,
+                    borderRadius: 4,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // 内容预览骨架
+              _ShimmerBox(
+                width: double.infinity,
+                height: 12,
+                borderRadius: 4,
+              ),
+              const SizedBox(height: 6),
+              _ShimmerBox(
+                width: 240,
+                height: 12,
+                borderRadius: 4,
+              ),
+              const SizedBox(height: 6),
+              _ShimmerBox(
+                width: 180,
+                height: 12,
+                borderRadius: 4,
+              ),
+              const Spacer(),
+              // 标签骨架
+              Wrap(
+                spacing: AppSpacing.xs,
+                children: [
+                  _ShimmerBox(
+                    width: 50,
+                    height: 24,
+                    borderRadius: 4,
+                  ),
+                  _ShimmerBox(
+                    width: 60,
+                    height: 24,
+                    borderRadius: 4,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // 日期骨架
+              Row(
+                children: [
+                  _ShimmerBox(
+                    width: 12,
+                    height: 12,
+                    shape: BoxShape.circle,
+                  ),
+                  const SizedBox(width: 4),
+                  _ShimmerBox(
+                    width: 80,
+                    height: 12,
+                    borderRadius: 4,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 提醒列表骨架屏
+/// 模拟提醒卡片的布局，包括完成按钮、标题和时间标签
+class ReminderListSkeleton extends StatelessWidget {
+  const ReminderListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: AppRadius.lgRadius,
+            border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5)),
+            boxShadow: AppShadows.subtle,
+          ),
+          child: Row(
+            children: [
+              // 完成按钮骨架
+              _ShimmerBox(
+                width: 28,
+                height: 28,
+                shape: BoxShape.circle,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              // 内容骨架
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ShimmerBox(
+                      width: 120,
+                      height: 16,
+                      borderRadius: 4,
+                    ),
+                    const SizedBox(height: 6),
+                    _ShimmerBox(
+                      width: 80,
+                      height: 24,
+                      borderRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// 闪烁效果盒子
 class _ShimmerBox extends StatefulWidget {
   final double? width;
@@ -335,7 +494,7 @@ class _ShimmerBoxState extends State<_ShimmerBox>
             shape: widget.shape ?? BoxShape.rectangle,
             borderRadius: widget.shape != null
                 ? null
-                : BorderRadius.circular(widget.borderRadius ?? 4),
+                : BorderRadius.circular((widget.borderRadius ?? AppRadius.smRadius) as double),
           ),
         );
       },

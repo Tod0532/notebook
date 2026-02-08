@@ -324,21 +324,69 @@ class GpsTrackingService {
     final hasPermission = await checkPermissions();
     if (!hasPermission) {
       _updateStatus(GpsTrackingStatus.idle);
+      debugPrint('❌ GPS追踪失败: 权限未授予');
       return false;
     }
 
     try {
-      // 获取初始位置
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.bestForNavigation,
-        timeLimit: const Duration(seconds: 15),
-      );
+      debugPrint('🔍 开始获取GPS位置...');
 
-      if (position.latitude == 0 && position.longitude == 0) {
-        debugPrint('获取初始位置失败');
+      // 分阶段获取位置：先尝试快速定位，再尝试高精度定位，最后使用低精度
+      Position? position;
+
+      // 第一步：尝试快速获取位置（5秒超时）
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        debugPrint('✓ 快速定位成功');
+      } catch (e) {
+        debugPrint('⚠️ 快速定位失败($e)，尝试高精度定位...');
+        // 第二步：尝试高精度定位（60秒超时，适合室内环境）
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.bestForNavigation,
+            timeLimit: const Duration(seconds: 60),
+          );
+          debugPrint('✓ 高精度定位成功');
+        } catch (e2) {
+          debugPrint('⚠️ 高精度定位失败($e2)，尝试低精度定位...');
+          // 第三步：尝试低精度定位
+          try {
+            position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.low,
+              timeLimit: const Duration(seconds: 10),
+            );
+            debugPrint('✓ 低精度定位成功');
+          } catch (e3) {
+            debugPrint('⚠️ 低精度定位失败($e3)，尝试最后已知位置...');
+            // 第四步：尝试最后已知位置
+            try {
+              position = await Geolocator.getLastKnownPosition();
+              if (position != null) {
+                debugPrint('✓ 使用最后已知位置');
+              } else {
+                throw e3;
+              }
+            } catch (e4) {
+              debugPrint('❌ 获取位置完全失败: $e4');
+              _updateStatus(GpsTrackingStatus.idle);
+              return false;
+            }
+          }
+        }
+      }
+
+      if (position == null ||
+          (position.latitude == 0 && position.longitude == 0)) {
+        debugPrint('❌ 获取的位置无效');
         _updateStatus(GpsTrackingStatus.idle);
         return false;
       }
+
+      debugPrint('✅ 成功获取位置: ${position.latitude.toStringAsFixed(4)}, '
+          '${position.longitude.toStringAsFixed(4)}, 精度: ${position.accuracy.toStringAsFixed(0)}米');
 
       // 清空旧数据
       _trackPoints.clear();
@@ -353,9 +401,9 @@ class GpsTrackingService {
 
       // 开始位置监听
       final locationSettings = AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0, // 0 表示不做距离过滤，始终更新
-        intervalDuration: const Duration(seconds: 1),
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5, // 5米距离过滤，减少噪音
+        intervalDuration: const Duration(seconds: 2),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: '运动追踪中',
           notificationText: '正在记录您的运动轨迹...',
@@ -374,15 +422,15 @@ class GpsTrackingService {
           _onPositionUpdate(position);
         },
         onError: (error) {
-          debugPrint('位置更新错误: $error');
+          debugPrint('❌ 位置更新错误: $error');
         },
       );
 
       _updateStatus(GpsTrackingStatus.tracking);
-      debugPrint('GPS追踪已开始');
+      debugPrint('✅ GPS追踪已成功开始');
       return true;
     } catch (e) {
-      debugPrint('开始追踪失败: $e');
+      debugPrint('❌ 开始追踪失败: $e');
       _updateStatus(GpsTrackingStatus.idle);
       return false;
     }

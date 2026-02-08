@@ -1,5 +1,5 @@
 name: thick_notepad
-description: 动计笔记 - 记事+提醒+运动+计划一站式APP
+description: 慧记 - 你的AI生活智囊，记事+提醒+运动+计划一站式APP
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -104,3 +104,5 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    # 抽卡音效资源（可选，需要自行添加音效文件）
+    # - assets/sounds/

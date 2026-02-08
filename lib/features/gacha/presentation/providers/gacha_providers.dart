@@ -208,6 +208,8 @@ class GachaNotifier extends StateNotifier<AsyncValue<GachaDrawResult?>> {
     switch (rarity) {
       case GachaRarity.common:
         return 1;
+      case GachaRarity.limited:
+        return 5;
       case GachaRarity.rare:
         return 2;
       case GachaRarity.epic:

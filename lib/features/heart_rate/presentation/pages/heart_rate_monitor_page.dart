@@ -388,7 +388,7 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
             ),
 
           // 扫描结果列表
-          if (deviceListState.isScanning || deviceListState.devices.isNotEmpty) ...[
+          if (deviceListState.isScanning || deviceListState.identifiedDevices.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 8),
@@ -413,7 +413,7 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
               ],
             ),
             const SizedBox(height: 8),
-            if (deviceListState.devices.isEmpty)
+            if (deviceListState.identifiedDevices.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(16),
                 child: Text('未发现设备'),
@@ -422,26 +422,20 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: deviceListState.devices.length,
+                itemCount: deviceListState.identifiedDevices.length,
                 itemBuilder: (context, index) {
-                  final device = deviceListState.devices[index];
-                  return ListTile(
-                    leading: const Icon(Icons.bluetooth_audio),
-                    title: Text(
-                      device.device.localName.isNotEmpty
-                          ? device.device.localName
-                          : device.device.advName,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(device.device.remoteId.str),
-                    trailing: ElevatedButton(
-                      onPressed: () {
-                        ref
-                            .read(heartRateMonitorProvider.notifier)
-                            .connect(device.device);
-                      },
-                      child: const Text('连接'),
-                    ),
+                  final deviceInfo = deviceListState.identifiedDevices[index];
+                  final scanResult = deviceInfo['scanResult'] as ScanResult;
+                  final displayName = deviceInfo['displayName'] as String;
+                  final isHeartRateDevice = deviceInfo['isHeartRateDevice'] as bool;
+                  final rssi = deviceInfo['rssi'] as int;
+
+                  return _buildDeviceListItem(
+                    context: context,
+                    scanResult: scanResult,
+                    displayName: displayName,
+                    isHeartRateDevice: isHeartRateDevice,
+                    rssi: rssi,
                   );
                 },
               ),
@@ -480,6 +474,161 @@ class _MonitorTabState extends ConsumerState<_MonitorTab> {
         ],
       ),
     );
+  }
+
+  /// 构建设备列表项（带识别信息）
+  Widget _buildDeviceListItem({
+    required BuildContext context,
+    required ScanResult scanResult,
+    required String displayName,
+    required bool isHeartRateDevice,
+    required int rssi,
+  }) {
+    // 计算信号强度指示
+    final signalStrength = _getSignalStrength(rssi);
+    final signalColor = _getSignalColor(signalStrength);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isHeartRateDevice
+            ? AppColors.primary.withValues(alpha: 0.05)
+            : AppColors.surfaceVariant,
+        borderRadius: AppRadius.lgRadius,
+        border: Border.all(
+          color: isHeartRateDevice
+              ? AppColors.primary.withValues(alpha: 0.3)
+              : AppColors.dividerColor.withValues(alpha: 0.5),
+          width: isHeartRateDevice ? 1.5 : 1,
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isHeartRateDevice
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : AppColors.dividerColor.withValues(alpha: 0.3),
+            borderRadius: AppRadius.mdRadius,
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                isHeartRateDevice ? Icons.favorite : Icons.bluetooth_audio,
+                color: isHeartRateDevice ? AppColors.primary : AppColors.textSecondary,
+                size: 24,
+              ),
+              // 心率设备标记
+              if (isHeartRateDevice)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.favorite,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                displayName,
+                style: TextStyle(
+                  fontWeight: isHeartRateDevice ? FontWeight.w700 : FontWeight.w500,
+                  color: isHeartRateDevice ? AppColors.primary : null,
+                ),
+              ),
+            ),
+            // 信号强度指示
+            ...List.generate(4, (index) {
+              return Container(
+                width: 4,
+                height: 4 + index * 2,
+                margin: const EdgeInsets.only(left: 2),
+                decoration: BoxDecoration(
+                  color: index < signalStrength ? signalColor : AppColors.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              );
+            }),
+          ],
+        ),
+        subtitle: Text(
+          '信号强度: ${_getSignalLabel(signalStrength)}${isHeartRateDevice ? ' · 心率设备' : ''}',
+          style: TextStyle(
+            color: AppColors.textHint,
+            fontSize: 12,
+          ),
+        ),
+        trailing: ElevatedButton(
+          onPressed: () {
+            ref
+                .read(heartRateMonitorProvider.notifier)
+                .connect(scanResult.device);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isHeartRateDevice ? AppColors.primary : null,
+            foregroundColor: isHeartRateDevice ? Colors.white : null,
+          ),
+          child: const Text('连接'),
+        ),
+      ),
+    );
+  }
+
+  /// 获取信号强度等级 (0-4)
+  int _getSignalStrength(int rssi) {
+    if (rssi >= -50) return 4;
+    if (rssi >= -60) return 3;
+    if (rssi >= -70) return 2;
+    if (rssi >= -80) return 1;
+    return 0;
+  }
+
+  /// 获取信号强度对应的颜色
+  Color _getSignalColor(int strength) {
+    switch (strength) {
+      case 4:
+      case 3:
+        return AppColors.success;
+      case 2:
+        return AppColors.warning;
+      case 1:
+        return AppColors.error;
+      default:
+        return AppColors.textHint;
+    }
+  }
+
+  /// 获取信号强度标签
+  String _getSignalLabel(int strength) {
+    switch (strength) {
+      case 4:
+        return '强';
+      case 3:
+        return '良好';
+      case 2:
+        return '一般';
+      case 1:
+        return '弱';
+      default:
+        return '极弱';
+    }
   }
 
   Widget _buildHeartRateSection(HeartRateMonitorState monitorState) {

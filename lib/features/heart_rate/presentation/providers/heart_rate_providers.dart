@@ -1,7 +1,6 @@
 /// 心率监测相关 Providers
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/config/providers.dart';
@@ -255,21 +254,27 @@ class DeviceListState {
   final List<ScanResult> devices;
   final String? errorMessage;
 
+  /// 识别后的设备信息（排序后）
+  final List<Map<String, dynamic>> identifiedDevices;
+
   const DeviceListState({
     this.isScanning = false,
     this.devices = const [],
     this.errorMessage,
+    this.identifiedDevices = const [],
   });
 
   DeviceListState copyWith({
     bool? isScanning,
     List<ScanResult>? devices,
     String? errorMessage,
+    List<Map<String, dynamic>>? identifiedDevices,
   }) {
     return DeviceListState(
       isScanning: isScanning ?? this.isScanning,
       devices: devices ?? this.devices,
       errorMessage: errorMessage ?? this.errorMessage,
+      identifiedDevices: identifiedDevices ?? this.identifiedDevices,
     );
   }
 }
@@ -285,12 +290,71 @@ class DeviceListNotifier extends StateNotifier<DeviceListState> {
 
   void _initListeners() {
     _devicesSubscription = _service.devicesStream.listen((devices) {
-      state = state.copyWith(devices: devices);
+      // 识别设备
+      final identified = devices
+          .map((d) => _identifyDevice(d))
+          .toList();
+
+      // 排序：心率设备优先，然后按信号强度
+      identified.sort((a, b) {
+        final aIsHR = a['isHeartRateDevice'] as bool;
+        final bIsHR = b['isHeartRateDevice'] as bool;
+        if (aIsHR && !bIsHR) return -1;
+        if (!aIsHR && bIsHR) return 1;
+
+        final aRssi = a['rssi'] as int;
+        final bRssi = b['rssi'] as int;
+        return bRssi.compareTo(aRssi);
+      });
+
+      state = state.copyWith(
+        devices: devices,
+        identifiedDevices: identified,
+      );
     });
   }
 
+  /// 识别单个设备
+  Map<String, dynamic> _identifyDevice(ScanResult result) {
+    final localName = result.device.localName.toLowerCase();
+    final advName = result.device.advName.toLowerCase();
+    final name = localName.isNotEmpty ? localName : advName;
+
+    // 检查心率设备关键词
+    const heartRateKeywords = [
+      'heart', 'hrm', 'polar', 'wahoo', 'garmin', 'suunto',
+      'chest', 'band', 'watch', 'fitbit', 'mi', 'xiaomi',
+      'amazfit', 'tickr', 'h10', 'h7', 'oh1', 'cardio',
+    ];
+
+    final isHeartRateDevice = heartRateKeywords.any((keyword) =>
+        name.contains(keyword.toLowerCase()));
+
+    // 获取显示名称
+    String displayName;
+    if (result.device.localName.isNotEmpty) {
+      displayName = result.device.localName;
+    } else if (result.device.advName.isNotEmpty) {
+      displayName = result.device.advName;
+    } else {
+      displayName = '设备 (${result.device.remoteId.str.substring(0, 8)}...)';
+    }
+
+    return {
+      'scanResult': result,
+      'displayName': displayName,
+      'isHeartRateDevice': isHeartRateDevice,
+      'rssi': result.rssi,
+      'deviceId': result.device.remoteId.str,
+    };
+  }
+
   Future<void> startScan() async {
-    state = state.copyWith(isScanning: true, errorMessage: null);
+    state = state.copyWith(
+      isScanning: true,
+      errorMessage: null,
+      identifiedDevices: [],
+    );
     try {
       await _service.startScan();
     } catch (e) {
@@ -322,6 +386,13 @@ final deviceListProvider =
 
 // ==================== 设备列表派生 Providers ====================
 /// 使用 select 优化，避免整个 DeviceListState 变化时所有监听者重建
+
+/// 识别后的设备列表 Provider
+final identifiedDevicesProvider = Provider<List<Map<String, dynamic>>>((ref) {
+  return ref.watch(
+    deviceListProvider.select((state) => state.identifiedDevices),
+  );
+});
 
 /// 是否正在扫描 Provider - 只监听 isScanning 字段
 final isScanningProvider = Provider<bool>((ref) {

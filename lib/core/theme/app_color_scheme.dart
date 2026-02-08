@@ -207,6 +207,39 @@ class AppThemeColor {
     secondaryDark: Color(0xFFEC4899),
   );
 
+  /// 薄荷绿
+  static const AppThemeColor mintGreen = AppThemeColor(
+    name: '薄荷绿',
+    primary: Color(0xFF6EE7B7),
+    primaryLight: Color(0xFFA7F3D0),
+    primaryDark: Color(0xFF34D399),
+    secondary: Color(0xFF8B5CF6),
+    secondaryLight: Color(0xFFA78BFA),
+    secondaryDark: Color(0xFF7C3AED),
+  );
+
+  /// 天空蓝
+  static const AppThemeColor skyBlue = AppThemeColor(
+    name: '天空蓝',
+    primary: Color(0xFF7DD3FC),
+    primaryLight: Color(0xFFBAE6FD),
+    primaryDark: Color(0xFF38BDF8),
+    secondary: Color(0xFF6366F1),
+    secondaryLight: Color(0xFF818CF8),
+    secondaryDark: Color(0xFF4F46E5),
+  );
+
+  /// 珊瑚粉
+  static const AppThemeColor coralPink = AppThemeColor(
+    name: '珊瑚粉',
+    primary: Color(0xFFFCA5A5),
+    primaryLight: Color(0xFFFECACA),
+    primaryDark: Color(0xFFF87171),
+    secondary: Color(0xFFF59E0B),
+    secondaryLight: Color(0xFFFBBF24),
+    secondaryDark: Color(0xFFD97706),
+  );
+
   /// 所有预设主题
   static const List<AppThemeColor> all = [
     defaultBlue,
@@ -219,6 +252,9 @@ class AppThemeColor {
     rose,
     lime,
     indigo,
+    mintGreen,
+    skyBlue,
+    coralPink,
   ];
 
   /// 根据名称查找主题

@@ -237,7 +237,7 @@ class _GpsRouteDetailPageState extends ConsumerState<GpsRouteDetailPage> {
           margin: const EdgeInsets.all(AppSpacing.md),
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: AppRadius.xlRadius,
             boxShadow: [
               BoxShadow(
@@ -339,7 +339,7 @@ class _GpsRouteDetailPageState extends ConsumerState<GpsRouteDetailPage> {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: AppRadius.mdRadius,
           boxShadow: AppShadows.medium,
         ),
@@ -417,25 +417,30 @@ class _GpsRouteDetailPageState extends ConsumerState<GpsRouteDetailPage> {
 
   /// 地图视图
   Widget _buildMap() {
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        initialCenter: _calculateCenter(),
-        initialZoom: _calculateInitialZoom(),
-        minZoom: 10.0,
-        maxZoom: 19.0,
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [const Color(0xFF1a1a2e), const Color(0xFF16213e)]
+              : [const Color(0xFFe8f5e9), const Color(0xFFc8e6c9)],
         ),
       ),
-      children: [
-        // OpenStreetMap 图层
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.thick_notepad',
+      child: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter: _calculateCenter(),
+          initialZoom: _calculateInitialZoom(),
+          minZoom: 10.0,
+          maxZoom: 19.0,
+          backgroundColor: Colors.transparent,
+          interactionOptions: const InteractionOptions(
+            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+          ),
         ),
-
-        // 完整轨迹线（半透明）
+        children: [
+          // 完整轨迹线（半透明）
         PolylineLayer(
           polylines: [
             Polyline(
@@ -485,7 +490,8 @@ class _GpsRouteDetailPageState extends ConsumerState<GpsRouteDetailPage> {
 
   /// 计算初始缩放级别
   double _calculateInitialZoom() {
-    if (_trackPoints.length < 2) return 17.0;
+    // 单点时显示周围区域，不要缩放太近
+    if (_trackPoints.length < 2) return 15.0;
 
     final latitudes = _trackPoints.map((p) => p.latitude).toList();
     final longitudes = _trackPoints.map((p) => p.longitude).toList();

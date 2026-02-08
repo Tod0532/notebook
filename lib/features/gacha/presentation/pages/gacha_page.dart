@@ -1,6 +1,7 @@
 /// 抽卡页面
 /// 提供抽卡功能、展示抽卡历史和已收集物品
 
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
@@ -87,9 +88,9 @@ class _GachaPageState extends ConsumerState<GachaPage>
               const SizedBox(height: AppSpacing.xxl),
               // 抽卡按钮区域
               _buildDrawButtons(drawResultAsync, freeDraws, pityCountdown),
-              const SizedBox(height: AppSpacing.xxl),
-              // 保底信息
-              _buildPityInfo(pityCountdown),
+              const SizedBox(height: AppSpacing.xl),
+              // 保底进度面板
+              _buildPityProgressPanel(),
               const SizedBox(height: AppSpacing.xl),
               // 概率说明
               _buildProbabilityInfo(),
@@ -271,27 +272,309 @@ class _GachaPageState extends ConsumerState<GachaPage>
     );
   }
 
-  /// 构建保底信息
-  Widget _buildPityInfo(int pityCountdown) {
+  /// 构建保底进度面板
+  Widget _buildPityProgressPanel() {
+    final pityCount = ref.watch(pityCountProvider);
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行
+          Row(
+            children: [
+              const Icon(Icons.timeline_rounded, size: 20, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '保底进度',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '当前: 第${pityCount}抽',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 实时概率显示
+          _buildCurrentProbabilityDisplay(pityCount),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 保底进度条
+          _buildPityProgressBar(pityCount, GachaConfig.rarePityThreshold, '稀有保底', const Color(0xFF2196F3)),
+          const SizedBox(height: AppSpacing.md),
+          _buildPityProgressBar(pityCount, GachaConfig.epicPityThreshold, '史诗保底', const Color(0xFF9C27B0)),
+          const SizedBox(height: AppSpacing.md),
+          _buildPityProgressBar(pityCount, GachaConfig.legendaryPityThreshold, '传说保底', const Color(0xFFFF9800)),
+        ],
+      ),
+    );
+  }
+
+  /// 构建当前概率显示
+  Widget _buildCurrentProbabilityDisplay(int pityCount) {
+    final probabilities = GachaConfig.getRarityProbabilities(pityCount);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_rounded, size: 16, color: AppColors.primary.withOpacity(0.7)),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '当前概率',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary.withOpacity(0.9),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: 4,
+            children: [
+              _buildProbabilityChip('普通', probabilities[GachaRarity.common]!, const Color(0xFF9E9E9E)),
+              _buildProbabilityChip('稀有', probabilities[GachaRarity.rare]!, const Color(0xFF2196F3)),
+              _buildProbabilityChip('史诗', probabilities[GachaRarity.epic]!, const Color(0xFF9C27B0)),
+              _buildProbabilityChip('传说', probabilities[GachaRarity.legendary]!, const Color(0xFFFF9800)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建概率标签
+  Widget _buildProbabilityChip(String label, double probability, Color color) {
+    final percentage = (probability * 100).toStringAsFixed(1);
+    final isZero = probability < 0.001;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isZero ? color.withOpacity(0.1) : color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isZero ? color.withOpacity(0.2) : color.withOpacity(0.4),
+          width: 1,
+        ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.textHint),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              '再抽 $pityCountdown 次必出稀有以上物品',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isZero ? color.withOpacity(0.5) : color,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isZero ? '0%' : '$percentage%',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isZero ? color.withOpacity(0.5) : color,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 构建保底进度条
+  Widget _buildPityProgressBar(int pityCount, int target, String label, Color color) {
+    final progress = (pityCount / target).clamp(0.0, 1.0);
+    final remaining = max(0, target - pityCount);
+    final isNearPity = remaining <= 2 && remaining > 0; // 接近保底（剩2抽以内）
+    final isPityReached = pityCount >= target; // 已触发保底
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标签行
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isPityReached ? Colors.green : color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isPityReached ? Colors.green : AppColors.textSecondary,
+                  ),
+                ),
+                if (isNearPity && !isPityReached) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  _buildPulsingIndicator(color),
+                ],
+              ],
+            ),
+            Text(
+              isPityReached ? '保底已触发!' : '$target 抽',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isPityReached ? Colors.green : AppColors.textHint,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+
+        // 进度条
+        Container(
+          height: 8,
+          decoration: BoxDecoration(
+            color: AppColors.dividerColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Stack(
+            children: [
+              // 背景进度条
+              FractionallySizedBox(
+                widthFactor: progress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isNearPity
+                          ? [color.withOpacity(0.8), color]
+                          : [color.withOpacity(0.6), color.withOpacity(0.8)],
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: isNearPity
+                        ? [
+                            BoxShadow(
+                              color: color.withOpacity(0.5),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+              ),
+              // 保底标记
+              if (!isPityReached && remaining <= 3 && remaining > 0)
+                Positioned(
+                  right: (remaining / target) * MediaQuery.of(context).size.width * 0.8 - 4,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 2,
+                    decoration: BoxDecoration(
+                      color: isNearPity ? Colors.red : Colors.orange,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isNearPity ? Colors.red : Colors.orange).withOpacity(0.5),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+
+        // 进度文本
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '进度: $pityCount / $target',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textHint,
+              ),
+            ),
+            if (!isPityReached)
+              Text(
+                '还差 $remaining 抽',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isNearPity ? color : AppColors.textHint,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 构建脉动指示器（保底预告效果）
+  Widget _buildPulsingIndicator(Color color) {
+    return _PulsingWidget(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withOpacity(0.5), width: 1),
+        ),
+        child: Text(
+          '即将触发',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
       ),
     );
   }
@@ -622,6 +905,8 @@ class _GachaPageState extends ConsumerState<GachaPage>
     switch (rarity) {
       case GachaRarity.common:
         return const Color(0xFF9E9E9E);
+      case GachaRarity.limited:
+        return const Color(0xFFFF1744);
       case GachaRarity.rare:
         return const Color(0xFF2196F3);
       case GachaRarity.epic:
@@ -693,4 +978,62 @@ class _StarBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 脉动动画组件（保底预告效果）
+class _PulsingWidget extends StatefulWidget {
+  final Widget child;
+
+  const _PulsingWidget({required this.child});
+
+  @override
+  State<_PulsingWidget> createState() => _PulsingWidgetState();
+}
+
+class _PulsingWidgetState extends State<_PulsingWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _controller.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Opacity(
+            opacity: _opacityAnimation.value,
+            child: widget.child,
+          ),
+        );
+      },
+    );
+  }
 }

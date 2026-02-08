@@ -26,11 +26,14 @@ class NotificationService {
   Future<bool> initialize() async {
     if (_initialized) return true;
 
+    debugPrint('NotificationService: 开始初始化...');
+
     // 初始化时区
     tz_data.initializeTimeZones();
     // 设置本地时区
     final String localTimeZone = await _getLocalTimeZone();
     tz.setLocalLocation(tz.getLocation(localTimeZone));
+    debugPrint('NotificationService: 时区设置为 $localTimeZone');
 
     // Android 初始化设置
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -47,13 +50,55 @@ class NotificationService {
       iOS: darwinSettings,
     );
 
-    await _plugin.initialize(
+    final initialized = await _plugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
-    _initialized = true;
+    if (initialized != null) {
+      // Android 8.0+ 需要创建通知渠道
+      if (Platform.isAndroid) {
+        await _createNotificationChannel();
+      }
+
+      _initialized = true;
+      debugPrint('NotificationService: 初始化成功');
+    } else {
+      debugPrint('NotificationService: 初始化失败');
+    }
+
     return _initialized;
+  }
+
+  /// 创建 Android 通知渠道（Android 8.0+ 需要）
+  Future<void> _createNotificationChannel() async {
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin == null) {
+      debugPrint('NotificationService: 无法获取 Android 插件实例');
+      return;
+    }
+
+    try {
+      // 创建最高重要性通知渠道 - 确保在任何时候都显示
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'thick_notepad_channel',
+          '动计笔记',
+          description: '动计笔记应用通知',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+          showBadge: true,
+          enableLights: true,
+          ledColor: Color(0xFF4CAF50),
+        ),
+      );
+      debugPrint('NotificationService: 通知渠道创建成功');
+    } catch (e) {
+      debugPrint('NotificationService: 创建通知渠道失败: $e');
+    }
   }
 
   /// 获取本地时区
@@ -97,6 +142,11 @@ class NotificationService {
   }
 
   /// 安排单次通知
+  ///
+  /// 修复说明：
+  /// - 使用 Android 平台特定的调度方法，避免时区转换问题
+  /// - 添加了详细的调试日志
+  /// - 添加了时间有效性检查
   Future<int?> scheduleNotification({
     required int id,
     required String title,
@@ -107,17 +157,57 @@ class NotificationService {
     final notificationDetails = _getNotificationDetails();
 
     try {
+      debugPrint('安排单次通知: id=$id, title=$title, time=$scheduledTime');
+
+      // 检查时间是否在过去
+      final now = DateTime.now();
+      if (scheduledTime.isBefore(now)) {
+        debugPrint('警告: 安排的时间在过去，通知可能不会触发');
+        // 如果时间在过去，不安排通知
+        return null;
+      }
+
+      if (Platform.isAndroid) {
+        // Android: 使用平台特定的方法，避免时区问题
+        final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+        if (androidPlugin != null) {
+          // 将 DateTime 转换为 TZDateTime
+          final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+          // 获取 Android 平台特定的通知详情
+          final androidDetails = notificationDetails.android;
+
+          await androidPlugin.zonedSchedule(
+            id,
+            title,
+            body,
+            tzTime,
+            androidDetails,
+            scheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            payload: payload,
+          );
+          debugPrint('通知安排成功(Android): id=$id');
+          return id;
+        }
+      }
+
+      // iOS 或降级方案: 使用时区感知的方法
+      final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+      debugPrint('使用时区方法: $tzTime');
+
       await _plugin.zonedSchedule(
         id,
         title,
         body,
-        tz.TZDateTime.from(scheduledTime, tz.local),
+        tzTime,
         notificationDetails,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
         payload: payload,
       );
+
+      debugPrint('通知安排成功: id=$id');
       return id;
     } catch (e) {
       debugPrint('安排通知失败: $e');
@@ -217,7 +307,7 @@ class NotificationService {
     return [];
   }
 
-  /// 显示即时通知
+  /// 显示即时通知（用于测试通知权限和系统设置）
   Future<void> showNotification({
     required int id,
     required String title,
@@ -226,13 +316,97 @@ class NotificationService {
   }) async {
     final notificationDetails = _getNotificationDetails();
 
-    await _plugin.show(
-      id,
-      title,
-      body,
-      notificationDetails,
-      payload: payload,
-    );
+    debugPrint('显示即时通知: id=$id, title=$title');
+
+    try {
+      await _plugin.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
+      debugPrint('即时通知显示成功');
+    } catch (e) {
+      debugPrint('显示即时通知失败: $e');
+    }
+  }
+
+  /// 测试通知系统 - 先显示即时通知，再显示5秒后的通知
+  Future<void> testNotificationSystem() async {
+    debugPrint('========== 通知系统测试开始 ==========');
+
+    // 1. 检查初始化状态
+    debugPrint('初始化状态: $_initialized');
+    if (!_initialized) {
+      await initialize();
+    }
+
+    // 2. 检查权限
+    final hasPermission = await arePermissionsGranted();
+    debugPrint('通知权限: $hasPermission');
+
+    // 3. 获取待发送通知（测试前）
+    final pendingBefore = await getPendingNotifications();
+    debugPrint('测试前待发送通知数量: ${pendingBefore.length}');
+
+    // 4. 先显示即时通知（验证通知系统是否工作）
+    debugPrint('显示即时测试通知...');
+    try {
+      await _plugin.show(
+        888888,
+        '即时测试通知',
+        '如果您看到这条通知，说明通知系统工作正常！',
+        _getNotificationDetails(),
+        payload: 'test_immediate',
+      );
+      debugPrint('即时通知显示成功');
+    } catch (e) {
+      debugPrint('即时通知显示失败: $e');
+    }
+
+    // 5. 安排5秒后的通知
+    final testTime = DateTime.now().add(const Duration(seconds: 5));
+    debugPrint('安排5秒后的测试通知: $testTime');
+
+    try {
+      final tzTime = tz.TZDateTime.from(testTime, tz.local);
+      debugPrint('转换后的时区时间: $tzTime');
+      debugPrint('当前时区时间: ${tz.TZDateTime.now(tz.local)}');
+
+      await _plugin.zonedSchedule(
+        999999,
+        '5秒后测试',
+        '这是5秒后的测试通知，应该能收到！',
+        tzTime,
+        _getNotificationDetails(),
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'test_scheduled',
+      );
+      debugPrint('5秒后通知安排成功');
+    } catch (e) {
+      debugPrint('5秒后通知安排失败: $e');
+    }
+
+    // 6. 获取待发送通知（测试后）
+    final pendingAfter = await getPendingNotifications();
+    debugPrint('测试后待发送通知数量: ${pendingAfter.length}');
+    for (final p in pendingAfter) {
+      debugPrint('  - id=${p.id}, title=${p.title}, body=${p.body}');
+    }
+
+    // 7. 获取活跃通知（仅Android）
+    if (Platform.isAndroid) {
+      try {
+        final active = await getActiveNotifications();
+        debugPrint('活跃通知数量: ${active.length}');
+      } catch (e) {
+        debugPrint('获取活跃通知失败: $e');
+      }
+    }
+
+    debugPrint('========== 通知系统测试结束 ==========');
   }
 
   /// 获取通知详情配置
@@ -241,12 +415,17 @@ class NotificationService {
       'thick_notepad_channel',
       '动计笔记',
       channelDescription: '动计笔记应用通知',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
       icon: '@mipmap/ic_launcher',
       largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       styleInformation: BigTextStyleInformation(''),
+      enableVibration: true,
+      playSound: true,
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
+      fullScreenIntent: true,
     );
 
     const darwinDetails = DarwinNotificationDetails(

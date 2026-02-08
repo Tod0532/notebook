@@ -148,7 +148,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.xlRadius,
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.3),
@@ -167,7 +167,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
                 height: 56,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: AppRadius.lgRadius,
                 ),
                 child: const Icon(
                   Icons.auto_awesome,
@@ -202,7 +202,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.mdRadius,
                   ),
                   child: const Text(
                     '✓ 已连接',
@@ -234,7 +234,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.lgRadius,
             border: Border.all(color: AppColors.dividerColor),
           ),
           padding: const EdgeInsets.all(16),
@@ -326,7 +326,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.lgRadius,
             border: Border.all(color: AppColors.dividerColor),
           ),
           padding: const EdgeInsets.all(16),
@@ -358,7 +358,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
                     color: _testResult.contains('成功')
                         ? AppColors.success.withValues(alpha: 0.1)
                         : AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.mdRadius,
                     border: Border.all(
                       color: _testResult.contains('成功')
                           ? AppColors.success.withValues(alpha: 0.3)
@@ -397,7 +397,7 @@ class _AISettingsPageState extends ConsumerState<AISettingsPage> {
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.lgRadius,
             border: Border.all(color: AppColors.dividerColor),
           ),
           child: Column(
@@ -461,7 +461,7 @@ class _FeatureTile extends StatelessWidget {
           color: available
               ? AppColors.primary.withValues(alpha: 0.1)
               : AppColors.textHint.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.mdRadius,
         ),
         child: Icon(
           icon,
@@ -488,7 +488,7 @@ class _FeatureTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.success.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.smRadius,
               ),
               child: const Text(
                 '可用',
@@ -503,7 +503,7 @@ class _FeatureTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.textHint.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.smRadius,
               ),
               child: const Text(
                 '需配置',

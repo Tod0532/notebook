@@ -2,7 +2,6 @@
 /// 支持连接BLE心率设备，实时接收心率数据，并保存到数据库
 
 import 'dart:async';
-import 'dart:convert';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -24,6 +23,49 @@ const UUID_BODY_SENSOR_LOCATION = '00002a38-0000-1000-8000-00805f9b34fb';
 
 /// 心率控制点特征UUID
 const UUID_HEART_RATE_CONTROL_POINT = '00002a39-0000-1000-8000-00805f9b34fb';
+
+// ==================== 设备识别配置 ====================
+
+/// 心率设备名称关键词（用于识别设备类型）
+const List<String> HEART_RATE_DEVICE_KEYWORDS = [
+  'heart',
+  'hrm',
+  'polar',
+  'wahoo',
+  'garmin',
+  'suunto',
+  'chest',
+  'band',
+  'watch',
+  'fitbit',
+  'mi',
+  'xiaomi',
+  'huami',
+  'amazfit',
+  'tickr',
+  'h10',
+  'h7',
+  'oh1',
+  'verity',
+  'scosche',
+  'moov',
+  'bose',
+  'cardio',
+  'monitor',
+  'sensor',
+  'bluetooth',
+  'ble',
+];
+
+/// 设备识别置信度枚举
+enum DeviceConfidence {
+  /// 高置信度 - 名称包含心率相关关键词
+  high,
+  /// 中置信度 - 设备名称不为空但不确定
+  medium,
+  /// 低置信度 - 设备名称为空
+  low,
+}
 
 // ==================== 心率数据模型 ====================
 
@@ -105,6 +147,160 @@ enum HeartRateServiceState {
   monitoring, // 监测中
   disconnecting, // 断开连接中
   error, // 错误
+}
+
+// ==================== 设备识别辅助 ====================
+
+/// 设备信息扩展 - 包含识别信息
+class DeviceInfo {
+  final ScanResult scanResult;
+  final DeviceConfidence confidence;
+  final String displayName;
+  final bool isHeartRateDevice;
+
+  DeviceInfo({
+    required this.scanResult,
+    required this.confidence,
+    required this.displayName,
+    required this.isHeartRateDevice,
+  });
+}
+
+/// 心率服务扩展 - 添加设备识别功能
+extension HeartRateServiceDeviceExtension on HeartRateService {
+  /// 识别设备是否为心率设备
+  static DeviceInfo identifyDevice(ScanResult result) {
+    final localName = result.device.localName.toLowerCase();
+    final advName = result.device.advName.toLowerCase();
+    final name = localName.isNotEmpty ? localName : advName;
+
+    // 检查是否包含心率设备关键词
+    final hasKeyword = HEART_RATE_DEVICE_KEYWORDS.any((keyword) =>
+        name.contains(keyword.toLowerCase()));
+
+    // 注意：flutter_blue_plus的ScanResult不直接提供serviceUUID
+    // 实际服务UUID需要在连接后通过discoverServices获取
+    // 这里主要依赖设备名称关键词识别
+    final isHeartRateDevice = hasKeyword;
+
+    // 确定显示名称
+    String displayName;
+    DeviceConfidence confidence;
+
+    if (isHeartRateDevice) {
+      displayName = result.device.localName.isNotEmpty
+          ? result.device.localName
+          : result.device.advName.isNotEmpty
+              ? result.device.advName
+              : '心率设备 (${result.device.remoteId.str.substring(0, 8)}...)';
+      confidence = DeviceConfidence.high;
+    } else if (name.isNotEmpty) {
+      displayName = result.device.localName.isNotEmpty
+          ? result.device.localName
+          : result.device.advName;
+      confidence = DeviceConfidence.medium;
+    } else {
+      displayName = '未知设备 (${result.device.remoteId.str.substring(0, 8)}...)';
+      confidence = DeviceConfidence.low;
+    }
+
+    return DeviceInfo(
+      scanResult: result,
+      confidence: confidence,
+      displayName: displayName,
+      isHeartRateDevice: isHeartRateDevice,
+    );
+  }
+
+  /// 对设备列表进行排序（心率设备优先，然后按信号强度）
+  static List<DeviceInfo> sortDevices(List<DeviceInfo> devices) {
+    final sorted = List<DeviceInfo>.from(devices);
+
+    sorted.sort((a, b) {
+      // 首先按是否是心率设备排序
+      if (a.isHeartRateDevice && !b.isHeartRateDevice) return -1;
+      if (!a.isHeartRateDevice && b.isHeartRateDevice) return 1;
+
+      // 然后按置信度排序
+      final confidenceOrder = {
+        DeviceConfidence.high: 0,
+        DeviceConfidence.medium: 1,
+        DeviceConfidence.low: 2,
+      };
+      final aConfidence = confidenceOrder[a.confidence] ?? 3;
+      final bConfidence = confidenceOrder[b.confidence] ?? 3;
+      if (aConfidence != bConfidence) return aConfidence.compareTo(bConfidence);
+
+      // 最后按信号强度排序（RSSI越大越好）
+      return b.scanResult.rssi.compareTo(a.scanResult.rssi);
+    });
+
+    return sorted;
+  }
+}
+
+// ==================== 友好的错误消息 ====================
+
+/// 心率服务错误类型
+enum HeartRateErrorType {
+  permissionDenied,
+  bluetoothDisabled,
+  bluetoothUnavailable,
+  scanFailed,
+  connectFailed,
+  deviceNotSupported,
+  connectionLost,
+  monitoringFailed,
+  unknown,
+}
+
+/// 错误消息配置
+class HeartRateErrorMessages {
+  static String getMessage(HeartRateErrorType type, [dynamic originalError]) {
+    switch (type) {
+      case HeartRateErrorType.permissionDenied:
+        return '需要蓝牙权限才能使用心率监测功能。\n\n请在手机设置中开启蓝牙相关权限。';
+      case HeartRateErrorType.bluetoothDisabled:
+        return '蓝牙未开启。\n\n请先开启手机蓝牙，然后重新尝试。';
+      case HeartRateErrorType.bluetoothUnavailable:
+        return '蓝牙功能不可用。\n\n请检查您的设备是否支持蓝牙功能。';
+      case HeartRateErrorType.scanFailed:
+        return '扫描设备失败。\n\n请确保心率设备已开启并处于可发现状态。';
+      case HeartRateErrorType.connectFailed:
+        return '连接设备失败。\n\n请确保设备未被其他应用连接，并重试。';
+      case HeartRateErrorType.deviceNotSupported:
+        return '设备不支持心率监测功能。\n\n请使用标准的蓝牙心率带或心率监测设备。';
+      case HeartRateErrorType.connectionLost:
+        return '设备连接已断开。\n\n请检查设备电量，并重新连接。';
+      case HeartRateErrorType.monitoringFailed:
+        return '监测启动失败。\n\n请确保设备已正确连接，并重试。';
+      case HeartRateErrorType.unknown:
+        return '操作失败：${originalError?.toString() ?? "未知错误"}。\n\n请重试或重启应用。';
+    }
+  }
+
+  static HeartRateErrorType classifyError(dynamic error) {
+    if (error.toString().contains('permission') ||
+        error.toString().contains('权限')) {
+      return HeartRateErrorType.permissionDenied;
+    }
+    if (error.toString().contains('bluetooth') &&
+        (error.toString().contains('disable') ||
+         error.toString().contains('off') ||
+         error.toString().contains('未开启'))) {
+      return HeartRateErrorType.bluetoothDisabled;
+    }
+    if (error.toString().contains('scan') || error.toString().contains('扫描')) {
+      return HeartRateErrorType.scanFailed;
+    }
+    if (error.toString().contains('connect') || error.toString().contains('连接')) {
+      return HeartRateErrorType.connectFailed;
+    }
+    if (error.toString().contains('心率服务')) {
+      return HeartRateErrorType.deviceNotSupported;
+    }
+    return HeartRateErrorType.unknown;
+  }
 }
 
 // ==================== 心率服务异常 ====================
@@ -275,18 +471,44 @@ class HeartRateService {
 
   // ==================== 设备扫描 ====================
 
+  // 连接重试配置
+  static const int MAX_CONNECT_RETRIES = 3;
+  static const Duration CONNECT_TIMEOUT = Duration(seconds: 10);
+  static const Duration RETRY_DELAY = Duration(seconds: 2);
+
+  /// 扫描结果（带设备识别信息）
+  List<DeviceInfo>? _identifiedDevices;
+
+  /// 获取识别后的设备列表
+  List<DeviceInfo>? get identifiedDevices => _identifiedDevices;
+
   /// 开始扫描心率设备
   Future<List<ScanResult>> startScan({int timeoutSeconds = 10}) async {
     try {
       // 检查权限
       final hasPermission = await checkAndRequestPermissions();
       if (!hasPermission) {
-        throw HeartRateServiceException('缺少蓝牙权限');
+        final errorType = HeartRateErrorType.permissionDenied;
+        throw HeartRateServiceException(
+          HeartRateErrorMessages.getMessage(errorType),
+        );
       }
 
       // 检查蓝牙状态
-      if (!await isBluetoothEnabled()) {
-        throw HeartRateServiceException('蓝牙未开启，请先开启蓝牙');
+      final btEnabled = await isBluetoothEnabled();
+      if (!btEnabled) {
+        final errorType = HeartRateErrorType.bluetoothDisabled;
+        throw HeartRateServiceException(
+          HeartRateErrorMessages.getMessage(errorType),
+        );
+      }
+
+      final btAvailable = await isBluetoothAvailable();
+      if (!btAvailable) {
+        final errorType = HeartRateErrorType.bluetoothUnavailable;
+        throw HeartRateServiceException(
+          HeartRateErrorMessages.getMessage(errorType),
+        );
       }
 
       _updateState(HeartRateServiceState.scanning);
@@ -297,13 +519,20 @@ class HeartRateService {
         androidUsesFineLocation: true,
       );
 
-      // 监听扫描结果
-      final results = <ScanResult>[];
-      final subscription = FlutterBluePlus.scanResults.listen((r) {
-        results.clear();
-        results.addAll(r.where((r) =>
-            r.device.localName.isNotEmpty ||
-            r.device.advName.isNotEmpty));
+      // 监听扫描结果并进行设备识别
+      final scanResults = <ScanResult>[];
+      final subscription = FlutterBluePlus.scanResults.listen((results) {
+        scanResults.clear();
+        scanResults.addAll(results);
+
+        // 识别设备并排序
+        final deviceInfos = results
+            .map((r) => HeartRateServiceDeviceExtension.identifyDevice(r))
+            .toList();
+
+        _identifiedDevices = HeartRateServiceDeviceExtension.sortDevices(deviceInfos);
+
+        // 发送原始结果（保持兼容性）
         _devicesController.add(results);
       });
 
@@ -313,13 +542,30 @@ class HeartRateService {
       await subscription.cancel();
       await FlutterBluePlus.stopScan();
 
+      // 如果没有发现任何设备
+      if (scanResults.isEmpty) {
+        debugPrint('未发现任何蓝牙设备');
+      } else {
+        final heartRateCount = _identifiedDevices
+                ?.where((d) => d.isHeartRateDevice)
+                .length ?? 0;
+        debugPrint('发现 ${scanResults.length} 个设备，其中 $heartRateCount 个可能是心率设备');
+      }
+
       _updateState(HeartRateServiceState.idle);
 
-      return results;
+      return scanResults;
     } catch (e, st) {
       _updateState(HeartRateServiceState.error);
+
+      // 分类错误并提供友好消息
+      final errorType = HeartRateErrorMessages.classifyError(e);
+      final friendlyMessage = errorType == HeartRateErrorType.unknown
+          ? HeartRateErrorMessages.getMessage(errorType, e)
+          : HeartRateErrorMessages.getMessage(errorType);
+
       debugPrint('扫描设备失败: $e');
-      throw HeartRateServiceException('扫描设备失败', e, st);
+      throw HeartRateServiceException(friendlyMessage, e, st);
     }
   }
 
@@ -335,40 +581,85 @@ class HeartRateService {
 
   // ==================== 设备连接 ====================
 
-  /// 连接设备
+  /// 连接设备（带重试机制）
   Future<void> connect(BluetoothDevice device) async {
-    try {
-      _updateState(HeartRateServiceState.connecting);
+    int retryCount = 0;
 
-      // 监听连接状态
-      _connectionSubscription = device.connectionState.listen((state) {
-        debugPrint('连接状态: ${state.name}');
-        if (state == BluetoothConnectionState.disconnected) {
-          _handleDisconnection();
+    while (retryCount < MAX_CONNECT_RETRIES) {
+      try {
+        _updateState(HeartRateServiceState.connecting);
+
+        // 监听连接状态
+        _connectionSubscription = device.connectionState.listen((state) {
+          debugPrint('连接状态: ${state.name}');
+          if (state == BluetoothConnectionState.disconnected) {
+            _handleDisconnection();
+          }
+        });
+
+        // 连接设备（使用更短的超时时间）
+        await device.connect(
+          timeout: CONNECT_TIMEOUT,
+          autoConnect: false,
+        );
+
+        // 等待连接完成
+        await device.connectionState
+            .firstWhere((s) => s == BluetoothConnectionState.connected)
+            .timeout(
+              CONNECT_TIMEOUT,
+              onTimeout: () {
+                throw TimeoutException('连接超时', CONNECT_TIMEOUT);
+              },
+            );
+
+        _connectedDevice = device;
+        _updateState(HeartRateServiceState.connected);
+
+        // 发现服务
+        await _discoverServices(device);
+
+        debugPrint('设备连接成功: ${device.platformName}');
+        return; // 连接成功，退出重试循环
+      } catch (e, st) {
+        retryCount++;
+
+        // 清理失败的连接
+        await _cleanupFailedConnection(device);
+
+        if (retryCount >= MAX_CONNECT_RETRIES) {
+          _updateState(HeartRateServiceState.error);
+
+          // 分类错误并提供友好消息
+          final errorType = HeartRateErrorMessages.classifyError(e);
+          final friendlyMessage = errorType == HeartRateErrorType.unknown
+              ? HeartRateErrorMessages.getMessage(errorType, e)
+              : HeartRateErrorMessages.getMessage(errorType);
+
+          debugPrint('连接设备失败 (重试 $retryCount/$MAX_CONNECT_RETRIES): $e');
+          throw HeartRateServiceException(friendlyMessage, e, st);
+        } else {
+          debugPrint('连接失败，第 $retryCount 次重试...');
+          await Future.delayed(RETRY_DELAY);
         }
-      });
+      }
+    }
+  }
 
-      // 连接设备
-      await device.connect(
-        timeout: Duration(seconds: 15),
-        autoConnect: false,
-      );
+  /// 清理失败的连接
+  Future<void> _cleanupFailedConnection(BluetoothDevice device) async {
+    try {
+      await _connectionSubscription?.cancel();
+      _connectionSubscription = null;
 
-      // 等待连接完成
-      await device.connectionState
-          .firstWhere((s) => s == BluetoothConnectionState.connected);
+      // 尝试断开可能存在的连接
+      try {
+        await device.disconnect();
+      } catch (_) {}
 
-      _connectedDevice = device;
-      _updateState(HeartRateServiceState.connected);
-
-      // 发现服务
-      await _discoverServices(device);
-
-      debugPrint('设备连接成功: ${device.platformName}');
-    } catch (e, st) {
-      _updateState(HeartRateServiceState.error);
-      debugPrint('连接设备失败: $e');
-      throw HeartRateServiceException('连接设备失败', e, st);
+      _updateState(HeartRateServiceState.idle);
+    } catch (_) {
+      // 忽略清理错误
     }
   }
 
@@ -378,36 +669,96 @@ class HeartRateService {
       final services = await device.discoverServices();
       debugPrint('发现 ${services.length} 个服务');
 
-      for (final service in services) {
-        debugPrint('服务UUID: ${service.uuid}');
+      // 标准化心率服务UUID（去掉连字符和前导零）
+      final hrServiceUuid = UUID_HEART_RATE_SERVICE
+          .toLowerCase()
+          .replaceAll('-', '')
+          .replaceAll('0000', '0');
+      final hrMeasurementUuid = UUID_HEART_RATE_MEASUREMENT
+          .toLowerCase()
+          .replaceAll('-', '')
+          .replaceAll('0000', '0');
 
-        if (service.uuid.toString().toLowerCase() ==
-            UUID_HEART_RATE_SERVICE.toLowerCase()) {
-          // 找到心率服务
+      debugPrint('查找心率服务: $hrServiceUuid');
+      debugPrint('查找心率特征: $hrMeasurementUuid');
+
+      for (final service in services) {
+        final serviceUuidStr = service.uuid
+            .toString()
+            .toLowerCase()
+            .replaceAll('-', '');
+
+        debugPrint('检查服务: $serviceUuidStr');
+
+        if (serviceUuidStr == hrServiceUuid ||
+            serviceUuidStr.contains('180d')) {
+          debugPrint('✓ 找到心率服务！特征数量: ${service.characteristics.length}');
+
+          // 找到心率服务，查找心率测量特征
           for (final characteristic in service.characteristics) {
-            if (characteristic.uuid.toString().toLowerCase() ==
-                UUID_HEART_RATE_MEASUREMENT.toLowerCase()) {
+            final charUuidStr = characteristic.uuid
+                .toString()
+                .toLowerCase()
+                .replaceAll('-', '');
+
+            debugPrint('  检查特征: $charUuidStr');
+
+            if (charUuidStr == hrMeasurementUuid ||
+                charUuidStr.contains('2a37')) {
+              debugPrint('✓ 找到心率测量特征！');
               _heartRateCharacteristic = characteristic;
+
+              // 打印特征属性
+              debugPrint('  属性: notify=${characteristic.properties.notify}, '
+                  'indicate=${characteristic.properties.indicate}, '
+                  'read=${characteristic.properties.read}');
 
               // 检查是否需要通知
               final properties = characteristic.properties;
               if (properties.notify || properties.indicate) {
                 await characteristic.setNotifyValue(true);
                 _startListeningToHeartRate(characteristic);
-                debugPrint('已订阅心率特征');
+                debugPrint('✓ 已订阅心率特征');
+              } else {
+                debugPrint('⚠ 特征不支持notify或indicate');
               }
               break;
             }
           }
+
+          // 如果找到了心率服务但没有找到特征，打印所有特征
+          if (_heartRateCharacteristic == null) {
+            debugPrint('⚠ 心率服务存在但未找到心率测量特征，所有特征:');
+            for (final c in service.characteristics) {
+              debugPrint('  - ${c.uuid}');
+            }
+          }
+          break;
         }
       }
 
       if (_heartRateCharacteristic == null) {
-        throw HeartRateServiceException('设备不支持心率服务');
+        debugPrint('✗ 未找到心率特征，抛出异常');
+        final errorType = HeartRateErrorType.deviceNotSupported;
+        throw HeartRateServiceException(
+          HeartRateErrorMessages.getMessage(errorType),
+        );
       }
+
+      debugPrint('✓ 服务发现完成');
     } catch (e, st) {
+      // 检查是否是设备不支持错误
+      if (e is HeartRateServiceException) rethrow;
+
       debugPrint('发现服务失败: $e');
-      throw HeartRateServiceException('发现服务失败', e, st);
+      final errorType = HeartRateErrorMessages.classifyError(e);
+      throw HeartRateServiceException(
+        errorType == HeartRateErrorType.unknown
+            ? HeartRateErrorMessages.getMessage(errorType, e)
+            : HeartRateErrorMessages.getMessage(errorType),
+        e,
+        st,
+      );
     }
   }
 

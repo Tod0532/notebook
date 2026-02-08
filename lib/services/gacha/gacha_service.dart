@@ -13,7 +13,8 @@ enum GachaRarity {
   common('普通', 'common', 0.60, '#9E9E9E'),
   rare('稀有', 'rare', 0.30, '#2196F3'),
   epic('史诗', 'epic', 0.08, '#9C27B0'),
-  legendary('传说', 'legendary', 0.02, '#FF9800');
+  legendary('传说', 'legendary', 0.02, '#FF9800'),
+  limited('限定', 'limited', 0.01, '#FF1744'); // 极低概率，节日限定专属
 
   final String displayName;
   final String value;
@@ -685,6 +686,139 @@ class GachaItemPool {
     ),
   ];
 
+  /// 限定物品池 - 节日限定称号和徽章
+  static const List<GachaItem> limitedItems = [
+    // ========== 春节限定称号 (2个) ==========
+    GachaItem(
+      name: '新年祝福',
+      description: '春节限定称号，新年好运连连',
+      type: GachaItemType.title,
+      rarity: GachaRarity.limited,
+    ),
+    GachaItem(
+      name: '红包手气',
+      description: '春节限定称号，抢红包手气爆棚',
+      type: GachaItemType.title,
+      rarity: GachaRarity.limited,
+    ),
+
+    // ========== 情人节限定称号 (1个) ==========
+    GachaItem(
+      name: '爱神降临',
+      description: '情人节限定称号，爱神庇护',
+      type: GachaItemType.title,
+      rarity: GachaRarity.limited,
+    ),
+
+    // ========== 运动限定称号 (2个) ==========
+    GachaItem(
+      name: '跑者荣耀',
+      description: '运动限定称号，跑者的荣耀象征',
+      type: GachaItemType.title,
+      rarity: GachaRarity.limited,
+    ),
+    GachaItem(
+      name: '健身达人',
+      description: '运动限定称号，健身领域的达人',
+      type: GachaItemType.title,
+      rarity: GachaRarity.limited,
+    ),
+
+    // ========== 春节限定徽章 (1个) ==========
+    GachaItem(
+      name: '新春徽章',
+      description: '春节限定徽章，新年纪念',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.limited,
+    ),
+
+    // ========== 情人节限定徽章 (1个) ==========
+    GachaItem(
+      name: '爱心徽章',
+      description: '情人节限定徽章，爱的证明',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.limited,
+    ),
+
+    // ========== 运动限定徽章 (2个) ==========
+    GachaItem(
+      name: '跑者徽章',
+      description: '运动限定徽章，跑步爱好者的象征',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.limited,
+    ),
+    GachaItem(
+      name: '健身徽章',
+      description: '运动限定徽章，健身达人的标志',
+      type: GachaItemType.badge,
+      rarity: GachaRarity.limited,
+    ),
+  ];
+
+  /// 图标物品池 - 普通表情图标
+  static const List<GachaItem> iconItems = [
+    GachaItem(
+      name: '开心表情',
+      description: '开心的笑脸，带来好心情',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '爱心表情',
+      description: '满满的爱心，温暖你我',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '星星表情',
+      description: '闪耀的星星，点亮生活',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '太阳表情',
+      description: '温暖的太阳，充满活力',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '月亮表情',
+      description: '宁静的月亮，安详平和',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '闪电表情',
+      description: '疾驰的闪电，速度与激情',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '火焰表情',
+      description: '热情的火焰，燃烧斗志',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '雪花表情',
+      description: '纯洁的雪花，清新脱俗',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '彩虹表情',
+      description: '绚丽的彩虹，七彩生活',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+    GachaItem(
+      name: '钻石表情',
+      description: '璀璨的钻石，珍贵美好',
+      type: GachaItemType.icon,
+      rarity: GachaRarity.common,
+    ),
+  ];
+
   /// 根据稀有度获取物品池
   static List<GachaItem> getItemsByRarity(GachaRarity rarity) {
     switch (rarity) {
@@ -696,6 +830,8 @@ class GachaItemPool {
         return epicItems;
       case GachaRarity.legendary:
         return legendaryItems;
+      case GachaRarity.limited:
+        return limitedItems;
     }
   }
 
@@ -713,6 +849,8 @@ class GachaItemPool {
       ...rareItems,
       ...epicItems,
       ...legendaryItems,
+      ...limitedItems,
+      ...iconItems,
     ];
   }
 
@@ -732,9 +870,12 @@ class GachaItemPool {
       'rare': rareItems.length,
       'epic': epicItems.length,
       'legendary': legendaryItems.length,
+      'limited': limitedItems.length,
+      'icon': iconItems.length,
       'title': getItemsByType(GachaItemType.title).length,
       'badge': getItemsByType(GachaItemType.badge).length,
       'theme': getItemsByType(GachaItemType.theme).length,
+      'icon_type': getItemsByType(GachaItemType.icon).length,
     };
   }
 }

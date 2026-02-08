@@ -91,6 +91,12 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
             selectedType: _selectedType,
             onSelected: (type) => setState(() => _selectedType = type),
           ),
+          const SizedBox(height: 16),
+
+          // ==================== 智能功能区域 ====================
+          _buildSmartFeaturesSection(),
+          const SizedBox(height: 16),
+
           const Divider(),
           // 基础信息
           _buildSection('基础信息'),
@@ -100,12 +106,6 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
           if (_selectedType != null) ...[
             const SizedBox(height: 8),
             _buildCaloriesPreview(),
-          ],
-
-          // GPS追踪入口（仅对有氧运动显示）
-          if (_selectedType?.category == 'cardio' || _selectedType?.category == 'sports') ...[
-            const SizedBox(height: 16),
-            _buildGpsTrackingCard(),
           ],
 
           const SizedBox(height: 16),
@@ -163,6 +163,245 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
             ),
       ),
     );
+  }
+
+  /// ==================== 智能功能区域 ====================
+  /// GPS追踪和心率监测的统一入口
+  Widget _buildSmartFeaturesSection() {
+    // GPS仅对有氧运动启用
+    final isCardio = _selectedType?.category == 'cardio' || _selectedType?.category == 'sports';
+    final hasGpsData = _gpsDistance != null && _gpsDistance! > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.08),
+            AppColors.secondary.withOpacity(0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.xlRadius,
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: AppRadius.smRadius,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '智能功能',
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: AppRadius.smRadius,
+                ),
+                child: Text(
+                  '提升运动体验',
+                  style: AppTextStyles.label.copyWith(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 功能卡片行
+          Row(
+            children: [
+              // GPS追踪卡片
+              Expanded(
+                child: _buildFeatureCard(
+                  icon: Icons.gps_fixed_rounded,
+                  title: 'GPS追踪',
+                  subtitle: hasGpsData
+                      ? '已记录 ${_formatDistance(_gpsDistance!)}'
+                      : '记录运动路线',
+                  gradient: isCardio
+                      ? AppColors.primaryGradient
+                      : LinearGradient(
+                          colors: [
+                            AppColors.textHint.withOpacity(0.3),
+                            AppColors.textHint.withOpacity(0.1),
+                          ],
+                        ),
+                  isEnabled: isCardio || hasGpsData,
+                  onTap: isCardio || hasGpsData ? _startGpsTracking : null,
+                  trailing: hasGpsData
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: AppRadius.smRadius,
+                          ),
+                          child: Text(
+                            '完成',
+                            style: AppTextStyles.label.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                      : (isCardio ? const Icon(Icons.chevron_right, color: Colors.white, size: 20) : null),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // 心率监测卡片
+              Expanded(
+                child: _buildFeatureCard(
+                  icon: Icons.favorite_rounded,
+                  title: '心率监测',
+                  subtitle: '连接心率带实时监测',
+                  gradient: AppColors.secondaryGradient,
+                  isEnabled: true,
+                  onTap: _openHeartRateMonitor,
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+
+          // 提示文字
+          if (!isCardio && !hasGpsData)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'GPS追踪仅支持跑步、骑行等有氧运动类型',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textHint,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 功能卡片组件
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Gradient gradient,
+    required bool isEnabled,
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    return GestureDetector(
+      onTap: isEnabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: isEnabled ? gradient : null,
+          color: isEnabled ? null : AppColors.surfaceVariant,
+          borderRadius: AppRadius.lgRadius,
+          boxShadow: isEnabled
+              ? [
+                  BoxShadow(
+                    color: gradient.colors.first.withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 图标和箭头
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isEnabled
+                        ? Colors.white.withOpacity(0.25)
+                        : AppColors.textHint.withOpacity(0.1),
+                    borderRadius: AppRadius.smRadius,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isEnabled ? Colors.white : AppColors.textHint,
+                    size: 20,
+                  ),
+                ),
+                const Spacer(),
+                if (trailing != null) trailing!,
+              ],
+            ),
+            const SizedBox(height: 12),
+            // 标题
+            Text(
+              title,
+              style: AppTextStyles.titleSmall.copyWith(
+                color: isEnabled ? Colors.white : AppColors.textHint,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            // 副标题
+            Text(
+              subtitle,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: isEnabled
+                    ? Colors.white.withOpacity(0.85)
+                    : AppColors.textHint.withOpacity(0.7),
+                fontSize: 11,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 打开心率监测页面
+  void _openHeartRateMonitor() {
+    context.push(AppRoutes.heartRateMonitor);
   }
 
   Widget _buildDateTimePicker() {
@@ -256,53 +495,6 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
             activeColor: AppColors.primary,
           );
         }).toList(),
-      ),
-    );
-  }
-
-  /// GPS追踪卡片
-  Widget _buildGpsTrackingCard() {
-    final hasGpsData = _gpsDistance != null && _gpsDistance! > 0;
-
-    return Card(
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: AppRadius.smRadius,
-          ),
-          child: const Icon(
-            Icons.gps_fixed,
-            color: Colors.white,
-            size: 20,
-          ),
-        ),
-        title: Text(hasGpsData ? 'GPS轨迹已记录' : '记录运动轨迹'),
-        subtitle: hasGpsData
-            ? Text('距离: ${_formatDistance(_gpsDistance!)}')
-            : const Text('使用GPS记录运动路线和距离'),
-        trailing: hasGpsData
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _formatDistance(_gpsDistance!),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: _startGpsTracking,
-                    tooltip: '重新记录',
-                  ),
-                ],
-              )
-            : const Icon(Icons.chevron_right),
-        onTap: _startGpsTracking,
       ),
     );
   }
@@ -432,7 +624,7 @@ class _WorkoutEditPageState extends ConsumerState<WorkoutEditPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _getIntensityColor().withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.mdRadius,
                   border: Border.all(color: _getIntensityColor(), width: 1),
                 ),
                 child: Text(

@@ -274,18 +274,15 @@ class DashboardView extends ConsumerWidget {
                 children: [
                   Text(
                     '$greeting，老大',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    style: AppTextStyles.titleLarge.copyWith(
                           fontWeight: FontWeight.w900,
-                          fontSize: 24,
-                          letterSpacing: -0.5,
                         ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '今天也是充满活力的一天！',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 14,
                         ),
                   ),
                 ],
@@ -343,11 +340,11 @@ class DashboardView extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('语音助手', style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700, color: AppColors.info)),
+                Text('语音助手', style: AppTextStyles.titleSmall.copyWith(
+                    color: AppColors.info)),
                 const SizedBox(height: 2),
-                Text('记笔记、运动打卡、查询进度', style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary, fontSize: 12)),
+                Text('记笔记、运动打卡、查询进度', style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary)),
               ],
             ),
           ),
@@ -424,16 +421,14 @@ class DashboardView extends ConsumerWidget {
                       children: [
                         Text(
                           '今日训练',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
+                          style: AppTextStyles.titleSmall.copyWith(
                                 color: AppColors.secondary,
                               ),
                         ),
                         Text(
                           '${task.planName} · 第${task.dayNumber}/${task.totalDays}天',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: AppTextStyles.bodySmall.copyWith(
                                 color: AppColors.textSecondary,
-                                fontSize: 12,
                               ),
                         ),
                       ],
@@ -448,9 +443,8 @@ class DashboardView extends ConsumerWidget {
                       ),
                       child: Text(
                         '待完成',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: AppTextStyles.label.copyWith(
                               color: AppColors.error,
-                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -464,9 +458,8 @@ class DashboardView extends ConsumerWidget {
                       ),
                       child: Text(
                         '已完成',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: AppTextStyles.label.copyWith(
                               color: AppColors.success,
-                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -477,7 +470,7 @@ class DashboardView extends ConsumerWidget {
               // 训练内容
               Text(
                 task.trainingFocus,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                style: AppTextStyles.bodyLarge.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -496,9 +489,8 @@ class DashboardView extends ConsumerWidget {
                       ),
                       child: Text(
                         exercise.name,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: AppTextStyles.label.copyWith(
                               color: AppColors.textPrimary,
-                              fontSize: 11,
                             ),
                       ),
                     );
@@ -516,7 +508,7 @@ class DashboardView extends ConsumerWidget {
                   const SizedBox(width: 4),
                   Text(
                     '${task.estimatedMinutes} 分钟',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textHint,
                         ),
                   ),
@@ -529,14 +521,14 @@ class DashboardView extends ConsumerWidget {
                   const SizedBox(width: 4),
                   Text(
                     '剩余${task.remainingDays}天',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textHint,
                         ),
                   ),
                   const Spacer(),
                   Text(
                     '查看详情 →',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: AppTextStyles.label.copyWith(
                           color: AppColors.secondary,
                           fontWeight: FontWeight.w600,
                         ),
@@ -596,7 +588,7 @@ class DashboardView extends ConsumerWidget {
                     const SizedBox(width: 4),
                     Text(
                       '成就',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w700,
                           ),
@@ -642,7 +634,7 @@ class DashboardView extends ConsumerWidget {
                       const SizedBox(width: 6),
                       Text(
                         '每日挑战',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: AppTextStyles.bodyMedium.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
@@ -685,7 +677,7 @@ class DashboardView extends ConsumerWidget {
                       const SizedBox(width: 6),
                       Text(
                         '幸运抽卡',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: AppTextStyles.bodyMedium.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
@@ -737,8 +729,7 @@ class DashboardView extends ConsumerWidget {
                   children: [
                     Text(
                       'AI 助手',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                      style: AppTextStyles.titleSmall.copyWith(
                             color: AppColors.primary,
                           ),
                     ),
@@ -747,9 +738,8 @@ class DashboardView extends ConsumerWidget {
                       snapshot.hasData
                           ? snapshot.data!
                           : '配置 API Key 启用 AI 功能',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.textSecondary,
-                            fontSize: 12,
                           ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -779,15 +769,14 @@ class DashboardView extends ConsumerWidget {
           children: [
             Text(
               '快捷操作',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+              style: AppTextStyles.titleMedium.copyWith(
                     fontSize: 20,
                   ),
             ),
             const Spacer(),
             Text(
               '查看全部',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: AppTextStyles.label.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
@@ -861,8 +850,7 @@ class DashboardView extends ConsumerWidget {
           children: [
             Text(
               '最近动态',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+              style: AppTextStyles.titleMedium.copyWith(
                     fontSize: 20,
                   ),
             ),
@@ -935,18 +923,16 @@ class _BentoLargeCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               label,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: AppTextStyles.titleSmall.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 18,
                   ),
             ),
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              style: AppTextStyles.bodySmall.copyWith(
                     color: Colors.white.withOpacity( 0.85),
-                    fontSize: 12,
                   ),
             ),
           ],
@@ -1002,7 +988,7 @@ class _BentoSmallCard extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Text(
               label,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              style: AppTextStyles.bodyMedium.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -1031,8 +1017,7 @@ class _TodaySummarySection extends ConsumerWidget {
       children: [
         Text(
           '今日概览',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+          style: AppTextStyles.titleMedium.copyWith(
                 fontSize: 20,
               ),
         ),
@@ -1228,10 +1213,9 @@ class _GradientStatCard extends StatelessWidget {
                       ),
                       child: Text(
                         '今天',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: AppTextStyles.label.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
-                              fontSize: 11,
                             ),
                       ),
                     ),
@@ -1239,15 +1223,14 @@ class _GradientStatCard extends StatelessWidget {
               ),
               Text(
                 value,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                style: AppTextStyles.titleMedium.copyWith(
                       color: isEmpty ? AppColors.textHint : Colors.white,
                       fontWeight: FontWeight.w900,
-                      fontSize: 20,
                     ),
               ),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: AppTextStyles.bodySmall.copyWith(
                       color: isEmpty
                           ? AppColors.textHint.withOpacity( 0.7)
                           : Colors.white.withOpacity( 0.85),
@@ -1258,11 +1241,10 @@ class _GradientStatCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: AppTextStyles.label.copyWith(
                         color: isEmpty
                             ? AppColors.textHint
                             : Colors.white.withOpacity( 0.7),
-                        fontSize: 11,
                       ),
                 ),
               ],
@@ -1313,11 +1295,11 @@ class _AICoachEntryCard extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('AI 教练', style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700, color: AppColors.secondary)),
+                  Text('AI 教练', style: AppTextStyles.titleSmall.copyWith(
+                        color: AppColors.secondary)),
                   const SizedBox(height: 2),
-                  Text('创建专属训练和饮食计划', style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary, fontSize: 12)),
+                  Text('创建专属训练和饮食计划', style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary)),
                 ],
               ),
             ),

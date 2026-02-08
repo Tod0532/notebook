@@ -65,7 +65,7 @@ class ErrorDisplayWidget extends StatelessWidget {
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppColors.errorContainer,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.lgRadius,
         border: Border.all(
           color: AppColors.error.withOpacity(0.2),
           width: 1,
@@ -117,7 +117,7 @@ class ErrorDisplayWidget extends StatelessWidget {
                 side: BorderSide(color: AppColors.error.withOpacity(0.5)),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadius.xlRadius,
                 ),
               ),
             ),
@@ -295,7 +295,7 @@ class AppSnackBar {
         backgroundColor: AppColors.success,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
       ),
     );
   }
@@ -312,7 +312,7 @@ class AppSnackBar {
         backgroundColor: AppColors.error,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
         action: SnackBarAction(
           label: '关闭',
           textColor: Colors.white,
@@ -334,7 +334,7 @@ class AppSnackBar {
         backgroundColor: AppColors.warning,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
       ),
     );
   }
@@ -351,7 +351,7 @@ class AppSnackBar {
         backgroundColor: AppColors.info,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
       ),
     );
   }

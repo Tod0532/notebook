@@ -114,7 +114,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: Column(
         children: [
@@ -148,7 +148,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.errorContainer.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: Column(
         children: [
@@ -181,14 +181,14 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.mdRadius,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary.withOpacity(0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.mdRadius,
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.transparent,
             width: 2,
@@ -200,7 +200,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: iconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: AppRadius.smRadius,
               ),
               child: Icon(icon, color: iconColor, size: 22),
             ),
@@ -255,7 +255,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.mdRadius,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         margin: const EdgeInsets.only(bottom: 8),
@@ -263,7 +263,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
           color: isSelected
               ? AppColors.primary.withOpacity(0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.mdRadius,
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.transparent,
             width: 2,
@@ -275,7 +275,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: categoryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: AppRadius.smRadius,
               ),
               child: Icon(categoryIcon, color: categoryColor, size: 22),
             ),
@@ -311,7 +311,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppColors.warning.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: AppRadius.smRadius,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -345,7 +345,7 @@ class _PlanSelectorState extends ConsumerState<PlanSelector> {
                       children: [
                         Expanded(
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: AppRadius.smRadius,
                             child: LinearProgressIndicator(
                               value: plan.completedTasks / plan.totalTasks,
                               backgroundColor:

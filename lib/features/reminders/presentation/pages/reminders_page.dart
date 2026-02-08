@@ -13,6 +13,7 @@ import 'package:thick_notepad/features/speech/presentation/providers/speech_prov
 import 'package:thick_notepad/features/speech/presentation/widgets/voice_floating_button.dart';
 import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/shared/widgets/skeleton_loading.dart';
 import 'package:thick_notepad/services/database/database.dart';
 import 'package:thick_notepad/services/notification/notification_service.dart';
 import 'package:drift/drift.dart' as drift;
@@ -54,7 +55,7 @@ class RemindersView extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ReminderListSkeleton(),
               error: (e, _) => _ErrorView(
                 message: e.toString(),
                 onRetry: () => ref.refresh(allRemindersProvider),
@@ -80,6 +81,16 @@ class RemindersView extends ConsumerWidget {
           ),
           Row(
             children: [
+              // 测试通知按钮（调试用）
+              _HeaderButton(
+                icon: Icons.notifications_active,
+                iconSize: 20,
+                backgroundColor: AppColors.surfaceVariant,
+                iconColor: AppColors.primary,
+                onPressed: () => _testNotification(context),
+                tooltip: '测试通知',
+              ),
+              const SizedBox(width: AppSpacing.sm),
               // 语音输入按钮
               _VoiceInputButton(
                 onResult: (text) {
@@ -88,17 +99,13 @@ class RemindersView extends ConsumerWidget {
                 },
               ),
               const SizedBox(width: AppSpacing.sm),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.secondaryGradient,
-                  borderRadius: AppRadius.mdRadius,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.add, size: 20, color: Colors.white),
-                  onPressed: () => _showAddReminderSheet(context, ref),
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  constraints: const BoxConstraints(),
-                ),
+              _HeaderButton(
+                icon: Icons.add,
+                iconSize: 20,
+                gradient: AppColors.secondaryGradient,
+                iconColor: Colors.white,
+                onPressed: () => _showAddReminderSheet(context, ref),
+                tooltip: '添加提醒',
               ),
             ],
           ),
@@ -130,6 +137,27 @@ class RemindersView extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('提醒：${reminder.title}')),
     );
+  }
+
+  /// 测试通知系统
+  void _testNotification(BuildContext context) async {
+    final notificationService = NotificationService();
+
+    // 先确保服务已初始化
+    await notificationService.initialize();
+
+    // 运行测试
+    await notificationService.testNotificationSystem();
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('测试通知已安排，5秒后请查看通知栏'),
+          duration: Duration(seconds: 3),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    }
   }
 
   void _toggleComplete(WidgetRef ref, BuildContext context, dynamic reminder) async {
@@ -246,8 +274,8 @@ class _ReminderCard extends StatelessWidget {
                   onTap: onToggle,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 28,
-                    height: 28,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: reminder.isDone ? AppColors.successGradient : null,
@@ -298,10 +326,9 @@ class _ReminderCard extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Text(
                                   _formatTime(reminder.remindTime),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  style: AppTextStyles.label.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 11,
                                       ),
                                 ),
                               ],
@@ -426,9 +453,9 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       padding: EdgeInsets.only(
         left: AppSpacing.lg,
@@ -494,27 +521,65 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
         color: AppColors.surfaceVariant,
         borderRadius: AppRadius.mdRadius,
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            borderRadius: AppRadius.smRadius,
+      // 使用 InkWell 增强触摸反馈
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.mdRadius,
+        child: InkWell(
+          onTap: _selectTime,
+          borderRadius: AppRadius.mdRadius,
+          splashColor: AppColors.primary.withOpacity(0.15),
+          highlightColor: AppColors.primary.withOpacity(0.08),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: AppRadius.smRadius,
+                  ),
+                  child: const Icon(Icons.access_time, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                const Text('提醒时间'),
+                const Spacer(),
+                Text(
+                  _formatReminderTime(_selectedTime),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.textHint),
+              ],
+            ),
           ),
-          child: const Icon(Icons.access_time, color: AppColors.primary),
         ),
-        title: const Text('提醒时间'),
-        trailing: Text(
-          DateFormat('HH:mm').format(_selectedTime),
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        onTap: _selectTime,
       ),
     );
+  }
+
+  /// 格式化提醒时间显示
+  String _formatReminderTime(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final reminderDay = DateTime(time.year, time.month, time.day);
+
+    final daysDiff = reminderDay.difference(today).inDays;
+
+    String dayLabel;
+    if (daysDiff == 0) {
+      dayLabel = '今天';
+    } else if (daysDiff == 1) {
+      dayLabel = '明天';
+    } else {
+      dayLabel = '${time.month}月${time.day}日';
+    }
+
+    return '$dayLabel ${DateFormat('HH:mm').format(time)}';
   }
 
   Widget _buildRepeatSelector(BuildContext context) {
@@ -524,25 +589,43 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
         color: AppColors.surfaceVariant,
         borderRadius: AppRadius.mdRadius,
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.secondary.withOpacity(0.1),
-            borderRadius: AppRadius.smRadius,
+      // 使用 InkWell 增强触摸反馈
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.mdRadius,
+        child: InkWell(
+          onTap: _selectRepeat,
+          borderRadius: AppRadius.mdRadius,
+          splashColor: AppColors.secondary.withOpacity(0.15),
+          highlightColor: AppColors.secondary.withOpacity(0.08),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withOpacity(0.1),
+                    borderRadius: AppRadius.smRadius,
+                  ),
+                  child: const Icon(Icons.repeat, color: AppColors.secondary, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                const Text('重复'),
+                const Spacer(),
+                Text(
+                  _getRepeatLabel(),
+                  style: const TextStyle(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.textHint),
+              ],
+            ),
           ),
-          child: const Icon(Icons.repeat, color: AppColors.secondary),
         ),
-        title: const Text('重复'),
-        trailing: Text(
-          _getRepeatLabel(),
-          style: const TextStyle(
-            color: AppColors.secondary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        onTap: _selectRepeat,
       ),
     );
   }
@@ -555,13 +638,18 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
     );
     if (picked != null) {
       setState(() {
-        _selectedTime = DateTime(
+        var selectedTime = DateTime(
           now.year,
           now.month,
           now.day,
           picked.hour,
           picked.minute,
         );
+        // 如果选择的时间已过去，自动设置为明天
+        if (selectedTime.isBefore(now)) {
+          selectedTime = selectedTime.add(const Duration(days: 1));
+        }
+        _selectedTime = selectedTime;
       });
     }
   }
@@ -571,9 +659,9 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
         ),
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
@@ -635,16 +723,35 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
     final reminderRepo = widget.ref.read(reminderRepositoryProvider);
     final notificationService = widget.ref.read(notificationServiceProvider);
 
-    // 检查通知权限
+    // 先请求通知权限（在创建提醒前）
     final hasPermission = await notificationService.arePermissionsGranted();
+    debugPrint('通知权限状态: $hasPermission');
+
     if (!hasPermission) {
       final granted = await notificationService.requestPermissions();
+      debugPrint('请求通知权限结果: $granted');
       if (!granted && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('需要通知权限才能发送提醒')),
+          const SnackBar(
+            content: Text('需要通知权限才能发送提醒'),
+            backgroundColor: AppColors.error,
+          ),
         );
         return;
       }
+    }
+
+    // 确保通知服务已初始化
+    await notificationService.initialize();
+
+    // 打印提醒时间
+    final now = DateTime.now();
+    debugPrint('当前时间: $now');
+    debugPrint('提醒时间: $_selectedTime');
+    debugPrint('时间差: ${_selectedTime.difference(now).inSeconds} 秒');
+
+    if (_selectedTime.isBefore(now)) {
+      debugPrint('警告: 提醒时间在过去！');
     }
 
     // 构建提醒数据
@@ -657,6 +764,7 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
     try {
       // 保存到数据库
       final reminderId = await reminderRepo.createReminder(reminder);
+      debugPrint('提醒已保存到数据库，ID: $reminderId');
 
       // 安排推送通知
       if (reminderId > 0) {
@@ -667,6 +775,7 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
           _selectedTime,
           _repeatType,
         );
+        debugPrint('通知安排${scheduled ? "成功" : "失败"}');
 
         widget.ref.invalidate(allRemindersProvider);
 
@@ -692,6 +801,8 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
   }
 
   /// 安排推送通知
+  ///
+  /// 添加调试日志，方便排查通知问题
   Future<bool> _scheduleNotification(
     NotificationService service,
     int id,
@@ -699,6 +810,9 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
     DateTime time,
     String repeatType,
   ) async {
+    // 添加调试日志
+    debugPrint('开始安排通知: id=$id, title=$title, time=$time, repeat=$repeatType');
+
     try {
       if (repeatType == 'daily') {
         // 每日重复
@@ -861,7 +975,7 @@ class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
   }
 }
 
-/// 重复选项
+/// 重复选项 - 增强触摸反馈
 class _RepeatOption extends StatelessWidget {
   final String label;
   final String value;
@@ -877,19 +991,104 @@ class _RepeatOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(label),
-      trailing: selected
-          ? Container(
-              padding: const EdgeInsets.all(4),
+    return Container(
+      // 确保最小触控目标尺寸 48x48dp
+      constraints: const BoxConstraints(
+        minHeight: 48,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.mdRadius,
+          splashColor: AppColors.primary.withOpacity(0.15),
+          highlightColor: AppColors.primary.withOpacity(0.08),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                const Spacer(),
+                if (selected)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check, size: 18, color: Colors.white),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 头部按钮 - 确保最小触控目标尺寸 48x48dp
+class _HeaderButton extends StatelessWidget {
+  final IconData icon;
+  final double iconSize;
+  final Color? backgroundColor;
+  final Gradient? gradient;
+  final Color iconColor;
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  const _HeaderButton({
+    required this.icon,
+    required this.iconSize,
+    required this.iconColor,
+    required this.onPressed,
+    this.backgroundColor,
+    this.gradient,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 确保最小触控目标尺寸 48x48dp
+    return Container(
+      width: 40,
+      height: 40,
+      constraints: const BoxConstraints(
+        minWidth: 48,
+        minHeight: 48,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.mdRadius,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: AppRadius.mdRadius,
+          splashColor: iconColor.withOpacity(0.2),
+          highlightColor: iconColor.withOpacity(0.1),
+          child: Tooltip(
+            message: tooltip,
+            child: Container(
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
+                gradient: gradient,
+                color: gradient == null ? backgroundColor : null,
+                borderRadius: AppRadius.mdRadius,
               ),
-              child: const Icon(Icons.check, size: 18, color: Colors.white),
-            )
-          : null,
-      onTap: onTap,
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: iconSize,
+                  color: iconColor,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

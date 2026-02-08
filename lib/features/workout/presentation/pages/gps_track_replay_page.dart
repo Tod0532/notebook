@@ -196,28 +196,33 @@ class _GpsTrackReplayPageState extends State<GpsTrackReplayPage> {
       );
     }
 
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        initialCenter: LatLng(
-          widget.trackPoints.first.latitude,
-          widget.trackPoints.first.longitude,
-        ),
-        initialZoom: 16.0,
-        minZoom: 10.0,
-        maxZoom: 19.0,
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [const Color(0xFF1a1a2e), const Color(0xFF16213e)]
+              : [const Color(0xFFe8f5e9), const Color(0xFFc8e6c9)],
         ),
       ),
-      children: [
-        // OpenStreetMap 图层
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.thick_notepad',
+      child: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter: LatLng(
+            widget.trackPoints.first.latitude,
+            widget.trackPoints.first.longitude,
+          ),
+          initialZoom: 16.0,
+          minZoom: 10.0,
+          maxZoom: 19.0,
+          backgroundColor: Colors.transparent,
+          interactionOptions: const InteractionOptions(
+            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+          ),
         ),
-
-        // 完整轨迹（灰色半透明）
+        children: [
+          // 完整轨迹（灰色半透明）
         PolylineLayer(
           polylines: [
             Polyline(

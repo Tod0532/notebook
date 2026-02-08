@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
+import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
+import 'package:thick_notepad/shared/widgets/skeleton_loading.dart';
 import 'package:intl/intl.dart';
 
 /// 笔记搜索页面
@@ -70,11 +72,11 @@ class _NoteSearchPageState extends ConsumerState<NoteSearchPage> {
         ],
       ),
       body: _keyword.isEmpty
-          ? _buildEmptyState()
+          ? const EmptyStateWidget.search()
           : resultsAsync!.when(
               data: (notes) {
                 if (notes.isEmpty) {
-                  return _buildNoResults();
+                  return EmptyStateWidget.search(query: _keyword);
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -88,60 +90,9 @@ class _NoteSearchPageState extends ConsumerState<NoteSearchPage> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const NoteListSkeleton(),
               error: (_, __) => _buildError(),
             ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search,
-            size: 64,
-            color: AppColors.textHint.withOpacity(0.3),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '输入关键词搜索笔记',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNoResults() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: AppColors.textHint.withOpacity(0.3),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '没有找到匹配的笔记',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '试试其他关键词',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textHint,
-                ),
-          ),
-        ],
-      ),
     );
   }
 

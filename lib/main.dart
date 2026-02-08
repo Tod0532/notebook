@@ -61,6 +61,8 @@ void _initBackgroundServices() {
 }
 
 /// 初始化通知服务
+///
+/// 添加了更详细的调试日志，方便排查通知问题
 Future<void> _initNotifications() async {
   try {
     final notificationService = NotificationService();
@@ -70,15 +72,24 @@ Future<void> _initNotifications() async {
       _handleNotificationTap(payload);
     };
 
-    await notificationService.initialize();
+    final initialized = await notificationService.initialize();
+    debugPrint('通知服务初始化${initialized ? "成功" : "失败"}');
 
     // 检查并请求通知权限
     final hasPermission = await notificationService.arePermissionsGranted();
+    debugPrint('通知权限状态: $hasPermission');
+
     if (!hasPermission) {
-      // 不在启动时请求，让用户在需要时再授权
       debugPrint('通知权限未授予，将在首次使用提醒功能时请求');
     } else {
-      debugPrint('通知服务初始化成功，权限已授予');
+      debugPrint('通知权限已授予');
+
+      // 打印待发送的通知
+      final pending = await notificationService.getPendingNotifications();
+      debugPrint('当前待发送的通知数量: ${pending.length}');
+      for (final note in pending) {
+        debugPrint('  - id=${note.id}, title=${note.title}');
+      }
     }
   } catch (e) {
     // 通知服务初始化失败不影响应用启动

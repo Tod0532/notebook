@@ -9,6 +9,8 @@ import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
 import 'package:thick_notepad/features/notes/presentation/widgets/note_preview_dialog.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
+import 'package:thick_notepad/shared/widgets/skeleton_loading.dart';
 import 'package:intl/intl.dart';
 
 /// 笔记视图（无 Scaffold，在 ShellRoute 内部）
@@ -30,7 +32,7 @@ class NotesView extends ConsumerWidget {
               child: notesAsync.when(
                 data: (notes) {
                   if (notes.isEmpty) {
-                    return _EmptyState(onTap: () => context.push(AppRoutes.noteEdit));
+                    return EmptyStateWidget.notes(onCreate: () => context.push(AppRoutes.noteEdit));
                   }
 
                   // 分离置顶和普通笔记
@@ -78,7 +80,7 @@ class NotesView extends ConsumerWidget {
                     },
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const NoteListSkeleton(),
                 error: (e, s) => _ErrorView(
                   message: e.toString(),
                   onRetry: () => ref.refresh(allNotesProvider),
@@ -124,7 +126,7 @@ class NotesView extends ConsumerWidget {
                   borderRadius: AppRadius.mdRadius,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.file_download_outlined, size: 20),
+                  icon: const Icon(Icons.file_download_outlined, size: 24),
                   onPressed: () => context.push(AppRoutes.noteExport),
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   constraints: const BoxConstraints(),
@@ -139,7 +141,7 @@ class NotesView extends ConsumerWidget {
                   borderRadius: AppRadius.mdRadius,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20),
+                  icon: const Icon(Icons.delete_outline, size: 24),
                   onPressed: () => context.push(AppRoutes.recycleBin),
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   constraints: const BoxConstraints(),
@@ -154,7 +156,7 @@ class NotesView extends ConsumerWidget {
                   borderRadius: AppRadius.mdRadius,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.search, size: 20),
+                  icon: const Icon(Icons.search, size: 24),
                   onPressed: () => _showSearchDialog(context),
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   constraints: const BoxConstraints(),
@@ -346,11 +348,7 @@ class _NoteCard extends StatelessWidget {
                         ),
                         child: Text(
                           tag,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: tagColor,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: AppTextStyles.label.copyWith(color: tagColor),
                         ),
                       );
                     }).toList(),
@@ -392,7 +390,7 @@ class _NoteCard extends StatelessWidget {
 
   Widget _buildMenuButton(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: 18),
+      icon: const Icon(Icons.more_vert, size: 24),
       onSelected: (value) {
         switch (value) {
           case 'pin':
@@ -425,63 +423,6 @@ class _NoteCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// 空状态
-class _EmptyState extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _EmptyState({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              shape: BoxShape.circle,
-              boxShadow: AppShadows.light,
-            ),
-            child: const Icon(
-              Icons.edit_note_outlined,
-              size: 56,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxl),
-          Text(
-            '还没有笔记',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '记录你的想法和灵感',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.xxl),
-          ElevatedButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.add),
-            label: const Text('创建笔记'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl, vertical: AppSpacing.md),
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.fullRadius,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

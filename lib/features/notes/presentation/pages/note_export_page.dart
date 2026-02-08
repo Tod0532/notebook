@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
+import 'package:thick_notepad/shared/widgets/skeleton_loading.dart';
 
 /// 笔记导出页面
 class NoteExportPage extends ConsumerStatefulWidget {
@@ -54,7 +55,7 @@ class _NoteExportPageState extends ConsumerState<NoteExportPage> {
           }
           return _buildContent(notes);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const NoteListSkeleton(),
         error: (e, s) => _ErrorView(
           message: e.toString(),
           onRetry: () => ref.refresh(allNotesProvider),
@@ -278,7 +279,7 @@ class _FormatSelector extends StatelessWidget {
   }
 }
 
-/// 导出笔记卡片
+/// 导出笔记卡片 - 带触摸反馈
 class _ExportNoteCard extends StatelessWidget {
   final dynamic note;
   final bool isSelected;
@@ -304,46 +305,61 @@ class _ExportNoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
         borderRadius: AppRadius.mdRadius,
         border: Border.all(
           color: AppColors.dividerColor.withOpacity(0.3),
         ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isSelected ? AppColors.primary : AppColors.textHint,
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      // 确保最小触控目标尺寸 48x48dp
+      constraints: const BoxConstraints(
+        minHeight: 48,
+      ),
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: AppRadius.mdRadius,
+        child: InkWell(
+          onTap: onToggle,
+          borderRadius: AppRadius.mdRadius,
+          splashColor: AppColors.primary.withOpacity(0.15),
+          highlightColor: AppColors.primary.withOpacity(0.08),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
               children: [
-                Text(
-                  _title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Icon(
+                  isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: isSelected ? AppColors.primary : AppColors.textHint,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _preview,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 4),
+                      Text(
+                        _preview,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

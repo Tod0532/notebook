@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
+import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 import 'package:thick_notepad/shared/animations/staggered_animation.dart';
+import 'package:thick_notepad/shared/widgets/skeleton_loading.dart';
 import 'package:intl/intl.dart';
 
 /// 笔记视图（无 Scaffold，在 ShellRoute 内部显示）
@@ -53,11 +55,12 @@ class _NotesViewSearchableState extends ConsumerState<NotesViewSearchable> {
                 final displayedNotes = hasFilter ? filteredNotes : notes;
 
                 if (displayedNotes.isEmpty) {
-                  return _EmptyState(
-                    onTap: () => context.push(AppRoutes.noteEdit),
-                    message: _searchKeyword != null && _searchKeyword!.isNotEmpty
-                        ? '没有找到匹配的笔记'
-                        : null,
+                  // 搜索无结果时显示搜索空状态，否则显示笔记空状态
+                  if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
+                    return const EmptyStateWidget.search();
+                  }
+                  return EmptyStateWidget.notes(
+                    onCreate: () => context.push(AppRoutes.noteEdit),
                   );
                 }
 
@@ -104,7 +107,7 @@ class _NotesViewSearchableState extends ConsumerState<NotesViewSearchable> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const NoteListSkeleton(),
               error: (e, s) => _ErrorView(
                 message: e.toString(),
                 onRetry: () => ref.refresh(allNotesProvider),
@@ -538,56 +541,6 @@ class _NoteCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// 空状态
-class _EmptyState extends StatelessWidget {
-  final VoidCallback onTap;
-  final String? message;
-
-  const _EmptyState({required this.onTap, this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.note_outlined,
-              size: 64,
-              color: AppColors.textHint.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              message ?? '还没有笔记',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textHint,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              '点击右下角按钮创建',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textHint,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            FilledButton.icon(
-              onPressed: onTap,
-              icon: const Icon(Icons.add),
-              label: const Text('创建笔记'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

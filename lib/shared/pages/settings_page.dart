@@ -195,7 +195,7 @@ class SettingsPage extends ConsumerWidget {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
       ),
     );
   }
@@ -206,7 +206,7 @@ class SettingsPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.xlRadius),
         title: const Text('深色模式'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -268,7 +268,7 @@ class SettingsPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.xlRadius),
         title: const Text('清除所有数据'),
         content: const Text('确定要清除所有数据吗？此操作不可恢复。'),
         actions: [
@@ -326,7 +326,7 @@ class _UserHeaderCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: AppRadius.xxlRadius,
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.3),
@@ -343,7 +343,7 @@ class _UserHeaderCard extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadius.xlRadius,
             ),
             child: const Icon(
               Icons.person_rounded,
@@ -390,7 +390,7 @@ class _UserHeaderCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.mdRadius,
                 ),
                 child: Text(
                   'PRO',
@@ -440,7 +440,7 @@ class _SettingsSection extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.lgRadius,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
@@ -483,7 +483,7 @@ class _SettingsTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.lgRadius,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -494,7 +494,7 @@ class _SettingsTile extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.mdRadius,
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
               ),
@@ -544,7 +544,7 @@ class _ThemePreviewIndicator extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.smRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -583,7 +583,7 @@ class _ColorModeIndicator extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.smRadius,
         border: Border.all(
           color: AppColors.primary.withValues(alpha: 0.3),
           width: 1,
@@ -631,7 +631,7 @@ class _BuildStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.warning.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.smRadius,
         border: Border.all(
           color: AppColors.warning.withValues(alpha: 0.3),
           width: 1,
@@ -680,7 +680,7 @@ class _AIStatusIndicatorState extends State<_AIStatusIndicator> {
         color: _isConfigured
             ? AppColors.success.withValues(alpha: 0.15)
             : AppColors.textHint.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.smRadius,
         border: Border.all(
           color: _isConfigured
               ? AppColors.success.withValues(alpha: 0.3)
@@ -717,7 +717,7 @@ class _BackupDialogState extends ConsumerState<_BackupDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.xlRadius),
       title: const Text('备份数据'),
       content: FutureBuilder<BackupStats>(
         future: _getBackupStats(),
@@ -766,7 +766,7 @@ class _BackupDialogState extends ConsumerState<_BackupDialog> {
                 AppColors.secondary.withValues(alpha: 0.1),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.lgRadius,
             border: Border.all(
               color: AppColors.primary.withValues(alpha: 0.2),
               width: 1,
@@ -916,7 +916,7 @@ class _RestoreDialogState extends ConsumerState<_RestoreDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.xlRadius),
       title: const Text('恢复数据'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -930,7 +930,7 @@ class _RestoreDialogState extends ConsumerState<_RestoreDialog> {
               color: _hasLocalBackup
                   ? AppColors.success.withValues(alpha: 0.1)
                   : AppColors.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadius.lgRadius,
               border: Border.all(
                 color: _hasLocalBackup
                     ? AppColors.success.withValues(alpha: 0.3)
@@ -1049,7 +1049,7 @@ class _ColorPreviewIndicator extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         gradient: currentColor.primaryGradient,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.smRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

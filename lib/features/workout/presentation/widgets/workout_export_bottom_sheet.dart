@@ -221,7 +221,7 @@ class _WorkoutExportBottomSheetState extends State<WorkoutExportBottomSheet> {
         height: 4,
         decoration: BoxDecoration(
           color: AppColors.textHint.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: AppRadius.xsRadius,
         ),
       ),
     );
@@ -246,7 +246,7 @@ class _WorkoutExportBottomSheetState extends State<WorkoutExportBottomSheet> {
             height: 56,
             decoration: BoxDecoration(
               color: _getWorkoutTypeColor(widget.workout.type).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.mdRadius,
             ),
             child: Center(
               child: Icon(
@@ -307,7 +307,7 @@ class _WorkoutExportBottomSheetState extends State<WorkoutExportBottomSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

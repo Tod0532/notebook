@@ -236,20 +236,8 @@ class _PlanTemplateSelectPageState extends ConsumerState<PlanTemplateSelectPage>
       await repo.updatePlanProgress(planId);
 
       if (mounted) {
-        // 显示成功消息
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已创建计划：${template.name}'),
-            backgroundColor: Colors.green,
-            action: SnackBarAction(
-              label: '查看',
-              textColor: Colors.white,
-              onPressed: () {
-                context.push('/plans/$planId');
-              },
-            ),
-          ),
-        );
+        // 先清除可能存在的旧SnackBar
+        ScaffoldMessenger.of(context).clearSnackBars();
         // 返回上一页
         context.pop();
         // 跳转到计划详情页

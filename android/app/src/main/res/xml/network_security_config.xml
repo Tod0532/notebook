@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 允许所有HTTPS请求 -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- CartoDB 瓦片服务器配置（主要） -->
+    <domain-config>
+        <domain includeSubdomains="true">basemaps.cartocdn.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+    <!-- OpenStreetMap 瓦片服务器配置（备用） -->
+    <domain-config>
+        <domain includeSubdomains="true">tile.openstreetmap.org</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

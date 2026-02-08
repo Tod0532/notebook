@@ -662,29 +662,30 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
       );
     }
 
-    // 使用flutter_map显示轨迹
-    return FlutterMap(
-      options: MapOptions(
-        initialCenter: _calculateCenter(),
-        initialZoom: _calculateInitialZoom(),
-        minZoom: 10.0,
-        maxZoom: 19.0,
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+    // 使用flutter_map显示轨迹（无瓦片模式）
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [const Color(0xFF1a1a2e), const Color(0xFF16213e)]
+              : [const Color(0xFFe8f5e9), const Color(0xFFc8e6c9)],
         ),
       ),
-      children: [
-        // OpenStreetMap 图层
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.thick_notepad',
-          // 确保在网络加载时显示占位符
-          errorTileCallback: (tile, error, stackTrace) {
-            debugPrint('地图瓦片加载错误: $error');
-          },
+      child: FlutterMap(
+        options: MapOptions(
+          initialCenter: _calculateCenter(),
+          initialZoom: _calculateInitialZoom(),
+          minZoom: 10.0,
+          maxZoom: 19.0,
+          backgroundColor: Colors.transparent,
+          interactionOptions: const InteractionOptions(
+            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+          ),
         ),
-
-        // 轨迹线图层
+        children: [
+          // 轨迹线图层
         PolylineLayer(
           polylines: [
             Polyline(
@@ -752,7 +753,8 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
 
   /// 计算初始缩放级别
   double _calculateInitialZoom() {
-    if (_trackPoints.length < 2) return 17.0;
+    // 单点时显示周围区域，不要缩放太近
+    if (_trackPoints.length < 2) return 15.0;
 
     final latitudes = _trackPoints.map((p) => p.latitude).toList();
     final longitudes = _trackPoints.map((p) => p.longitude).toList();

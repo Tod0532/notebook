@@ -152,12 +152,12 @@ class _ActivityTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
         border: Border.all(color: AppColors.surfaceVariant),
       ),
       child: InkWell(
         onTap: () => _handleTap(context),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.mdRadius,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -166,7 +166,7 @@ class _ActivityTile extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: activity.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: AppRadius.smRadius,
                 ),
                 child: Icon(activity.icon, color: activity.color, size: 20),
               ),
@@ -221,7 +221,7 @@ class _ActivityTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppRadius.smRadius,
           ),
           child: const Text('笔记', style: TextStyle(fontSize: 10, color: AppColors.primary)),
         );
@@ -230,7 +230,7 @@ class _ActivityTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: AppColors.secondary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppRadius.smRadius,
           ),
           child: const Text('运动', style: TextStyle(fontSize: 10, color: AppColors.secondary)),
         );
@@ -239,7 +239,7 @@ class _ActivityTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: AppColors.success.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppRadius.smRadius,
           ),
           child: const Text('任务', style: TextStyle(fontSize: 10, color: AppColors.success)),
         );
@@ -283,7 +283,7 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.lgRadius,
       ),
       child: Column(
         children: [

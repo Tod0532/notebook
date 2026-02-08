@@ -87,7 +87,7 @@ class _ColorSelectionPageState extends ConsumerState<ColorSelectionPage> {
       SnackBar(
         content: Text('已切换到 ${color.name}'),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
       ),
     );
   }
@@ -545,7 +545,7 @@ class _CustomColorDialogState extends ConsumerState<_CustomColorDialog> {
                   content: const Text('已应用自定义颜色'),
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: AppRadius.smRadius,
                   ),
                 ),
               );

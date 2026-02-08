@@ -7,6 +7,7 @@ import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
 import 'package:thick_notepad/features/notes/presentation/providers/note_providers.dart';
 import 'package:thick_notepad/shared/widgets/modern_animations.dart';
+import 'package:thick_notepad/shared/widgets/skeleton_loading.dart';
 
 /// 回收站视图
 class RecycleBinView extends ConsumerWidget {
@@ -43,7 +44,7 @@ class RecycleBinView extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const NoteListSkeleton(),
               error: (e, s) => _ErrorView(
                 message: e.toString(),
                 onRetry: () => ref.refresh(deletedNotesProvider),
@@ -295,7 +296,9 @@ class _DeletedNoteCard extends StatelessWidget {
   }
 }
 
-/// 空状态
+/// 空状态 - 回收站专用
+/// 注意：保留自定义实现是因为回收站场景特殊，需要显示"返回"按钮而非"创建"按钮
+/// 与通用 EmptyStateWidget 的使用场景不同
 class _EmptyState extends StatelessWidget {
   final VoidCallback onTap;
 
