@@ -11,22 +11,40 @@ import com.thicknotepad.thick_notepad.widget.NoteWidgetUpdater
 import com.thicknotepad.thick_notepad.widget.PlanWidgetUpdater
 import com.thicknotepad.thick_notepad.widget.WorkoutWidgetUpdater
 import com.thicknotepad.thick_notepad.widget.VoiceWidgetUpdater
+import com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver
 
 /**
- * MainActivity - 支持原生语音识别和桌面小组件
+ * MainActivity - 支持原生语音识别、桌面小组件和通知
  */
 class MainActivity : FlutterActivity() {
     private val TAG = "MainActivity"
     private val SPEECH_CHANNEL = "com.thicknotepad.thick_notepad/speech"
     private val WIDGET_CHANNEL = "com.thicknotepad.thick_notepad/widget"
+    private val NOTIFICATION_CHANNEL = "com.thicknotepad.thick_notepad/notification"
     private val SPEECH_REQUEST_CODE = 1234
 
     private var speechChannel: MethodChannel? = null
     private var widgetChannel: MethodChannel? = null
+    private var notificationChannel: MethodChannel? = null
     private var pendingResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // 通知通道
+        notificationChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATION_CHANNEL)
+        notificationChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "debugPrint" -> {
+                    val message = call.argument<String>("message")
+                    Log.d(TAG, "Flutter: $message")
+                    result.success(null)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
 
         // 语音识别通道
         speechChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SPEECH_CHANNEL)
@@ -200,6 +218,8 @@ class MainActivity : FlutterActivity() {
         speechChannel = null
         widgetChannel?.setMethodCallHandler(null)
         widgetChannel = null
+        notificationChannel?.setMethodCallHandler(null)
+        notificationChannel = null
         pendingResult = null
     }
 
@@ -208,11 +228,39 @@ class MainActivity : FlutterActivity() {
 
         // 处理从小组件启动的Intent
         handleWidgetIntent(intent)
+
+        // 处理从通知启动的Intent
+        handleNotificationIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleWidgetIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    /**
+     * 处理来自通知的Intent
+     */
+    private fun handleNotificationIntent(intent: Intent?) {
+        Log.d(TAG, "handleNotificationIntent: ${intent?.action}")
+
+        // 检查是否从通知启动
+        val extras = intent?.extras
+        if (extras != null) {
+            // 检查 flutter_local_notifications 的 payload
+            if (extras.containsKey("notification_id")) {
+                val notificationId = extras.getInt("notification_id")
+                val payload = extras.getString("payload")
+                Log.d(TAG, "通知点击: id=$notificationId, payload=$payload")
+
+                // 通知 Flutter 处理通知点击
+                notificationChannel?.invokeMethod("onNotificationTap", mapOf(
+                    "id" to notificationId,
+                    "payload" to (payload ?: "")
+                ))
+            }
+        }
     }
 
     /**

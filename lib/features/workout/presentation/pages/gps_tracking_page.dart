@@ -686,53 +686,54 @@ class _GpsTrackingPageState extends ConsumerState<GpsTrackingPage> {
         ),
         children: [
           // 轨迹线图层
-        PolylineLayer(
-          polylines: [
-            Polyline(
-              points: _convertToLatLngPoints(),
-              strokeWidth: 4.0,
-              color: AppColors.primary,
-              pattern: const StrokePattern.solid(),
-            ),
-          ],
-        ),
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: _convertToLatLngPoints(),
+                strokeWidth: 4.0,
+                color: AppColors.primary,
+                pattern: const StrokePattern.solid(),
+              ),
+            ],
+          ),
 
-        // 起点和终点标记
-        MarkerLayer(
-          markers: _buildMarkers(),
-        ),
-
-        // 当前位置标记（如果正在追踪）
-        if (_status == GpsTrackingStatus.tracking && _trackPoints.isNotEmpty)
+          // 起点和终点标记
           MarkerLayer(
-            markers: [
-              Marker(
-                point: LatLng(
-                  _trackPoints.last.latitude,
-                  _trackPoints.last.longitude,
-                ),
-                width: 40,
-                height: 40,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    shape: BoxShape.circle,
+            markers: _buildMarkers(),
+          ),
+
+          // 当前位置标记（如果正在追踪）
+          if (_status == GpsTrackingStatus.tracking && _trackPoints.isNotEmpty)
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(
+                    _trackPoints.last.latitude,
+                    _trackPoints.last.longitude,
                   ),
-                  child: Center(
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+                  width: 40,
+                  height: 40,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-      ],
+              ],
+            ),
+        ],
+      ),
     );
   }
 

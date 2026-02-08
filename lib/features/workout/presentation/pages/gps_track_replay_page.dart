@@ -223,96 +223,46 @@ class _GpsTrackReplayPageState extends State<GpsTrackReplayPage> {
         ),
         children: [
           // 完整轨迹（灰色半透明）
-        PolylineLayer(
-          polylines: [
-            Polyline(
-              points: widget.trackPoints
-                  .map((p) => LatLng(p.latitude, p.longitude))
-                  .toList(),
-              strokeWidth: 4.0,
-              color: AppColors.textHint.withValues(alpha: 0.3),
-            ),
-          ],
-        ),
-
-        // 已回放的轨迹（彩色）
-        if (_currentPointIndex > 0)
           PolylineLayer(
             polylines: [
               Polyline(
                 points: widget.trackPoints
-                    .take(_currentPointIndex + 1)
                     .map((p) => LatLng(p.latitude, p.longitude))
                     .toList(),
-                strokeWidth: 5.0,
-                color: AppColors.primary,
+                strokeWidth: 4.0,
+                color: AppColors.textHint.withValues(alpha: 0.3),
               ),
             ],
           ),
 
-        // 起点标记
-        MarkerLayer(
-          markers: [
-            Marker(
-              point: LatLng(
-                widget.trackPoints.first.latitude,
-                widget.trackPoints.first.longitude,
-              ),
-              width: 32,
-              height: 32,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.success,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+          // 已回放的轨迹（彩色）
+          if (_currentPointIndex > 0)
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: widget.trackPoints
+                      .take(_currentPointIndex + 1)
+                      .map((p) => LatLng(p.latitude, p.longitude))
+                      .toList(),
+                  strokeWidth: 5.0,
+                  color: AppColors.primary,
                 ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
+              ],
             ),
-          ],
-        ),
 
-        // 当前位置标记
-        if (_currentPointIndex < widget.trackPoints.length)
+          // 起点标记
           MarkerLayer(
             markers: [
               Marker(
                 point: LatLng(
-                  widget.trackPoints[_currentPointIndex].latitude,
-                  widget.trackPoints[_currentPointIndex].longitude,
-                ),
-                width: 40,
-                height: 40,
-                child: _buildCurrentLocationMarker(),
-              ),
-            ],
-          ),
-
-        // 终点标记
-        if (widget.trackPoints.length > 1)
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: LatLng(
-                  widget.trackPoints.last.latitude,
-                  widget.trackPoints.last.longitude,
+                  widget.trackPoints.first.latitude,
+                  widget.trackPoints.first.longitude,
                 ),
                 width: 32,
                 height: 32,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.error,
+                    color: AppColors.success,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
@@ -324,7 +274,7 @@ class _GpsTrackReplayPageState extends State<GpsTrackReplayPage> {
                     ],
                   ),
                   child: const Icon(
-                    Icons.flag,
+                    Icons.play_arrow,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -332,7 +282,58 @@ class _GpsTrackReplayPageState extends State<GpsTrackReplayPage> {
               ),
             ],
           ),
-      ],
+
+          // 当前位置标记
+          if (_currentPointIndex < widget.trackPoints.length)
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(
+                    widget.trackPoints[_currentPointIndex].latitude,
+                    widget.trackPoints[_currentPointIndex].longitude,
+                  ),
+                  width: 40,
+                  height: 40,
+                  child: _buildCurrentLocationMarker(),
+                ),
+              ],
+            ),
+
+          // 终点标记
+          if (widget.trackPoints.length > 1)
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(
+                    widget.trackPoints.last.latitude,
+                    widget.trackPoints.last.longitude,
+                  ),
+                  width: 32,
+                  height: 32,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.flag,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 

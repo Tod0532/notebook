@@ -2,8 +2,8 @@
 
 class AppConstants {
   // 应用信息
-  static const String appName = '动计笔记';
-  static const String appVersion = '1.0.0';
+  static const String appName = '慧记';
+  static const String appVersion = '1.0.1';
 
   // 存储键
   static const String keyThemeMode = 'theme_mode';

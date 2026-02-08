@@ -441,35 +441,36 @@ class _GpsRouteDetailPageState extends ConsumerState<GpsRouteDetailPage> {
         ),
         children: [
           // 完整轨迹线（半透明）
-        PolylineLayer(
-          polylines: [
-            Polyline(
-              points: _convertToLatLngPoints(),
-              strokeWidth: 4.0,
-              color: AppColors.primary.withValues(alpha: 0.3),
-              pattern: const StrokePattern.solid(),
-            ),
-          ],
-        ),
-
-        // 已走过的轨迹线（回放时）
-        if (_isReplaying && _currentPointIndex > 0)
           PolylineLayer(
             polylines: [
               Polyline(
-                points: _convertToLatLngPoints().sublist(0, _currentPointIndex + 1),
-                strokeWidth: 5.0,
-                color: AppColors.primary,
+                points: _convertToLatLngPoints(),
+                strokeWidth: 4.0,
+                color: AppColors.primary.withValues(alpha: 0.3),
                 pattern: const StrokePattern.solid(),
               ),
             ],
           ),
 
-        // 标记
-        MarkerLayer(
-          markers: _buildMarkers(),
-        ),
-      ],
+          // 已走过的轨迹线（回放时）
+          if (_isReplaying && _currentPointIndex > 0)
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: _convertToLatLngPoints().sublist(0, _currentPointIndex + 1),
+                  strokeWidth: 5.0,
+                  color: AppColors.primary,
+                  pattern: const StrokePattern.solid(),
+                ),
+              ],
+            ),
+
+          // 标记
+          MarkerLayer(
+            markers: _buildMarkers(),
+          ),
+        ],
+      ),
     );
   }
 

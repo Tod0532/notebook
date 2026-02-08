@@ -108,7 +108,7 @@ class BackupService {
     return BackupData(
       version: _currentBackupVersion,
       backupTime: DateTime.now(),
-      appVersion: '1.0.0',
+      appVersion: '1.0.1',
       notes: notes.map((n) => n.toJson() as Map<String, dynamic>).toList(),
       reminders: reminders.map((r) => r.toJson() as Map<String, dynamic>).toList(),
       workouts: workouts.map((w) => w.toJson() as Map<String, dynamic>).toList(),

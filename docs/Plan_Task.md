@@ -140,6 +140,18 @@
 
 ---
 
+## 📦 版本信息
+
+| 项目 | 值 |
+|------|------|
+| **当前版本** | 1.0.1+2 |
+| **发布日期** | 2026-02-08 |
+| **APK名称** | 慧记-v1.0.1.apk |
+| **APK大小** | 73.3 MB |
+| **APK位置** | docs/慧记-v1.0.0.apk |
+
+---
+
 ## 📝 品牌升级 (2026-02-07)
 
 ### APP名称
@@ -159,6 +171,21 @@
 ---
 
 ## 🐛 Bug修复记录
+
+### 编译语法修复 (2026-02-08)
+**问题**: GPS相关页面FlutterMap Container闭合括号缺失，导致代码生成失败
+
+**修复**:
+- 修复 `gps_tracking_page.dart` FlutterMap Container闭合
+- 修复 `gps_route_detail_page.dart` FlutterMap Container闭合
+- 修复 `gps_track_replay_page.dart` FlutterMap Container闭合
+
+**文件**: `gps_tracking_page.dart`, `gps_route_detail_page.dart`, `gps_track_replay_page.dart`
+
+**编译结果**:
+- APK大小: 73.3 MB
+- 字体优化: -99.7% (CupertinoIcons), -97.6% (MaterialIcons)
+- 代码分析: 0 error
 
 ### GPS追踪优化 (2026-02-08)
 **问题**: GPS定位在室内环境超时，追踪无法启动

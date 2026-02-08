@@ -1,7 +1,7 @@
 name: thick_notepad
 description: 慧记 - 你的AI生活智囊，记事+提醒+运动+计划一站式APP
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
