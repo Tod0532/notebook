@@ -1,6 +1,42 @@
 # 慧记 - 代码修改历史
 
-> 更新时间：2026-02-08
+> 更新时间：2026-02-11
+
+---
+
+## 2026-02-11 - 提醒通知功能修复 🔔
+
+### 问题诊断
+
+通过日志分析发现通知系统初始化失败：
+```
+PlatformException(invalid_led_details, Must specify both ledOnMs and
+ledOffMs to configure the blink cycle on older versions of Android)
+```
+
+**根本原因**：LED闪烁灯配置不完整，导致整个通知系统无法工作
+
+### 修复内容
+
+#### 1. 移除问题配置
+- 移除 `enableLights`、`ledColor` 配置
+- 这些配置在旧版本Android上需要额外参数才能工作
+
+#### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `notification_service.dart` | 移除LED配置，修复通知详情 |
+| `notification_service.dart` | 移除LED配置，修复通知渠道 |
+| `main.dart` | 添加应用启动恢复通知逻辑 |
+| `AndroidManifest.xml` | 添加通知重启接收器 |
+
+#### 2. 其他优化
+- 修复时区转换：直接构造 TZDateTime 而不是使用 from()
+- 添加启动时恢复未完成提醒通知的功能
+- 添加详细的调试日志
+
+### 测试结果
+✅ 真机测试通过，通知正常接收
 
 ---
 

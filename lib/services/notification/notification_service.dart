@@ -85,14 +85,15 @@ class NotificationService {
       await androidPlugin.createNotificationChannel(
         const AndroidNotificationChannel(
           'thick_notepad_channel',
-          '动计笔记',
-          description: '动计笔记应用通知',
+          '慧记',
+          description: '慧记应用通知',
           importance: Importance.max,
           enableVibration: true,
           playSound: true,
           showBadge: true,
-          enableLights: true,
-          ledColor: Color(0xFF4CAF50),
+          // 修复：移除LED配置，避免兼容性问题
+          // enableLights: true,
+          // ledColor: Color(0xFF4CAF50),
         ),
       );
       debugPrint('NotificationService: 通知渠道创建成功');
@@ -144,7 +145,7 @@ class NotificationService {
   /// 安排单次通知
   ///
   /// 修复说明：
-  /// - 使用 Android 平台特定的调度方法，避免时区转换问题
+  /// - 修复时区转换问题，直接使用本地时间构造 TZDateTime
   /// - 添加了详细的调试日志
   /// - 添加了时间有效性检查
   Future<int?> scheduleNotification({
@@ -157,12 +158,19 @@ class NotificationService {
     final notificationDetails = _getNotificationDetails();
 
     try {
-      debugPrint('安排单次通知: id=$id, title=$title, time=$scheduledTime');
+      debugPrint('========== 安排单次通知 ==========');
+      debugPrint('通知ID: $id');
+      debugPrint('标题: $title');
+      debugPrint('提醒时间: $scheduledTime');
 
       // 检查时间是否在过去
       final now = DateTime.now();
+      debugPrint('当前时间: $now');
+      final timeDiff = scheduledTime.difference(now);
+      debugPrint('时间差: ${timeDiff.inSeconds} 秒 (${timeDiff.inMinutes} 分钟)');
+
       if (scheduledTime.isBefore(now)) {
-        debugPrint('警告: 安排的时间在过去，通知可能不会触发');
+        debugPrint('警告: 安排的时间在过去，通知不会触发');
         // 如果时间在过去，不安排通知
         return null;
       }
@@ -173,11 +181,23 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>();
 
         if (androidPlugin != null) {
-          // 将 DateTime 转换为 TZDateTime
-          final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+          // 直接构造本地时区的 TZDateTime（避免 from() 的转换问题）
+          final tzTime = tz.TZDateTime(
+            tz.local,
+            scheduledTime.year,
+            scheduledTime.month,
+            scheduledTime.day,
+            scheduledTime.hour,
+            scheduledTime.minute,
+            scheduledTime.second,
+          );
+          debugPrint('转换后时区时间: $tzTime');
+          debugPrint('当前时区时间: ${tz.TZDateTime.now(tz.local)}');
+
           // 获取 Android 平台特定的通知详情
           final androidDetails = notificationDetails.android;
 
+          // 使用 exactAllowWhileIdle 模式
           await androidPlugin.zonedSchedule(
             id,
             title,
@@ -188,13 +208,30 @@ class NotificationService {
             payload: payload,
           );
           debugPrint('通知安排成功(Android): id=$id');
+
+          // 验证通知是否真的被安排
+          final pending = await getPendingNotifications();
+          debugPrint('当前待发送通知数量: ${pending.length}');
+          for (final p in pending) {
+            debugPrint('  - id=${p.id}, title=${p.title}, body=${p.body}');
+          }
+
+          debugPrint('====================================');
           return id;
         }
       }
 
       // iOS 或降级方案: 使用时区感知的方法
-      final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
-      debugPrint('使用时区方法: $tzTime');
+      final tzTime = tz.TZDateTime(
+        tz.local,
+        scheduledTime.year,
+        scheduledTime.month,
+        scheduledTime.day,
+        scheduledTime.hour,
+        scheduledTime.minute,
+        scheduledTime.second,
+      );
+      debugPrint('使用时区方法(iOS/降级): $tzTime');
 
       await _plugin.zonedSchedule(
         id,
@@ -208,9 +245,11 @@ class NotificationService {
       );
 
       debugPrint('通知安排成功: id=$id');
+      debugPrint('====================================');
       return id;
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('安排通知失败: $e');
+      debugPrint('堆栈: $stackTrace');
       return null;
     }
   }
@@ -413,8 +452,8 @@ class NotificationService {
   NotificationDetails _getNotificationDetails() {
     const androidDetails = AndroidNotificationDetails(
       'thick_notepad_channel',
-      '动计笔记',
-      channelDescription: '动计笔记应用通知',
+      '慧记',
+      channelDescription: '慧记应用通知',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
@@ -423,9 +462,12 @@ class NotificationService {
       styleInformation: BigTextStyleInformation(''),
       enableVibration: true,
       playSound: true,
-      enableLights: true,
-      ledColor: Color(0xFF4CAF50),
-      fullScreenIntent: true,
+      // 修复：移除LED配置，避免旧版本Android报错
+      // enableLights: true,
+      // ledColor: Color(0xFF4CAF50),
+      // ledOnMs: 100,
+      // ledOffMs: 100,
+      fullScreenIntent: false,
     );
 
     const darwinDetails = DarwinNotificationDetails(

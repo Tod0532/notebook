@@ -144,7 +144,15 @@
                 android:resource="@xml/widget_voice_info" />
         </receiver>
 
-        <!-- 注意：flutter_local_notifications v17+ 不再需要手动声明 LocalNotificationsReceiver -->
+        <!-- 通知重启接收器 - 设备重启后恢复通知 -->
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- 声明使用 BLE 功能 -->

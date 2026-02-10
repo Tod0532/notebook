@@ -73,7 +73,7 @@ Future<void> _initNotifications() async {
     };
 
     final initialized = await notificationService.initialize();
-    debugPrint('通知服务初始化${initialized ? "成功" : "失败"}');
+    debugPrint('========== 通知服务初始化${initialized ? "成功" : "失败"} ==========');
 
     // 检查并请求通知权限
     final hasPermission = await notificationService.arePermissionsGranted();
@@ -84,16 +84,65 @@ Future<void> _initNotifications() async {
     } else {
       debugPrint('通知权限已授予');
 
-      // 打印待发送的通知
-      final pending = await notificationService.getPendingNotifications();
-      debugPrint('当前待发送的通知数量: ${pending.length}');
-      for (final note in pending) {
+      // 打印待发送的通知（恢复前）
+      final pendingBefore = await notificationService.getPendingNotifications();
+      debugPrint('恢复前待发送通知数量: ${pendingBefore.length}');
+
+      // 恢复数据库中未完成的提醒通知
+      await _restoreReminderNotifications(notificationService);
+
+      // 打印待发送的通知（恢复后）
+      final pendingAfter = await notificationService.getPendingNotifications();
+      debugPrint('恢复后待发送通知数量: ${pendingAfter.length}');
+      for (final note in pendingAfter) {
         debugPrint('  - id=${note.id}, title=${note.title}');
       }
     }
   } catch (e) {
     // 通知服务初始化失败不影响应用启动
     debugPrint('通知服务初始化失败: $e');
+  }
+}
+
+/// 恢复数据库中未完成的提醒通知
+///
+/// 应用重启或设备重启后，需要重新安排未完成的提醒通知
+Future<void> _restoreReminderNotifications(NotificationService notificationService) async {
+  try {
+    final db = DatabaseProvider.instance;
+
+    // 获取所有未完成且已启用的提醒
+    final now = DateTime.now();
+    final reminders = await (db.select(db.reminders)
+          ..where((tbl) =>
+              tbl.isDone.equals(false) &
+              tbl.isEnabled.equals(true) &
+              tbl.remindTime.isBiggerThanValue(now)))
+        .get();
+
+    debugPrint('需要恢复通知的提醒数量: ${reminders.length}');
+
+    for (final reminder in reminders) {
+      try {
+        final scheduled = await notificationService.scheduleNotification(
+          id: reminder.id,
+          title: reminder.title,
+          body: reminder.description?.isNotEmpty == true ? reminder.description : '该完成这件事了',
+          scheduledTime: reminder.remindTime,
+          payload: 'reminder:${reminder.id}',
+        );
+
+        if (scheduled != null) {
+          debugPrint('  ✓ 已恢复提醒 #${reminder.id}: ${reminder.title} @ ${reminder.remindTime}');
+        } else {
+          debugPrint('  ✗ 恢复提醒失败 #${reminder.id}: ${reminder.title}');
+        }
+      } catch (e) {
+        debugPrint('  ✗ 恢复提醒异常 #${reminder.id}: $e');
+      }
+    }
+  } catch (e) {
+    debugPrint('恢复提醒通知失败: $e');
   }
 }
 

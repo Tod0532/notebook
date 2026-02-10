@@ -11,10 +11,13 @@ import com.thicknotepad.thick_notepad.widget.NoteWidgetUpdater
 import com.thicknotepad.thick_notepad.widget.PlanWidgetUpdater
 import com.thicknotepad.thick_notepad.widget.WorkoutWidgetUpdater
 import com.thicknotepad.thick_notepad.widget.VoiceWidgetUpdater
-import com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver
 
 /**
  * MainActivity - 支持原生语音识别、桌面小组件和通知
+ *
+ * 通知说明：
+ * - flutter_local_notifications v17+ 使用内部接收器处理通知
+ * - 设备重启后通知会通过 ScheduledNotificationBootReceiver 自动恢复
  */
 class MainActivity : FlutterActivity() {
     private val TAG = "MainActivity"
