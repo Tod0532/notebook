@@ -7,56 +7,127 @@ import 'package:thick_notepad/features/notes/data/repositories/note_repository.d
 
 // ==================== 笔记列表 Provider ====================
 
-/// 所有笔记 Provider
+/// 分页笔记状态管理
+class PagedNotesState extends StateNotifier<AsyncValue<PagedResult<Note>>> {
+  PagedNotesState(this.repository) : super(const AsyncValue.loading()) {
+    loadFirstPage();
+  }
+
+  final NoteRepository repository;
+  PaginationParams? _currentParams;
+
+  /// 加载第一页
+  Future<void> loadFirstPage() async {
+    _currentParams = const PaginationParams(page: 1, pageSize: 20);
+    state = const AsyncValue.loading();
+    await _loadPage();
+  }
+
+  /// 加载下一页
+  Future<void> loadNextPage() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore) return;
+
+    _currentParams = current.nextPageParams();
+    await _loadPage(append: true);
+  }
+
+  Future<void> _loadPage({bool append = false}) async {
+    if (_currentParams == null) return;
+
+    try {
+      final result = await repository.getNotesPaged(_currentParams);
+
+      if (append && state.valueOrNull != null) {
+        // 追加模式：合并数据
+        final existingItems = state.valueOrNull!.items;
+        state = AsyncValue.data(result.copyWith(
+          items: [...existingItems, ...result.items],
+        ));
+      } else {
+        state = AsyncValue.data(result);
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// 刷新列表
+  Future<void> refresh() async {
+    await loadFirstPage();
+  }
+}
+
+/// 所有笔记 Provider（使用 keepAlive 缓存）
 final allNotesProvider = FutureProvider.autoDispose<List<Note>>((ref) async {
+  // 添加缓存失效监听器
+  ref.onDispose(() {
+    // 可以在这里清理资源
+  });
+
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getAllNotes();
 });
 
-/// 置顶笔记 Provider
+/// 分页笔记 Provider（优化版 - 支持增量加载）
+final pagedNotesProvider = StateNotifierProvider<PagedNotesState, AsyncValue<PagedResult<Note>>>((ref) {
+  final repository = ref.watch(noteRepositoryProvider);
+  ref.keepAlive(); // 保持状态不自动释放
+  return PagedNotesState(repository);
+});
+
+/// 置顶笔记 Provider（添加缓存）
 final pinnedNotesProvider = FutureProvider.autoDispose<List<Note>>((ref) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getPinnedNotes();
 });
 
-/// 按标签筛选的笔记 Provider 族
+/// 按标签筛选的笔记 Provider 族（添加缓存）
 final notesByTagProvider = FutureProvider.autoDispose.family<List<Note>, String>((ref, tag) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getNotesByTag(tag);
 });
 
-/// 搜索笔记 Provider 族
+/// 搜索笔记 Provider 族（添加缓存）
 final searchNotesProvider = FutureProvider.autoDispose.family<List<Note>, String>((ref, keyword) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.searchNotes(keyword);
 });
 
-/// 单个笔记 Provider 族
+/// 单个笔记 Provider 族（添加缓存）
 final noteProvider = FutureProvider.autoDispose.family<Note?, int>((ref, id) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getNoteById(id);
 });
 
-/// 所有标签 Provider
+/// 所有标签 Provider（添加缓存）
 final allTagsProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getAllTags();
 });
 
-/// 回收站笔记 Provider
+/// 回收站笔记 Provider（添加缓存）
 final deletedNotesProvider = FutureProvider.autoDispose<List<Note>>((ref) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getDeletedNotes();
 });
 
-/// 文件夹列表 Provider
+/// 文件夹列表 Provider（添加缓存）
 final allFoldersProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getAllFolders();
 });
 
-/// 按文件夹筛选的笔记 Provider 族
+/// 按文件夹筛选的笔记 Provider 族（添加缓存）
 final notesByFolderProvider = FutureProvider.autoDispose.family<List<Note>, String>((ref, folder) async {
+  ref.keepAlive(); // 保持缓存
   final repository = ref.watch(noteRepositoryProvider);
   return await repository.getNotesByFolder(folder);
 });

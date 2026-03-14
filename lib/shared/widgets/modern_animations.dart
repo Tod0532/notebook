@@ -1048,6 +1048,153 @@ class _PulseLoadingIndicatorState extends State<PulseLoadingIndicator>
 /// 延迟时长枚举
 enum DelayDuration { none, short, medium, long }
 
+/// 页面过渡类型枚举（新增）
+enum PageTransitionType {
+  slide,       // 滑动切换
+  fade,        // 淡入淡出
+  scale,       // 缩放切换
+  slideScale,  // 滑动+缩放
+  fadeScale,   // 淡入+缩放
+}
+
+// ==================== 页面切换管理器（新增）====================
+
+/// 统一页面切换管理器
+/// 提供一致的页面过渡动画
+class PageTransitionManager {
+  /// 根据类型获取对应的页面路由
+  static Route<T> buildRoute<T>({
+    required PageTransitionType type,
+    required Widget child,
+    Duration? transitionDuration,
+    Duration? reverseTransitionDuration,
+  }) {
+    switch (type) {
+      case PageTransitionType.slide:
+        return ModernPageTransition(child: child) as Route<T>;
+      case PageTransitionType.fade:
+        return FadePageTransition(child: child) as Route<T>;
+      case PageTransitionType.scale:
+        return ScalePageTransition(child: child) as Route<T>;
+      case PageTransitionType.slideScale:
+        return SlideScalePageTransition(child: child) as Route<T>;
+      case PageTransitionType.fadeScale:
+        return FadeScalePageTransition(child: child) as Route<T>;
+    }
+  }
+
+  /// 快捷方法：默认滑动过渡
+  static Route<T> slide<T>(Widget child) => ModernPageTransition(child: child) as Route<T>;
+
+  /// 快捷方法：淡入淡出过渡
+  static Route<T> fade<T>(Widget child) => FadePageTransition(child: child) as Route<T>;
+
+  /// 快捷方法：缩放过渡
+  static Route<T> scale<T>(Widget child) => ScalePageTransition(child: child) as Route<T>;
+
+  /// 快捷方法：组合过渡（滑动+缩放）
+  static Route<T> slideScale<T>(Widget child) => SlideScalePageTransition(child: child) as Route<T>;
+
+  /// 快捷方法：组合过渡（淡入+缩放）
+  static Route<T> fadeScale<T>(Widget child) => FadeScalePageTransition(child: child) as Route<T>;
+}
+
+/// 自定义页面过渡构建器（用于 GoRouter）
+class CustomPageTransition {
+  static Widget buildTransition({
+    required BuildContext context,
+    required Animation<double> animation,
+    required Animation<double> secondaryAnimation,
+    required Widget child,
+    PageTransitionType type = PageTransitionType.slide,
+  }) {
+    switch (type) {
+      case PageTransitionType.fade:
+        return FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          ),
+          child: child,
+        );
+      case PageTransitionType.scale:
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
+            ),
+          ),
+          child: FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      case PageTransitionType.slideScale:
+        final slideTween = Tween<Offset>(
+          begin: const Offset(1.0, 0.0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        ));
+
+        return SlideTransition(
+          position: slideTween,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutQuart,
+              ),
+            ),
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          ),
+        );
+      case PageTransitionType.fadeScale:
+        return FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          ),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
+            child: child,
+          ),
+        );
+      case PageTransitionType.slide:
+      default:
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutQuart,
+          )),
+          child: FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+            ),
+            child: child,
+          ),
+        );
+    }
+  }
+}
+
 /// 滑入方向枚举
 enum SlideDirection { up, down, left, right }
 

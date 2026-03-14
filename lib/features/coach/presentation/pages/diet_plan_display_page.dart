@@ -488,6 +488,7 @@ class _DietPlanDisplayPageState extends ConsumerState<DietPlanDisplayPage>
 
     return SliverAppBar(
       expandedHeight: 200,
+      collapsedHeight: 120,
       floating: false,
       pinned: true,
       backgroundColor: AppColors.secondary,
@@ -514,13 +515,17 @@ class _DietPlanDisplayPageState extends ConsumerState<DietPlanDisplayPage>
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
         title: Text(
           plan.name,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
+            fontSize: 16,
             shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         background: Container(
           decoration: const BoxDecoration(

@@ -222,6 +222,10 @@ class _NoteCard extends StatelessWidget {
     required this.onDelete,
   });
 
+  // 静态格式化器缓存（线程安全，避免重复创建）
+  static final _dateFormatter = DateFormat('M月d日');
+  static final _timeFormatter = DateFormat('HH:mm');
+
   // 缓存标签列表解析结果 - 使用LRU策略限制大小
   static final Map<String, List<String>> _tagCache = {};
   static const int _maxCacheSize = 50;
@@ -268,7 +272,7 @@ class _NoteCard extends StatelessWidget {
     final isPinned = note.isPinned ?? false;
 
     // 使用静态格式化器避免重复创建
-    final dateTimeStr = '${DateFormat('M月d日').format(createdAt)} ${DateFormat('HH:mm').format(createdAt)}';
+    final dateTimeStr = '${_dateFormatter.format(createdAt)} ${_timeFormatter.format(createdAt)}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -335,24 +339,7 @@ class _NoteCard extends StatelessWidget {
                 // 标签
                 if (_tagList.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: 4,
-                    children: _tagList.take(3).map((tag) {
-                      final tagColor = AppColors.getTagColor(tag);
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: tagColor.withValues(alpha: 0.12),
-                          borderRadius: AppRadius.smRadius,
-                        ),
-                        child: Text(
-                          tag,
-                          style: AppTextStyles.label.copyWith(color: tagColor),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  _TagChips(tags: _tagList),
                 ],
                 // 日期
                 const SizedBox(height: AppSpacing.sm),
@@ -445,17 +432,21 @@ class _ErrorView extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline, size: 48, color: AppColors.error),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             '加载失败',
-            style: Theme.of(context).textTheme.titleMedium,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          Text(
-            message,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-            textAlign: TextAlign.center,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -465,6 +456,43 @@ class _ErrorView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 标签芯片组件 - 优化的标签渲染
+class _TagChips extends StatelessWidget {
+  final List<String> tags;
+
+  const _TagChips({required this.tags});
+
+  @override
+  Widget build(BuildContext context) {
+    // 预分配列表容量，减少扩容
+    final tagWidgets = <Widget>[];
+    final displayTags = tags.take(3);
+
+    for (final tag in displayTags) {
+      final tagColor = AppColors.getTagColor(tag);
+      tagWidgets.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
+          decoration: BoxDecoration(
+            color: tagColor.withValues(alpha: 0.12),
+            borderRadius: AppRadius.smRadius,
+          ),
+          child: Text(
+            tag,
+            style: AppTextStyles.label.copyWith(color: tagColor),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: 4,
+      children: tagWidgets,
     );
   }
 }
@@ -504,7 +532,8 @@ class _SwipeableNoteCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDismissableBackground() {
+  // 使用静态const避免重复构建
+  static Widget _buildDismissableBackground() {
     return Container(
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.only(right: AppSpacing.lg),

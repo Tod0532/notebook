@@ -271,6 +271,7 @@ class WorkoutPlanExercises extends Table {
   TextColumn get repsDescription => text().nullable()(); // 次数描述（如"12-15次"）
   RealColumn get weight => real().nullable()(); // 重量
   IntColumn get restSeconds => integer().nullable()(); // 组间休息秒数
+  IntColumn get estimatedSeconds => integer().nullable()(); // 预估完成时间（秒）- AI 给出的精确时间
 
   TextColumn get equipment => text().nullable()(); // 所需器械
   TextColumn get difficulty => text().nullable()(); // 难度：easy/medium/hard
@@ -1170,7 +1171,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   // ==================== 挑战系统 DAO 方法 ====================
 
@@ -1362,6 +1363,11 @@ class AppDatabase extends _$AppDatabase {
         // 版本13 -> 版本14：添加心率异常记录表
         if (from == 13 && to == 14) {
           await m.createTable(heartRateAlerts);
+        }
+        // 版本14 -> 版本15：添加 estimatedSeconds 字段
+        if (from == 14 && to == 15) {
+          // 添加新列（默认为空）
+          await m.addColumn(workoutPlanExercises, workoutPlanExercises.estimatedSeconds);
         }
       },
     );

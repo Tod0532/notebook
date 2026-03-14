@@ -364,6 +364,63 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
     );
   }
 
+  /// 确认并删除训练计划
+  Future<void> _confirmDeletePlan() async {
+    // 确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除训练计划'),
+        content: const Text('确定要删除这个训练计划吗？删除后将无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    // 显示加载对话框
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final repo = ref.read(workoutPlanRepositoryProvider);
+      await repo.deletePlan(widget.planId);
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        // 显示成功提示
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('计划已删除'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // 返回上一页
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
   /// AI重新生成计划
   Future<void> _regeneratePlan() async {
     // 确认对话框
@@ -465,25 +522,25 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
         final dayNumber = dayData['day'] as int? ?? 1;
         final dayName = dayData['dayName'] as String? ?? '第$dayNumber天';
         final trainingFocus = dayData['trainingFocus'] as String? ?? '';
-        final estimatedMinutes = dayData['estimatedMinutes'] as int? ?? 30;
         final exercisesList = dayData['exercises'] as List<dynamic>? ?? [];
 
         // 计算计划日期
         final dayScheduledDate = baseDate.add(Duration(days: dayNumber - 1));
 
-        // 创建日程
+        // 创建日程（先使用临时时长）
         final dayId = await workoutRepo.createDay(
           WorkoutPlanDaysCompanion(
             workoutPlanId: drift.Value(widget.planId),
             dayNumber: drift.Value(dayNumber),
             dayName: drift.Value(dayName),
             trainingFocus: drift.Value(trainingFocus),
-            estimatedMinutes: drift.Value(estimatedMinutes),
+            estimatedMinutes: const drift.Value(30), // 临时值，稍后计算
             scheduledDate: drift.Value(dayScheduledDate),
           ),
         );
 
-        // 创建动作
+        // 创建动作并计算实际总时长
+        int totalSeconds = 0;
         for (final exerciseData in exercisesList) {
           final order = exerciseData['order'] as int? ?? 1;
           final name = exerciseData['name'] as String? ?? '';
@@ -491,6 +548,7 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
           final sets = exerciseData['sets'] as int?;
           final reps = exerciseData['reps'] as String?;
           final restSeconds = exerciseData['restSeconds'] as int?;
+          final estimatedSeconds = exerciseData['estimatedSeconds'] as int?;
           final equipment = exerciseData['equipment'] as String?;
           final difficulty = exerciseData['difficulty'] as String?;
           final exerciseType = exerciseData['exerciseType'] as String? ?? 'main';
@@ -504,12 +562,20 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
               sets: drift.Value(sets ?? 3),
               repsDescription: drift.Value(reps),
               restSeconds: drift.Value(restSeconds ?? 60),
+              estimatedSeconds: drift.Value(estimatedSeconds),
               equipment: drift.Value(equipment),
               difficulty: drift.Value(difficulty),
               exerciseType: drift.Value(exerciseType),
             ),
           );
+
+          // 累计实际时间
+          totalSeconds += estimatedSeconds ?? 0;
         }
+
+        // 更新日程的实际时长（总秒数转换为分钟，向上取整）
+        final actualMinutes = (totalSeconds / 60).ceil();
+        await workoutRepo.updateDayEstimatedMinutes(dayId, actualMinutes);
       }
 
       // 更新计划的创建时间（表示已重新生成）
@@ -583,6 +649,7 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
 
     return SliverAppBar(
       expandedHeight: 200,
+      collapsedHeight: 120,
       floating: false,
       pinned: true,
       backgroundColor: AppColors.primary,
@@ -603,6 +670,8 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
               context.push('/coach/iteration?userProfileId=${plan.userProfileId}&workoutPlanId=${plan.id}');
             } else if (value == 'feedback') {
               context.push('/coach/feedback?userProfileId=${plan.userProfileId}&workoutPlanId=${plan.id}');
+            } else if (value == 'delete') {
+              await _confirmDeletePlan();
             }
           },
           itemBuilder: (context) => [
@@ -637,17 +706,32 @@ class _WorkoutPlanDisplayPageState extends ConsumerState<WorkoutPlanDisplayPage>
                 ],
               ),
             ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                  SizedBox(width: 12),
+                  Text('删除计划', style: TextStyle(color: AppColors.error)),
+                ],
+              ),
+            ),
           ],
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
         title: Text(
           plan.name,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
+            fontSize: 16,
             shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         background: Container(
           decoration: const BoxDecoration(

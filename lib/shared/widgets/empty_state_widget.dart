@@ -1,10 +1,13 @@
 /// 统一的空状态组件
 /// 用于各模块的空数据展示和引导
+/// 增强版：添加动画效果和更精美的设计
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/router.dart';
+import 'package:thick_notepad/shared/widgets/modern_animations.dart';
 
 /// 空状态组件
 class EmptyStateWidget extends StatelessWidget {
@@ -100,71 +103,204 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = isCompact ? 40.0 : 64.0;
+    final size = isCompact ? 40.0 : 72.0;
     final padding = isCompact ? 16.0 : 24.0;
 
-    return Container(
-      padding: EdgeInsets.all(padding),
-      decoration: BoxDecoration(
-        color: isCompact ? null : AppColors.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(isCompact ? AppRadius.md : AppRadius.lg),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(isCompact ? 16 : 24),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: size,
-              color: AppColors.primary,
-            ),
-          ),
-          if (!isCompact) const SizedBox(height: AppSpacing.xl),
-          if (isCompact) const SizedBox(height: AppSpacing.md),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          if (description != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              description!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(padding),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 带动画的图标容器
+            ElasticScaleIn(
+              child: Container(
+                padding: EdgeInsets.all(isCompact ? 16 : 28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primary.withOpacity(0.15),
+                      AppColors.secondary.withOpacity(0.1),
+                    ],
                   ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: AppSpacing.xl),
-            ElevatedButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.add),
-              label: Text(actionLabel!),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.xlRadius,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.2),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: size,
+                  color: AppColors.primary,
                 ),
               ),
             ),
+            if (!isCompact) const SizedBox(height: AppSpacing.xl),
+            if (isCompact) const SizedBox(height: AppSpacing.md),
+            // 标题（带淡入动画）
+            FadeIn(
+              delay: DelayDuration.short,
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            if (description != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              FadeIn(
+                delay: DelayDuration.medium,
+                child: Text(
+                  description!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: AppSpacing.xl),
+              FadeIn(
+                delay: DelayDuration.long,
+                child: ElevatedButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.add),
+                  label: Text(actionLabel!),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl,
+                      vertical: AppSpacing.md,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.xlRadius,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
-/// 首次使用引导卡片
+/// 带插画的空状态（增强版）
+class IllustratedEmptyState extends StatelessWidget {
+  final String title;
+  final String description;
+  final String illustrationAsset;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const IllustratedEmptyState({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.illustrationAsset,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 插画区域（带毛玻璃效果背景）
+            ClipRRect(
+              borderRadius: AppRadius.xlRadius,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.primary.withOpacity(0.1),
+                        AppColors.secondary.withOpacity(0.05),
+                      ],
+                    ),
+                    borderRadius: AppRadius.xlRadius,
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Center(
+                    child: ElasticScaleIn(
+                      child: Icon(
+                        _getIconFromAsset(illustrationAsset),
+                        size: 80,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: AppSpacing.xl),
+              ElevatedButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.add),
+                label: Text(actionLabel!),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                    vertical: AppSpacing.lg,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.xlRadius,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getIconFromAsset(String asset) {
+    // 根据资源名返回对应的图标
+    if (asset.contains('note')) return Icons.edit_note_outlined;
+    if (asset.contains('reminder')) return Icons.notifications_outlined;
+    if (asset.contains('workout')) return Icons.fitness_center_outlined;
+    if (asset.contains('plan')) return Icons.flag_outlined;
+    return Icons.stars_outlined;
+  }
+}
+
+/// 首次使用引导卡片（增强版 - 带动画）
 class OnboardingCard extends StatelessWidget {
   final String title;
   final String description;

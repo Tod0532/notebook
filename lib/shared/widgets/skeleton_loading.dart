@@ -438,6 +438,462 @@ class ReminderListSkeleton extends StatelessWidget {
   }
 }
 
+// ==================== 新增骨架屏类型 ====================
+
+/// 统计图表骨架屏（用于统计页面）
+class ChartSkeleton extends StatelessWidget {
+  final ChartType chartType;
+
+  const ChartSkeleton({
+    super.key,
+    this.chartType = ChartType.bar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: AppRadius.lgRadius,
+        border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题骨架
+          _ShimmerBox(
+            width: 100,
+            height: 16,
+            borderRadius: 4,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          // 图表内容
+          Expanded(
+            child: _buildChartContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartContent() {
+    switch (chartType) {
+      case ChartType.bar:
+        return _BarChartSkeleton();
+      case ChartType.line:
+        return _LineChartSkeleton();
+      case ChartType.pie:
+        return _PieChartSkeleton();
+    }
+  }
+}
+
+/// 柱状图骨架
+class _BarChartSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(
+        7,
+        (index) => _ShimmerBox(
+          width: 24,
+          height: 40 + (index * 15) % 100,
+          borderRadius: 4,
+        ),
+      ),
+    );
+  }
+}
+
+/// 折线图骨架
+class _LineChartSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(double.infinity, 120),
+      painter: _LineSkeletonPainter(),
+    );
+  }
+}
+
+/// 饼图骨架
+class _PieChartSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: _ShimmerBox(
+        width: 120,
+        height: 120,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+/// 地图骨架屏（用于GPS追踪页面）
+class MapSkeleton extends StatelessWidget {
+  final bool showStats;
+
+  const MapSkeleton({
+    super.key,
+    this.showStats = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // 地图区域
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant.withOpacity(0.3),
+              borderRadius: AppRadius.lgRadius,
+            ),
+            child: Stack(
+              children: [
+                // 地图背景骨架
+                const _MapGridSkeleton(),
+                // 路线骨架
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _MapRouteSkeletonPainter(),
+                  ),
+                ),
+                // 位置标记骨架
+                Positioned(
+                  top: 60,
+                  left: 80,
+                  child: _ShimmerBox(
+                    width: 32,
+                    height: 32,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Positioned(
+                  top: 120,
+                  right: 60,
+                  child: _ShimmerBox(
+                    width: 32,
+                    height: 32,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 统计信息骨架
+        if (showStats) _buildStatsRow(context),
+      ],
+    );
+  }
+
+  Widget _buildStatsRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        children: List.generate(
+          3,
+          (index) => Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: index == 1 ? AppSpacing.sm : 0,
+              ),
+              child: Container(
+                height: 60,
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: AppRadius.mdRadius,
+                  border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ShimmerBox(
+                      width: 40,
+                      height: 14,
+                      borderRadius: 4,
+                    ),
+                    const SizedBox(height: 4),
+                    _ShimmerBox(
+                      width: 60,
+                      height: 12,
+                      borderRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 地图网格骨架
+class _MapGridSkeleton extends StatelessWidget {
+  const _MapGridSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _MapGridPainter(),
+    );
+  }
+}
+
+/// 运动列表骨架屏（用于运动记录页面）
+class WorkoutListSkeleton extends StatelessWidget {
+  const WorkoutListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+          height: 100,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: AppRadius.lgRadius,
+            border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5)),
+            boxShadow: AppShadows.subtle,
+          ),
+          child: Row(
+            children: [
+              // 图标骨架
+              _ShimmerBox(
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              // 内容骨架
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ShimmerBox(
+                      width: 100,
+                      height: 16,
+                      borderRadius: 4,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _ShimmerBox(
+                          width: 60,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        _ShimmerBox(
+                          width: 40,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 数值骨架
+              _ShimmerBox(
+                width: 50,
+                height: 20,
+                borderRadius: 4,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 计划列表骨架屏（用于计划页面）
+class PlanListSkeleton extends StatelessWidget {
+  const PlanListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+          height: 140,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.surfaceVariant.withOpacity(0.3),
+                AppColors.surfaceVariant.withOpacity(0.1),
+              ],
+            ),
+            borderRadius: AppRadius.lgRadius,
+            border: Border.all(color: AppColors.dividerColor.withValues(alpha: 0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _ShimmerBox(
+                    width: 32,
+                    height: 32,
+                    shape: BoxShape.circle,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _ShimmerBox(
+                      width: 120,
+                      height: 16,
+                      borderRadius: 4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _ShimmerBox(
+                width: double.infinity,
+                height: 12,
+                borderRadius: 4,
+              ),
+              const SizedBox(height: 8),
+              // 进度条骨架
+              _ShimmerBox(
+                width: double.infinity,
+                height: 8,
+                borderRadius: 4,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ==================== 自定义绘制器 ====================
+
+/// 折线图骨架绘制器
+class _LineSkeletonPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.textHint.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final path = Path();
+    final points = <Offset>[
+      Offset(size.width * 0.1, size.height * 0.7),
+      Offset(size.width * 0.25, size.height * 0.5),
+      Offset(size.width * 0.4, size.height * 0.6),
+      Offset(size.width * 0.55, size.height * 0.3),
+      Offset(size.width * 0.7, size.height * 0.4),
+      Offset(size.width * 0.85, size.height * 0.2),
+    ];
+
+    path.moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+
+    canvas.drawPath(path, paint);
+
+    // 绘制点
+    for (final point in points) {
+      canvas.drawCircle(point, 4, paint..style = PaintingStyle.fill);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 地图网格绘制器
+class _MapGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.dividerColor.withOpacity(0.2)
+      ..strokeWidth = 1;
+
+    final gridSize = 40.0;
+
+    // 绘制垂直线
+    for (double x = 0; x < size.width; x += gridSize) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+
+    // 绘制水平线
+    for (double y = 0; y < size.height; y += gridSize) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 地图路线骨架绘制器
+class _MapRouteSkeletonPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primary.withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    path.moveTo(size.width * 0.2, size.height * 0.3);
+    path.cubicTo(
+      size.width * 0.3, size.height * 0.2,
+      size.width * 0.5, size.height * 0.4,
+      size.width * 0.6, size.height * 0.3,
+    );
+    path.cubicTo(
+      size.width * 0.7, size.height * 0.2,
+      size.width * 0.8, size.height * 0.5,
+      size.width * 0.75, size.height * 0.7,
+    );
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ==================== 枚举定义 ====================
+
+/// 图表类型
+enum ChartType { bar, line, pie }
+
 /// 闪烁效果盒子
 class _ShimmerBox extends StatefulWidget {
   final double? width;

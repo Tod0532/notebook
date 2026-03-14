@@ -42,8 +42,8 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
   @override
   void initState() {
     super.initState();
-    // 延迟一下再开始生成，让UI先渲染
-    Future.delayed(const Duration(milliseconds: 500), _startGeneration);
+    // 不自动开始生成，让用户可以选择重新设置或直接生成
+    // Future.delayed(const Duration(milliseconds: 500), _startGeneration);
   }
 
   @override
@@ -55,6 +55,15 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
           icon: const Icon(Icons.close),
           onPressed: _isGenerating ? null : () => Navigator.of(context).pop(),
         ),
+        actions: [
+          if (!_isGenerating && _result == null)
+            TextButton.icon(
+              onPressed: _navigateToProfileSetup,
+              icon: const Icon(Icons.settings, size: 18),
+              label: const Text('重新设置'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.secondary),
+            ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -120,7 +129,27 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
                   ),
                 ],
               ),
+            // 开始生成按钮
+            if (!_isGenerating)
+              FilledButton.icon(
+                onPressed: _startGeneration,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('开始生成'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  textStyle: const TextStyle(fontSize: 16),
+                ),
+              ),
             const SizedBox(height: 32),
+            // 重新设置提示
+            if (!_isGenerating)
+              TextButton.icon(
+                onPressed: _navigateToProfileSetup,
+                icon: const Icon(Icons.settings, size: 16),
+                label: const Text('重新设置训练时长等选项'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+              ),
+            const SizedBox(height: 16),
             // 进度日志
             Container(
               constraints: const BoxConstraints(maxHeight: 200),
@@ -415,6 +444,20 @@ class _CoachPlanGenerationPageState extends ConsumerState<CoachPlanGenerationPag
         _isGenerating = false;
         _error = '抱歉，计划生成遇到问题：${e.toString()}';
       });
+    }
+  }
+
+  /// 跳转到用户画像设置页面（编辑现有画像）
+  Future<void> _navigateToProfileSetup() async {
+    // 获取当前用户画像信息
+    final profile = await ref.read(userProfileRepositoryProvider).getProfileById(widget.userProfileId);
+
+    if (profile == null) {
+      // 画像不存在，创建新的
+      context.push(AppRoutes.userProfileSetup);
+    } else {
+      // 画像存在，编辑现有画像
+      context.push('${AppRoutes.userProfileSetup}?profileId=${widget.userProfileId}');
     }
   }
 }

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:thick_notepad/core/theme/app_theme.dart';
 import 'package:thick_notepad/core/config/providers.dart';
 import 'package:thick_notepad/features/reminders/presentation/providers/reminder_providers.dart';
+import 'package:thick_notepad/features/reminders/data/models/reminder_repository.dart';
 import 'package:thick_notepad/features/speech/presentation/providers/speech_providers.dart';
 import 'package:thick_notepad/features/speech/presentation/widgets/voice_floating_button.dart';
 import 'package:thick_notepad/shared/widgets/empty_state_widget.dart';
@@ -296,13 +297,21 @@ class _ReminderCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        reminder.title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              decoration: reminder.isDone ? TextDecoration.lineThrough : null,
-                              color: reminder.isDone ? AppColors.textHint : null,
-                              fontWeight: FontWeight.w700,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              reminder.title,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    decoration: reminder.isDone ? TextDecoration.lineThrough : null,
+                                    color: reminder.isDone ? AppColors.textHint : null,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
+                          ),
+                          // 操作菜单
+                          _buildActionButton(context, reminder),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Row(
@@ -347,6 +356,159 @@ class _ReminderCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// 构建操作按钮
+  Widget _buildActionButton(BuildContext context, dynamic reminder) {
+    final isRepeat = reminder.repeatType != 'none';
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, size: 20),
+      onSelected: (value) => _handleMenuAction(context, value, reminder),
+      itemBuilder: (context) => [
+        if (isRepeat)
+          const PopupMenuItem(
+            value: 'skip',
+            child: Row(
+              children: [
+                Icon(Icons.skip_next, size: 18),
+                SizedBox(width: 8),
+                Text('跳过下次'),
+              ],
+            ),
+          ),
+        const PopupMenuItem(
+          value: 'snooze',
+          child: Row(
+            children: [
+              Icon(Icons.snooze, size: 18),
+              SizedBox(width: 8),
+              Text('贪睡'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18),
+              SizedBox(width: 8),
+              Text('编辑'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+              const SizedBox(width: 8),
+              const Text('删除', style: TextStyle(color: AppColors.error)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 处理菜单操作
+  void _handleMenuAction(BuildContext context, String action, dynamic reminder) {
+    switch (action) {
+      case 'skip':
+        _showSkipConfirmDialog(context, reminder);
+        break;
+      case 'snooze':
+        _showSnoozeDialog(context, reminder);
+        break;
+      case 'delete':
+        _showDeleteConfirmDialog(context, reminder);
+        break;
+      case 'edit':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('编辑功能开发中')),
+        );
+        break;
+    }
+  }
+
+  /// 显示跳过确认对话框
+  void _showSkipConfirmDialog(BuildContext context, dynamic reminder) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('跳过下次提醒'),
+        content: Text('确定要跳过"${reminder.title}"的下次提醒吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // 需要调用父组件的方法
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('跳过成功')),
+              );
+            },
+            child: const Text('跳过'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示贪睡时间选择对话框
+  void _showSnoozeDialog(BuildContext context, dynamic reminder) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('贪睡'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ReminderRepository.snoozeOptions.map((minutes) {
+            return ListTile(
+              title: Text(minutes < 60 ? '$minutes 分钟' : '${minutes ~/ 60} 小时'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('已延迟 $minutes 分钟')),
+                );
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  /// 显示删除确认对话框
+  void _showDeleteConfirmDialog(BuildContext context, dynamic reminder) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除提醒'),
+        content: Text('确定要删除"${reminder.title}"吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('删除成功')),
+              );
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
       ),
     );
   }

@@ -25,6 +25,56 @@ class NoteRepositoryException implements Exception {
   }
 }
 
+/// 分页参数
+class PaginationParams {
+  final int page;
+  final int pageSize;
+
+  const PaginationParams({
+    this.page = 1,
+    this.pageSize = 20,
+  });
+
+  int get offset => (page - 1) * pageSize;
+}
+
+/// 分页结果
+class PagedResult<T> {
+  final List<T> items;
+  final int totalCount;
+  final int currentPage;
+  final int pageSize;
+  final bool hasMore;
+
+  const PagedResult({
+    required this.items,
+    required this.totalCount,
+    required this.currentPage,
+    required this.pageSize,
+  }) : hasMore = currentPage * pageSize < totalCount;
+
+  /// 创建副本（用于追加数据）
+  PagedResult<T> copyWith({
+    List<T>? items,
+    int? totalCount,
+    int? currentPage,
+    int? pageSize,
+  }) {
+    return PagedResult<T>(
+      items: items ?? this.items,
+      totalCount: totalCount ?? this.totalCount,
+      currentPage: currentPage ?? this.currentPage,
+      pageSize: pageSize ?? this.pageSize,
+    );
+  }
+
+  /// 创建下一页的参数
+  PaginationParams nextPageParams() => PaginationParams(
+        page: currentPage + 1,
+        pageSize: pageSize,
+      );
+}
+
 class NoteRepository {
   final AppDatabase _db;
   ChallengeService? _challengeService;
@@ -38,16 +88,49 @@ class NoteRepository {
 
   /// 获取所有笔记（未删除）
   Future<List<Note>> getAllNotes() async {
-    try {
-      return await (_db.select(_db.notes)
-            ..where((tbl) => tbl.isDeleted.equals(false))
-            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-          .get();
-    } catch (e, st) {
-      debugPrint('获取笔记列表失败: $e');
-      throw NoteRepositoryException('获取笔记列表失败', e, st);
-    }
+  try {
+    return await (_db.select(_db.notes)
+          ..where((tbl) => tbl.isDeleted.equals(false))
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+        .get();
+  } catch (e, st) {
+    debugPrint('获取笔记列表失败: $e');
+    throw NoteRepositoryException('获取笔记列表失败', e, st);
   }
+}
+
+/// 分页获取笔记（优化版 - 减少初始加载时间）
+Future<PagedResult<Note>> getNotesPaged([PaginationParams? params]) async {
+  final pagination = params ?? const PaginationParams();
+  try {
+    // 并行获取数据和总数
+    final results = await Future.wait([
+      (_db.select(_db.notes)
+            ..where((tbl) => tbl.isDeleted.equals(false))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)])
+            ..limit(pagination.pageSize, offset: pagination.offset))
+          .get(),
+      // 获取总数（用于计算hasMore）
+      (_db.select(_db.notes)
+            ..where((tbl) => tbl.isDeleted.equals(false)))
+          .get()
+          .then((notes) => notes.length),
+    ]);
+
+    final items = results[0] as List<Note>;
+    final totalCount = results[1] as int;
+
+    return PagedResult<Note>(
+      items: items,
+      totalCount: totalCount,
+      currentPage: pagination.page,
+      pageSize: pagination.pageSize,
+    );
+  } catch (e, st) {
+    debugPrint('分页获取笔记失败: $e');
+    throw NoteRepositoryException('分页获取笔记失败', e, st);
+  }
+}
 
   /// 获取已删除的笔记（回收站）
   Future<List<Note>> getDeletedNotes() async {
@@ -63,17 +146,48 @@ class NoteRepository {
   }
 
   /// 按文件夹筛选笔记
-  Future<List<Note>> getNotesByFolder(String folder) async {
-    try {
-      return await (_db.select(_db.notes)
-            ..where((tbl) => tbl.isDeleted.equals(false) & tbl.folder.equals(folder))
-            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
-          .get();
-    } catch (e, st) {
-      debugPrint('按文件夹获取笔记失败: $e');
-      throw NoteRepositoryException('按文件夹获取笔记失败', e, st);
-    }
+Future<List<Note>> getNotesByFolder(String folder) async {
+  try {
+    return await (_db.select(_db.notes)
+          ..where((tbl) => tbl.isDeleted.equals(false) & tbl.folder.equals(folder))
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)]))
+        .get();
+  } catch (e, st) {
+    debugPrint('按文件夹获取笔记失败: $e');
+    throw NoteRepositoryException('按文件夹获取笔记失败', e, st);
   }
+}
+
+/// 分页按文件夹筛选笔记
+Future<PagedResult<Note>> getNotesByFolderPaged(String folder, [PaginationParams? params]) async {
+  final pagination = params ?? const PaginationParams();
+  try {
+    final results = await Future.wait([
+      (_db.select(_db.notes)
+            ..where((tbl) => tbl.isDeleted.equals(false) & tbl.folder.equals(folder))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.createdAt)])
+            ..limit(pagination.pageSize, offset: pagination.offset))
+          .get(),
+      (_db.select(_db.notes)
+            ..where((tbl) => tbl.isDeleted.equals(false) & tbl.folder.equals(folder)))
+          .get()
+          .then((notes) => notes.length),
+    ]);
+
+    final items = results[0] as List<Note>;
+    final totalCount = results[1] as int;
+
+    return PagedResult<Note>(
+      items: items,
+      totalCount: totalCount,
+      currentPage: pagination.page,
+      pageSize: pagination.pageSize,
+    );
+  } catch (e, st) {
+    debugPrint('分页按文件夹获取笔记失败: $e');
+    throw NoteRepositoryException('分页按文件夹获取笔记失败', e, st);
+  }
+}
 
   /// 获取所有文件夹列表
   Future<List<String>> getAllFolders() async {

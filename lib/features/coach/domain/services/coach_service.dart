@@ -150,23 +150,38 @@ class CoachService {
 
   /// 保存单日训练
   Future<void> _saveWorkoutPlanDay(int planId, Map<String, dynamic> dayData) async {
+    debugPrint('📥 保存第${dayData['day']}天数据: estimatedMinutes=${dayData['estimatedMinutes']}, 动作数=${(dayData['exercises'] as List?)?.length ?? 0}');
+
     final dayCompanion = WorkoutPlanDaysCompanion.insert(
       workoutPlanId: planId,
       dayNumber: dayData['day'] as int,
       dayName: drift.Value(dayData['dayName'] as String?),
       trainingFocus: drift.Value(dayData['trainingFocus'] as String?),
-      estimatedMinutes: drift.Value(dayData['estimatedMinutes'] as int?),
+      estimatedMinutes: const drift.Value(30), // 临时值，稍后根据实际动作时间计算
     );
 
     final dayId = await _workoutPlanRepo.createDay(dayCompanion);
 
-    // 保存动作
+    // 保存动作并计算实际总时长
+    int totalSeconds = 0;
     final exercises = dayData['exercises'] as List?;
     if (exercises != null) {
+      debugPrint('📊 保存第${dayData['day']}天，动作数量: ${exercises.length}');
       for (final exerciseData in exercises) {
         await _saveWorkoutPlanExercise(dayId, exerciseData as Map<String, dynamic>);
+        // 累计实际时间
+        final estSeconds = exerciseData['estimatedSeconds'] as int? ?? 0;
+        totalSeconds += estSeconds;
+        debugPrint('  - 动作: ${exerciseData['name']}, estimatedSeconds: $estSeconds, 累计: ${totalSeconds}秒');
       }
+    } else {
+      debugPrint('⚠️ 动作列表为空！');
     }
+
+    // 更新日程的实际时长（总秒数转换为分钟，向上取整）
+    final actualMinutes = (totalSeconds / 60).ceil();
+    debugPrint('✅ 第${dayData['day']}天更新时长: ${totalSeconds}秒 = $actualMinutes分钟');
+    await _workoutPlanRepo.updateDayEstimatedMinutes(dayId, actualMinutes);
   }
 
   /// 保存训练动作
@@ -179,6 +194,7 @@ class CoachService {
       sets: drift.Value(exerciseData['sets'] as int?),
       repsDescription: drift.Value(exerciseData['reps'] as String?),
       restSeconds: drift.Value(exerciseData['restSeconds'] as int?),
+      estimatedSeconds: drift.Value(exerciseData['estimatedSeconds'] as int?),
       equipment: drift.Value(exerciseData['equipment'] as String?),
       difficulty: drift.Value(exerciseData['difficulty'] as String?),
       exerciseType: exerciseData['exerciseType'] as String,
@@ -206,6 +222,7 @@ class CoachService {
       dietaryRestrictions: dietaryRestrictions,
       allergies: allergies,
       tastePreference: profile.tastePreference,
+      targetWeight: profile.targetWeight,
     );
 
     // 保存计划

@@ -19,7 +19,10 @@ enum ExportFormat {
   markdown('Markdown', '.md'),
   pdf('PDF', '.pdf'),
   csv('CSV', '.csv'),
-  txt('纯文本', '.txt');
+  txt('纯文本', '.txt'),
+  json('JSON', '.json'),
+  xml('XML', '.xml'),
+  html('HTML', '.html');
 
   final String displayName;
   final String extension;
@@ -281,6 +284,156 @@ class ExportService {
     return buffer.toString();
   }
 
+  /// 导出笔记为JSON格式
+  Future<String> exportNoteAsJson(Note note) async {
+    final data = {
+      'id': note.id,
+      'title': note.title,
+      'content': note.content,
+      'folder': note.folder,
+      'tags': _parseTags(note.tags),
+      'isPinned': note.isPinned ?? false,
+      'isDeleted': note.isDeleted,
+      'createdAt': note.createdAt.toIso8601String(),
+      'updatedAt': note.updatedAt.toIso8601String(),
+      'deletedAt': note.deletedAt?.toIso8601String(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  /// 导出笔记为XML格式
+  Future<String> exportNoteAsXml(Note note) async {
+    final buffer = StringBuffer();
+
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln('<note>');
+    buffer.writeln('  <id>${note.id}</id>');
+
+    if (note.title != null) {
+      buffer.writeln('  <title>${_escapeXml(note.title!)}</title>');
+    }
+
+    buffer.writeln('  <content>${_escapeXml(note.content)}</content>');
+
+    if (note.folder != null) {
+      buffer.writeln('  <folder>${_escapeXml(note.folder!)}</folder>');
+    }
+
+    final tags = _parseTags(note.tags);
+    if (tags.isNotEmpty) {
+      buffer.writeln('  <tags>');
+      for (final tag in tags) {
+        buffer.writeln('    <tag>${_escapeXml(tag)}</tag>');
+      }
+      buffer.writeln('  </tags>');
+    }
+
+    buffer.writeln('  <isPinned>${note.isPinned ?? false}</isPinned>');
+    buffer.writeln('  <createdAt>${note.createdAt.toIso8601String()}</createdAt>');
+    buffer.writeln('  <updatedAt>${note.updatedAt.toIso8601String()}</updatedAt>');
+    buffer.writeln('</note>');
+
+    return buffer.toString();
+  }
+
+  /// 导出笔记为HTML格式
+  Future<String> exportNoteAsHtml(Note note) async {
+    final buffer = StringBuffer();
+
+    buffer.writeln('<!DOCTYPE html>');
+    buffer.writeln('<html lang="zh-CN">');
+    buffer.writeln('<head>');
+    buffer.writeln('  <meta charset="UTF-8">');
+    buffer.writeln('  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+    buffer.writeln('  <title>${note.title ?? '笔记'}</title>');
+    buffer.writeln('  <style>');
+    buffer.writeln('    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }');
+    buffer.writeln('    h1 { color: #333; border-bottom: 2px solid #007AFF; padding-bottom: 10px; }');
+    buffer.writeln('    .meta { color: #666; font-size: 14px; margin: 10px 0; }');
+    buffer.writeln('    .tag { display: inline-block; background: #007AFF; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px; }');
+    buffer.writeln('    .content { margin-top: 20px; white-space: pre-wrap; }');
+    buffer.writeln('  </style>');
+    buffer.writeln('</head>');
+    buffer.writeln('<body>');
+
+    if (note.title != null && note.title!.isNotEmpty) {
+      buffer.writeln('  <h1>${note.title}</h1>');
+    }
+
+    buffer.writeln('  <div class="meta">');
+    buffer.writeln('    <div>创建时间: ${_formatDateTime(note.createdAt)}</div>');
+    buffer.writeln('    <div>更新时间: ${_formatDateTime(note.updatedAt)}</div>');
+
+    final tags = _parseTags(note.tags);
+    if (tags.isNotEmpty) {
+      buffer.writeln('    <div style="margin-top: 5px;">');
+      for (final tag in tags) {
+        buffer.writeln('      <span class="tag">$tag</span>');
+      }
+      buffer.writeln('    </div>');
+    }
+
+    buffer.writeln('  </div>');
+    buffer.writeln('  <div class="content">${note.content}</div>');
+    buffer.writeln('</body>');
+    buffer.writeln('</html>');
+
+    return buffer.toString();
+  }
+
+  /// 批量导出笔记为JSON
+  Future<String> exportNotesAsJson(List<Note> notes) async {
+    final data = {
+      'exportTime': DateTime.now().toIso8601String(),
+      'count': notes.length,
+      'notes': notes.map((note) => {
+        'id': note.id,
+        'title': note.title,
+        'content': note.content,
+        'folder': note.folder,
+        'tags': _parseTags(note.tags),
+        'isPinned': note.isPinned ?? false,
+        'createdAt': note.createdAt.toIso8601String(),
+        'updatedAt': note.updatedAt.toIso8601String(),
+      }).toList(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  /// 批量导出笔记为XML
+  Future<String> exportNotesAsXml(List<Note> notes) async {
+    final buffer = StringBuffer();
+
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln('<notes>');
+    buffer.writeln('  <exportTime>${DateTime.now().toIso8601String()}</exportTime>');
+    buffer.writeln('  <count>${notes.length}</count>');
+
+    for (final note in notes) {
+      buffer.writeln('  <note>');
+      buffer.writeln('    <id>${note.id}</id>');
+      if (note.title != null) {
+        buffer.writeln('    <title>${_escapeXml(note.title!)}</title>');
+      }
+      buffer.writeln('    <content>${_escapeXml(note.content)}</content>');
+
+      final tags = _parseTags(note.tags);
+      if (tags.isNotEmpty) {
+        buffer.writeln('    <tags>');
+        for (final tag in tags) {
+          buffer.writeln('      <tag>${_escapeXml(tag)}</tag>');
+        }
+        buffer.writeln('    </tags>');
+      }
+
+      buffer.writeln('    <createdAt>${note.createdAt.toIso8601String()}</createdAt>');
+      buffer.writeln('  </note>');
+    }
+
+    buffer.writeln('</notes>');
+    return buffer.toString();
+  }
+
   // ==================== 运动数据导出方法 ====================
 
   /// 导出单条运动记录为CSV
@@ -505,6 +658,16 @@ class ExportService {
   }
 
   // ==================== 辅助方法 ====================
+
+  /// XML转义
+  String _escapeXml(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+  }
 
   /// 解析标签JSON
   List<String> _parseTags(String tagsJson) {

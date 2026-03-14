@@ -276,6 +276,20 @@ class WorkoutPlanRepository {
     }
   }
 
+  /// 更新日程预估时长（分钟）
+  Future<void> updateDayEstimatedMinutes(int dayId, int minutes) async {
+    try {
+      await (_db.update(_db.workoutPlanDays)..where((tbl) => tbl.id.equals(dayId))).write(
+        WorkoutPlanDaysCompanion(
+          estimatedMinutes: drift.Value(minutes),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('更新日程预估时长失败: $e');
+      throw WorkoutPlanRepositoryException('更新日程预估时长失败', e, st);
+    }
+  }
+
   /// 删除训练日程
   Future<int> deletePlanDay(int id) async {
     try {

@@ -226,6 +226,78 @@ class ReminderRepository {
     }
   }
 
+  /// 跳过下次提醒 - 直接将重复提醒推进到下一个周期
+  Future<bool> skipNextReminder(int reminderId) async {
+    try {
+      final reminder = await getReminderById(reminderId);
+      if (reminder == null) {
+        debugPrint('提醒不存在');
+        return false;
+      }
+
+      // 只有重复提醒才能跳过
+      if (reminder.repeatType == 'none') {
+        debugPrint('非重复提醒无法跳过');
+        return false;
+      }
+
+      // 计算下次提醒时间
+      DateTime nextTime = reminder.remindTime;
+      switch (reminder.repeatType) {
+        case 'daily':
+          nextTime = nextTime.add(const Duration(days: 1));
+          break;
+        case 'weekly':
+          nextTime = nextTime.add(const Duration(days: 7));
+          break;
+        case 'monthly':
+          nextTime = DateTime(nextTime.year, nextTime.month + 1, nextTime.day);
+          break;
+      }
+
+      // 检查是否超过结束日期
+      if (reminder.repeatEndDate != null && nextTime.isAfter(reminder.repeatEndDate!)) {
+        // 超过结束日期，禁用提醒
+        await updateReminder(reminder.copyWith(isEnabled: false));
+        return true;
+      }
+
+      // 更新提醒时间
+      return await updateReminder(reminder.copyWith(remindTime: nextTime));
+    } catch (e, st) {
+      debugPrint('跳过下次提醒失败: $e');
+      throw ReminderRepositoryException('跳过下次提醒失败', e, st);
+    }
+  }
+
+  /// 贪睡功能 - 延迟提醒指定分钟数
+  Future<bool> snoozeReminder(int reminderId, int minutes) async {
+    try {
+      final reminder = await getReminderById(reminderId);
+      if (reminder == null) {
+        debugPrint('提醒不存在');
+        return false;
+      }
+
+      // 计算贪睡后的时间
+      final snoozeTime = reminder.remindTime.add(Duration(minutes: minutes));
+
+      // 更新提醒时间
+      return await updateReminder(
+        reminder.copyWith(
+          remindTime: snoozeTime,
+          isDone: false, // 取消完成状态
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('贪睡失败: $e');
+      throw ReminderRepositoryException('贪睡失败', e, st);
+    }
+  }
+
+  /// 获取贪睡时间选项（分钟）
+  static const List<int> snoozeOptions = [5, 10, 15, 30];
+
   /// 删除所有提醒
   Future<void> deleteAllReminders() async {
     try {

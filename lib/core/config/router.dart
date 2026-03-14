@@ -314,7 +314,12 @@ final appRouter = GoRouter(
     // AI教练功能页面（独立路由，不显示底部导航）
     GoRoute(
       path: AppRoutes.userProfileSetup,
-      pageBuilder: (context, state) => _SlideFadeTransition(child: const UserProfileSetupPage()),
+      pageBuilder: (context, state) {
+        // 支持通过查询参数传递现有画像ID
+        final profileIdStr = state.uri.queryParameters['profileId'];
+        final profileId = profileIdStr != null ? int.tryParse(profileIdStr) : null;
+        return _SlideFadeTransition(child: UserProfileSetupPage(existingProfileId: profileId));
+      },
     ),
     GoRoute(
       path: AppRoutes.coachPlanGeneration,
