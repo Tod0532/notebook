@@ -72,7 +72,20 @@ class CoachService {
       );
       onProgress('训练计划生成完成！');
     } catch (e) {
-      onProgress('训练计划生成失败: $e');
+      onProgress('训练计划生成失败，正在使用默认计划...');
+      debugPrint('AI训练计划生成失败: $e');
+      // 尝试使用默认训练计划
+      try {
+        workoutPlanId = await _generateDefaultWorkoutPlan(
+          profile: profile,
+          durationDays: profile.goalDurationDays ?? 30,
+          dailyMinutes: profile.dailyWorkoutMinutes ?? 30,
+        );
+        onProgress('默认训练计划准备完成！');
+      } catch (defaultError) {
+        onProgress('默认训练计划也失败: $defaultError');
+        debugPrint('默认训练计划生成失败: $defaultError');
+      }
     }
 
     // 生成饮食计划
@@ -85,7 +98,19 @@ class CoachService {
       );
       onProgress('饮食计划生成完成！');
     } catch (e) {
-      onProgress('饮食计划生成失败: $e');
+      onProgress('饮食计划生成失败，正在使用默认计划...');
+      debugPrint('AI饮食计划生成失败: $e');
+      // 尝试使用默认饮食计划
+      try {
+        dietPlanId = await _generateDefaultDietPlan(
+          profile: profile,
+          durationDays: profile.goalDurationDays ?? 30,
+        );
+        onProgress('默认饮食计划准备完成！');
+      } catch (defaultError) {
+        onProgress('默认饮食计划也失败: $defaultError');
+        debugPrint('默认饮食计划生成失败: $defaultError');
+      }
     }
 
     return {
